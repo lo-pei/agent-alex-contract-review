@@ -1,7 +1,7 @@
 # 开发交接文档（Handover）
 
-> 更新时间：2026-10-26（第三阶段第 1 步完成后）
-> 当前状态：**第三阶段第 1 步已完成：环境 + 最小可运行图（ingest → segment → rules → report，无 LLM）跑通，45 个测试通过，Git 已初始化**
+> 更新时间：2026-10-26（第三阶段第 2 步完成后）
+> 当前状态：**第三阶段第 2 步完成：TXT/Markdown/文本型 PDF/DOCX 解析 + 标题式条款切分可用；63 个测试通过；仍无 LLM/HITL/API/UI**
 > 交接原则：任何新接手的人只读本文件 + `00_PROJECT_STATE.md` + `02_ARCHITECTURE_DECISIONS/README.md`，就能继续开发。
 
 ---
@@ -28,12 +28,12 @@
 | GitHub 调研 | ✅ 完成 | `01_RESEARCH_LOG.md`，8 个仓库源码级分析 |
 | 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~006` |
 | 环境与依赖 | ✅ 完成 | `.venv`（Python 3.12.10）+ `requirements*.txt`；实际版本见 ADR-006 §6 |
-| 业务代码（第 1 步） | 🚧 最小图可用 | `app/`；尚无 LLM / HITL / API / UI |
-| 测试 | 🚧 45 个通过 | `tests/`；`pytest` 全绿 |
+| 业务代码（第 2 步） | 🚧 解析 + 切分可用 | `app/`；尚无 LLM / HITL / API / UI |
+| 测试 | 🚧 63 个通过 | `tests/`；`pytest` 全绿 |
 | 评测集 | ⏳ 未开始 | 无 `data/eval/`、无 `eval/results/`；**没有任何准确率数据** |
-| Git 仓库 | ✅ 已初始化 | 首次提交 `cf0fd63` |
+| Git 仓库 | ✅ 已初始化 | 提交 `cf0fd63`、`71e8a9d` |
 
-> 不要在汇报里说“已有 LLM/HITL/API/UI”或“已通过评测”；当前只有最小图与规则引擎。
+> 不要在汇报里说“已有 LLM/HITL/API/UI”或“已通过评测”；当前只有最小图、规则引擎、文档解析与条款切分。
 
 ### 2.1 架构决策速览（ADR-001~006）
 
@@ -123,13 +123,14 @@ HITL_TIMEOUT_MINUTES=30
 
 MAX_UPLOAD_MB=15
 MAX_CONTRACT_CHARS=200000
+MAX_PAGES=200
 ```
 
 > 真实 `.env` 必须进 `.gitignore`；代码、日志、README 不得出现 Key。
 
 ---
 
-## 4. 目录现状（第 1 步已创建的部分）
+## 4. 目录现状（第 2 步已创建的部分）
 
 ```text
 Agent_Alex外贸合同智审助手/
@@ -141,13 +142,13 @@ Agent_Alex外贸合同智审助手/
 ├─ README.md
 ├─ app/
 │  ├─ __init__.py
-│  ├─ config.py                   # 环境变量、路径、上限
+│  ├─ config.py                   # 环境变量、路径、上限（含 MAX_PAGES）
 │  ├─ schemas.py                  # Pydantic：State/Clause/Evidence/RuleEvaluation/Report
 │  ├─ graph.py                    # LangGraph 组装（当前 4 节点顺序主干）
 │  ├─ graph_demo.py               # 最小图（无 LLM）演示入口
 │  ├─ nodes/
-│  │  ├─ ingest.py                # 当前 TXT/Markdown → pages + 全文 + 偏移
-│  │  ├─ segment.py               # 空行分段 fallback → Clause[]
+│  │  ├─ ingest.py                # TXT/MD/PDF/DOCX → pages + canonical text + 全局偏移
+│  │  ├─ segment.py               # 标题切分 + 合并 + 超长拆分 + 段落 fallback
 │  │  ├─ rules.py                 # 规则节点（唯一等级来源）
 │  │  ├─ report.py                # 报告汇总
 │  │  ├─ extract.py               # 计划（未创建）
@@ -164,13 +165,15 @@ Agent_Alex外贸合同智审助手/
 │  └─ __main__.py                 # 计划（未创建）
 ├─ tests/
 │  ├─ conftest.py
-│  ├─ test_ingest.py
-│  ├─ test_segment.py
+│  ├─ test_ingest.py              # TXT/编码/上限
+│  ├─ test_ingest_formats.py      # PDF/DOCX/扫描件/加密/页数/文件头/表格顺序
+│  ├─ test_segment.py             # 标题/合并/拆分/上限/页面映射
 │  ├─ test_rules.py
 │  ├─ test_graph.py
-│  └─ fixtures/                   # 计划（PDF/DOCX fixture）
+│  └─ fixtures/
+│     └─ pdf_builder.py           # 纯标准库构造最小 PDF
 ├─ data/
-│  └─ samples/                    # 2 份自拟脱敏合同
+│  └─ samples/                    # 2 份自拟脱敏合同（TXT）
 ├─ eval/                          # 计划（未创建）
 └─ docs/
    └─ devlog/                     # 本目录
@@ -184,8 +187,9 @@ Agent_Alex外贸合同智审助手/
 
 | 形态 | 命令 | 状态 |
 |---|---|---|
-| 最小图 | `.\.venv\Scripts\python.exe -m app.graph_demo` | ✅ 可用（无 LLM） |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 45 个通过 |
+| 最小图（TXT） | `.\.venv\Scripts\python.exe -m app.graph_demo` | ✅ 可用（无 LLM） |
+| 最小图（PDF/DOCX） | `.\.venv\Scripts\python.exe -m app.graph_demo path\to\contract.pdf` | ✅ 可用（无 LLM） |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 63 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行 | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `uvicorn app.api:app --reload` | ⏳ 计划（`api.py` 未创建） |
@@ -238,6 +242,13 @@ Agent_Alex外贸合同智审助手/
 | 22 | Pydantic 只把 `ValueError` 当校验失败；`re.error` 会直接冒泡 | 正则校验里 `except re.error` 转 `ValueError`，保证规则加载期报 `ValidationError` |
 | 23 | 缺失条款类规则（如“未约定适用法律”）没有原文命中区间 | 报告显示“无原文证据”是预期行为；不要用模糊匹配伪造证据，HITL/UI 需明确标注 |
 | 24 | 文本级“缺失关键词”规则可能被无关表述误命中 | 关键词表要窄；扩规则时先加 fixture/gold，再做误报回归 |
+| 25 | pypdf 会提取页眉/页脚/水印，污染条款正文 | MVP 不过滤；规则关键词要窄；扩评测时统计页眉误命中 |
+| 26 | PDF 表格/多栏会打乱列顺序 | 只在 `warnings` 提示；重要表格条款必须人工核对；不静默当正确 |
+| 27 | 扫描件判定阈值是“总文本 < 50 字符” | 低文本量但真实的 PDF 会被判失败；错误信息要求用户提供可复制文本文件 |
+| 28 | DOCX 没有真实页码，统一 `p1` | 报告 limitation 必须说明；不要伪造页码 |
+| 29 | `is_heading` 对纯数字编号有三重约束 | 改正则时先跑 `test_body_line_starting_with_number_is_not_heading`，否则正文会被切成标题 |
+| 30 | 条款数 > 200 会让整次审查 `status="failed"` | 不是 bug，是防静默截断；UI/API 要提示“拆分合同或调大 `MAX_PAGES`/上限” |
+| 31 | PDF 测试 fixture 只支持 ASCII（Helvetica/WinAnsi） | 中文 PDF fixture 需嵌入 CJK 字体，暂未做；不要用 ASCII fixture 证明中文 PDF 可用 |
 
 ---
 
@@ -269,8 +280,8 @@ Agent_Alex外贸合同智审助手/
 2. ~~创建 `.venv`、安装依赖、`.gitignore`、git init~~ ✅ 已完成（Python 3.12.10，提交 `cf0fd63`）。
 3. ~~最小图 ingest → segment → rules → report 跑通~~ ✅ 已完成（45 个测试通过）。
 4. 下一步按顺序：
-   - **第 2 步**：`ingest` 接入 PDF（pypdf）/DOCX（python-docx）；`segment` 加标题识别、超长条款拆分、完整 `clause_type` 表；补 PDF/DOCX fixture。
-   - **第 3 步**：`app/services/llm.py` + `nodes/extract.py` + `nodes/validate.py`（Fake LLM 测试，无需 Key）。
+   - ~~**第 2 步**：`ingest` 接入 PDF（pypdf）/DOCX（python-docx）；`segment` 加标题识别、超长条款拆分、完整 `clause_type` 表；补 PDF/DOCX fixture。~~ ✅ 已完成（2026-10-26，63 个测试）。
+   - **第 3 步（当前下一步）**：`app/services/llm.py` + `nodes/extract.py` + `nodes/validate.py`（Fake LLM 测试，无需 Key）。
    - **第 4 步**：`is_red` 条件边 + `interrupt()` + checkpointer（测试用 InMemorySaver，运行用 AsyncSqliteSaver）+ 8 条 HITL 测试。
    - **第 5 步**：`nodes/explain.py` + Quality Gate + 报告合并。
    - **第 6 步**：FastAPI + Streamlit。

@@ -2,7 +2,7 @@
 
 面向**国际货物销售合同**的 AI 预审智能体：上传合同 → 条款切分 → LLM 抽取关键要素 → **Python 规则引擎判定红/黄/绿风险**（唯一等级来源）→ 红色风险经 **LangGraph `interrupt()` 真人工确认** → LLM 依据规则结果与原文生成解释 → 输出可追溯报告。
 
-> 当前处于**第三阶段（代码实现）第 1 步**：最小可运行图已跑通（`ingest → segment → rules → report`，纯 Python、不接 LLM）。LLM 抽取/解释、HITL、FastAPI、Streamlit 尚未实现，详见 [`docs/devlog/00_PROJECT_STATE.md`](docs/devlog/00_PROJECT_STATE.md)。
+> 当前处于**第三阶段（代码实现）第 2 步**：最小可运行图已跑通（`ingest → segment → rules → report`，纯 Python、不接 LLM），并已支持 **TXT / Markdown / 文本型 PDF / DOCX** 解析与标题式条款切分。LLM 抽取/解释、HITL、FastAPI、Streamlit 尚未实现，详见 [`docs/devlog/00_PROJECT_STATE.md`](docs/devlog/00_PROJECT_STATE.md)。
 
 ## 当前完成度
 
@@ -10,7 +10,7 @@
 |---|---|---|
 | 1. GitHub 调研 | ✅ | 8 个开源项目源码级分析，产出借鉴/不借鉴清单 |
 | 2. 架构设计 | ✅ | ADR-001 ~ ADR-006 全部已接受 |
-| 3. 代码实现 | 🚧 第 1 步完成 | 环境、最小图、规则引擎（5 条规则）、45 个测试 |
+| 3. 代码实现 | 🚧 第 2 步完成 | 环境、最小图、规则引擎（5 条规则）、PDF/DOCX/TXT 解析、标题切分、63 个测试 |
 | 4. 测试与评测 | ⏳ 未开始 | 尚无评测集，**不公布任何准确率** |
 | 5. 文档与交付 | ⏳ 进行中 | 开发日志与交接文档已建立 |
 
@@ -51,8 +51,8 @@ app/
   graph.py               # LangGraph 组装（当前为确定性顺序主干）
   graph_demo.py          # 最小图演示入口（无 LLM）
   nodes/
-    ingest.py            # TXT/Markdown → canonical text + 页偏移 + sha256
-    segment.py           # 空行分段 fallback → Clause[]（保留全局偏移）
+    ingest.py            # TXT/Markdown/PDF/DOCX → canonical text + 页偏移 + sha256
+    segment.py           # 标题切分 + 小条款合并 + 超长拆分（无标题时段落 fallback）
     rules.py             # 调用规则引擎，产出唯一等级
     report.py            # 汇总非 pass 结果 → 可追溯报告
   rules/
@@ -60,7 +60,7 @@ app/
     dsl.py               # 白名单条件 DSL（无 eval/exec）
     engine.py            # 规则加载 + 求值 + fail-closed 聚合
 data/samples/            # 2 份自拟脱敏合同（含风险 / 全部通过）
-tests/                   # 45 个测试（parse / segment / rules / graph）
+tests/                   # 63 个测试（ingest/PDF/DOCX/segment/rules/graph）
 docs/devlog/             # 项目状态、调研、ADR、开发日志、交接、待决事项
 ```
 
@@ -74,8 +74,9 @@ docs/devlog/             # 项目状态、调研、ADR、开发日志、交接�
 
 ## 已知限制（当前步骤）
 
-- 只支持 TXT / Markdown；PDF/DOCX 解析与扫描件 OCR 未接入。
-- 条款切分使用空行分段 fallback，标题识别与超长拆分未实现。
+- 支持 TXT / Markdown / 文本型 PDF / DOCX；**扫描件与加密 PDF 明确报错**，不做 OCR。
+- PDF 表格/多栏可能打乱列顺序，只在 `warnings` 提示人工核对；DOCX 无真实页码，统一 `p1`。
+- 条款切分依赖标题格式（`第X条` / `ARTICLE N` / `1.` 等）；无标题合同走段落 fallback，可能切得不理想。
 - 只有 5 条文本级规则；字段级规则待 LLM 抽取接入后启用。
 - 无 LLM、无人工审批、无 API/UI；报告只有规则结果。
 - **没有评测数据**：README 与文档中的任何指标都必须来自 `eval/results/*.json`，当前为空。

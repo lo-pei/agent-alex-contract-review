@@ -46,6 +46,7 @@ class Settings:
     # 文档上限（ADR-005）
     max_upload_mb: int
     max_contract_chars: int
+    max_pages: int
 
 
 def load_settings() -> Settings:
@@ -63,6 +64,7 @@ def load_settings() -> Settings:
         hitl_timeout_minutes=_int_env("HITL_TIMEOUT_MINUTES", 30),
         max_upload_mb=_int_env("MAX_UPLOAD_MB", 15),
         max_contract_chars=_int_env("MAX_CONTRACT_CHARS", 200_000),
+        max_pages=_int_env("MAX_PAGES", 200),
     )
 
 

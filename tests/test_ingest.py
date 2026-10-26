@@ -44,8 +44,8 @@ def test_ingest_empty_file(tmp_path: Path) -> None:
 
 
 def test_ingest_unsupported_suffix(tmp_path: Path) -> None:
-    path = tmp_path / "contract.pdf"
-    path.write_bytes(b"%PDF-1.4 fake")
+    path = tmp_path / "contract.doc"
+    path.write_bytes(b"\xd0\xcf\x11\xe0 legacy word")
     update = ingest_document(_state(path))
     assert update["status"] == "failed"
     assert "暂不支持" in update["errors"][0]
