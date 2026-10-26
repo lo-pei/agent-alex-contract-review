@@ -1,7 +1,7 @@
 # 开发交接文档（Handover）
 
-> 更新时间：2026-10-26 23:34
-> 当前状态：**第二阶段 ADR 初稿完成，业务代码尚未开始**
+> 更新时间：2026-10-26（第三阶段第 1 步完成后）
+> 当前状态：**第三阶段第 1 步已完成：环境 + 最小可运行图（ingest → segment → rules → report，无 LLM）跑通，45 个测试通过，Git 已初始化**
 > 交接原则：任何新接手的人只读本文件 + `00_PROJECT_STATE.md` + `02_ARCHITECTURE_DECISIONS/README.md`，就能继续开发。
 
 ---
@@ -26,23 +26,24 @@
 | 项 | 状态 | 证据 |
 |---|---|---|
 | GitHub 调研 | ✅ 完成 | `01_RESEARCH_LOG.md`，8 个仓库源码级分析 |
-| 架构 ADR | ✅ 初稿完成，待确认 | `02_ARCHITECTURE_DECISIONS/ADR-001~006`；ADR-006 已接受 |
-| 业务代码 | ⏳ 未开始 | 无 `app/`、`pyproject.toml`、`requirements.txt` |
-| 测试 | ⏳ 未开始 | 无 `tests/` |
-| 评测集 | ⏳ 未开始 | 无 `data/eval/` |
-| Git 仓库 | ⚠️ 未初始化 | 当前目录不是 git 仓库（`git status` 返回 not a git repository） |
+| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~006` |
+| 环境与依赖 | ✅ 完成 | `.venv`（Python 3.12.10）+ `requirements*.txt`；实际版本见 ADR-006 §6 |
+| 业务代码（第 1 步） | 🚧 最小图可用 | `app/`；尚无 LLM / HITL / API / UI |
+| 测试 | 🚧 45 个通过 | `tests/`；`pytest` 全绿 |
+| 评测集 | ⏳ 未开始 | 无 `data/eval/`、无 `eval/results/`；**没有任何准确率数据** |
+| Git 仓库 | ✅ 已初始化 | 首次提交 `cf0fd63` |
 
-> 不要在汇报里说“已有代码/已通过测试”；目前只有文档。
+> 不要在汇报里说“已有 LLM/HITL/API/UI”或“已通过评测”；当前只有最小图与规则引擎。
 
 ### 2.1 架构决策速览（ADR-001~006）
 
 | ADR | 结论 | 状态 |
 |---|---|---|
-| 001 图结构 | 确定性顺序主干 + 两个条件边（是否有 red / 是否 approve）+ 单一 HITL 门；不用 Supervisor/并行/单体 ReAct | 提议 |
-| 002 HITL | 节点内 `interrupt()` + checkpointer + `Command(resume=HitlDecision)`；审批前零业务写入；超时 → `unreviewed_red_risk`，绝不自动通过 | 提议 |
-| 003 规则/LLM | 规则唯一判级；LLM 只抽 17 字段与解释；schema 禁止 `risk_level`；引文核验、越权表述拦截、失败兜底 | 提议 |
-| 004 持久化 | 运行用 `AsyncSqliteSaver`，测试用 `InMemorySaver`；`thread_id=review_id`；pending/报告/审计分离；惰性超时 | 提议 |
-| 005 解析/证据 | pypdf + python-docx + TXT；canonical text + 页/全局偏移；`文件名:p页:start-end`；精确/空白规范化定位 | 提议 |
+| 001 图结构 | 确定性顺序主干 + 两个条件边（是否有 red / 是否 approve）+ 单一 HITL 门；不用 Supervisor/并行/单体 ReAct | **已接受** |
+| 002 HITL | 节点内 `interrupt()` + checkpointer + `Command(resume=HitlDecision)`；审批前零业务写入；超时 → `unreviewed_red_risk`，绝不自动通过 | **已接受** |
+| 003 规则/LLM | 规则唯一判级；LLM 只抽 17 字段与解释；schema 禁止 `risk_level`；引文核验、越权表述拦截、失败兜底 | **已接受** |
+| 004 持久化 | 运行用 `AsyncSqliteSaver`，测试用 `InMemorySaver`；`thread_id=review_id`；pending/报告/审计分离；惰性超时 | **已接受** |
+| 005 解析/证据 | pypdf + python-docx + TXT；canonical text + 页/全局偏移；`文件名:p页:start-end`；精确/空白规范化定位 | **已接受** |
 | 006 环境 | Python 3.12 + LangGraph 1.2.17 等最新稳定依赖；OpenAI 兼容接口；无 Docker/Redis/Postgres | **已接受** |
 
 ---
@@ -82,7 +83,7 @@
 
 **结论：用 Python 3.12**（本机已装；用户已确认“按建议继续”）。如果必须严格支持 3.9，只能锁旧版本（LangGraph 0.2.x / Streamlit 旧版），会牺牲当前 API 与 HITL 文档能力，且需要额外兼容测试；不建议。该事项已关闭（ISSUE-004），决策记录在 `ADR-006-运行环境与依赖策略.md`。
 
-### 3.3 建议的初始化命令（尚未执行）
+### 3.3 初始化命令（已执行）
 
 ```powershell
 cd "d:\A项目\Agent_Alex外贸合同智审助手"
@@ -91,31 +92,21 @@ cd "d:\A项目\Agent_Alex外贸合同智审助手"
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -U pip
 
-# 2) 安装运行依赖（版本以 2026-10-26 最新为准；锁定在 requirements.txt）
-.\.venv\Scripts\python.exe -m pip install `
-  langgraph==1.2.17 `
-  langchain==1.4.7 `
-  langchain-openai==1.7.2 `
-  langgraph-checkpoint-sqlite==3.1.2 `
-  fastapi==0.162.0 `
-  uvicorn==0.54.0 `
-  streamlit==1.66.1 `
-  pydantic==2.14.1 `
-  python-docx==1.2.0 `
-  pypdf==6.21.2 `
-  python-dotenv==1.2.4 `
-  pytest==9.1.1 `
-  pytest-asyncio==1.4.1 `
-  ruff==0.17.2
+# 2) 安装依赖（版本锁定在 requirements.txt / requirements-dev.txt）
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 
 # 3) 验证
-.\.venv\Scripts\python.exe -c "import langgraph, langchain, streamlit, fastapi, pydantic; print('ok')"
-.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m app.graph_demo
 ```
+
+实际安装结果（2026-10-26）：Python 3.12.10、LangGraph 1.2.17、Streamlit 1.66.1、FastAPI 0.162.0、Pydantic 2.14.1、pypdf 6.21.2、python-docx 1.2.0、PyYAML 6.0.3、pytest 9.1.1、ruff 0.17.2；无冲突。详见 ADR-006 §6。
 
 > 注意：`pypdf` 是 BSD 许可；不要引入 PyMuPDF（AGPL/商业双许可）作为默认依赖。扫描件 OCR 不在 MVP 范围。
 
-### 3.4 环境变量（计划）
+### 3.4 环境变量（`.env.example` 已提供，`.env` 尚未创建）
+
+`.env.example` 已提交；真实 `.env` 尚未创建（没有 Key，不影响最小图与测试）。字段见下方模板。
 
 ```dotenv
 # .env.example（不提交真实 Key）
@@ -138,77 +129,71 @@ MAX_CONTRACT_CHARS=200000
 
 ---
 
-## 4. 目录规划（待创建）
+## 4. 目录现状（第 1 步已创建的部分）
 
 ```text
 Agent_Alex外贸合同智审助手/
 ├─ 开发提示词.md
-├─ pyproject.toml                 # 或 requirements.txt + requirements-dev.txt
-├─ .env.example
+├─ requirements.txt / requirements-dev.txt
+├─ pyproject.toml                 # ruff + pytest 配置
+├─ .env.example                   # 已提供；真实 .env 未创建
 ├─ .gitignore
-├─ README.md                      # 项目介绍、启动、评测结果
+├─ README.md
 ├─ app/
 │  ├─ __init__.py
 │  ├─ config.py                   # 环境变量、路径、上限
-│  ├─ schemas.py                  # Pydantic：Clause/Evidence/RuleFinding/HitlDecision/State
-│  ├─ graph.py                    # LangGraph 组装 + checkpointer
+│  ├─ schemas.py                  # Pydantic：State/Clause/Evidence/RuleEvaluation/Report
+│  ├─ graph.py                    # LangGraph 组装（当前 4 节点顺序主干）
 │  ├─ graph_demo.py               # 最小图（无 LLM）演示入口
 │  ├─ nodes/
-│  │  ├─ ingest.py                # PDF/DOCX/TXT → pages + 全文 + 偏移
-│  │  ├─ segment.py               # 条款切分 → Clause[]
-│  │  ├─ extract.py               # LLM 结构化抽取（唯一 LLM 抽取节点）
-│  │  ├─ validate.py              # 引文核验/日期期限/一致性/to_verify
-│  │  ├─ rules.py                 # 规则引擎（唯一等级来源）
-│  │  ├─ hitl.py                  # interrupt() + 决策应用
-│  │  ├─ explain.py               # LLM 解释（不得改级）
-│  │  └─ report.py                # 报告汇总
+│  │  ├─ ingest.py                # 当前 TXT/Markdown → pages + 全文 + 偏移
+│  │  ├─ segment.py               # 空行分段 fallback → Clause[]
+│  │  ├─ rules.py                 # 规则节点（唯一等级来源）
+│  │  ├─ report.py                # 报告汇总
+│  │  ├─ extract.py               # 计划（未创建）
+│  │  ├─ validate.py              # 计划（未创建）
+│  │  ├─ hitl.py                  # 计划（未创建）
+│  │  └─ explain.py               # 计划（未创建）
 │  ├─ rules/
-│  │  ├─ definitions.yaml         # rule_id/severity/条件/理由/建议
-│  │  └─ engine.py                # 纯函数，无 LLM
-│  ├─ services/
-│  │  ├─ llm.py                   # 结构化输出 + 修复重试 + 超时
-│  │  ├─ evidence.py             # locate_quote / citation（共享）
-│  │  ├─ checkpointer.py          # SQLite/Memory 工厂
-│  │  └─ review_store.py         # pending/报告/审计落盘
-│  ├─ api.py                      # FastAPI：POST /review, POST /resume, GET /review
-│  ├─ ui.py                       # Streamlit 上传/运行/确认/下载
-│  └─ __main__.py                 # 命令行入口（可选）
+│  │  ├─ definitions.yaml         # 首批 5 条规则
+│  │  ├─ dsl.py                   # 白名单条件 DSL
+│  │  └─ engine.py                # 加载/求值/证据/fail-closed
+│  ├─ services/                   # 计划（未创建：llm/evidence/checkpointer/review_store）
+│  ├─ api.py                      # 计划（未创建）
+│  ├─ ui.py                       # 计划（未创建）
+│  └─ __main__.py                 # 计划（未创建）
 ├─ tests/
+│  ├─ conftest.py
 │  ├─ test_ingest.py
 │  ├─ test_segment.py
 │  ├─ test_rules.py
-│  ├─ test_validate.py
-│  ├─ test_graph.py               # Fake LLM + 条件边
-│  ├─ test_hitl.py                # interrupt/resume/审批前零写入/超时
-│  └─ fixtures/
+│  ├─ test_graph.py
+│  └─ fixtures/                   # 计划（PDF/DOCX fixture）
 ├─ data/
-│  ├─ samples/                    # 3 份脱敏演示合同
-│  └─ eval/                       # 评测集 + gold
-├─ eval/
-│  ├─ run_eval.py
-│  ├─ metrics.py
-│  └─ results/                    # 每次评测输出 JSON（含模型/日期/样本数）
+│  └─ samples/                    # 2 份自拟脱敏合同
+├─ eval/                          # 计划（未创建）
 └─ docs/
    └─ devlog/                     # 本目录
 ```
 
-> 以上是**规划**，不是已存在目录。创建前先确认 `05_OPEN_ISSUES.md` 的未决项。
+> 标注“计划”的文件/目录**尚不存在**；不要按规划假设它们已可用。
 
 ---
 
-## 5. 启动方式（代码完成后应支持）
+## 5. 启动方式
 
-| 形态 | 命令（计划） | 用途 |
+| 形态 | 命令 | 状态 |
 |---|---|---|
-| 最小图 | `python -m app.graph_demo` | 无 LLM 跑通 ingest → rules → report |
-| 命令行 | `python -m app --file data/samples/contract.txt` | 快速本地验证 |
-| API | `uvicorn app.api:app --reload` | `POST /review`、`POST /review/{id}/resume`、`GET /review/{id}` |
-| UI | `streamlit run app/ui.py` | 演示：上传 → 风险列表 → 红色风险人工确认 → 报告下载 |
-| 测试 | `python -m pytest -q` | 单元 + 图 + HITL（Fake LLM，无需 Key） |
-| 规则评测 | `python eval/run_eval.py --mode rules` | 确定性，进 CI |
-| 全链路评测 | `python eval/run_eval.py --mode full` | 需要 LLM Key，手动跑 |
+| 最小图 | `.\.venv\Scripts\python.exe -m app.graph_demo` | ✅ 可用（无 LLM） |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 45 个通过 |
+| 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
+| 命令行 | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
+| API | `uvicorn app.api:app --reload` | ⏳ 计划（`api.py` 未创建） |
+| UI | `streamlit run app/ui.py` | ⏳ 计划（`ui.py` 未创建） |
+| 规则评测 | `python eval/run_eval.py --mode rules` | ⏳ 计划（`eval/` 未创建） |
+| 全链路评测 | `python eval/run_eval.py --mode full` | ⏳ 计划（需要 LLM Key） |
 
-> 当前这些命令都还不可用，因为代码未创建。
+> 标 ✅ 的命令已实际执行验证；标 ⏳ 的尚不可用。
 
 ---
 
@@ -242,12 +227,17 @@ Agent_Alex外贸合同智审助手/
 | 11 | 无 LICENSE 仓库不能复制代码 | zihan / Harvey / Sentinel 只借鉴设计；引用 Apache-2.0/MIT 代码需保留声明 |
 | 12 | Star 数与质量无关 | 文档中不把 Star 当技术优势；只写代码可验证的行为 |
 | 13 | 不要在 README/答辩写无出处的准确率 | 所有指标来自 `eval/results/*.json`，附模型、样本数、日期、命令 |
-| 14 | 当前目录不是 git 仓库 | 阶段 3 开始时先 `git init` + `.gitignore`（`.venv/`、`.env`、`.data/`、`*.sqlite*`、`__pycache__/`），每次阶段提交 |
+| 14 | Git 仓库已初始化（`cf0fd63`），新增文件前先看 `.gitignore` | 不要提交 `.venv/`、`.env`、`.data/`、`*.sqlite*`、缓存；每完成一步提交一次 |
 | 15 | 同一 review 并发 resume 可能重复应用决策 | 按 `review_id` 加 `asyncio.Lock`；恢复前检查状态幂等（ADR-004） |
 | 16 | SQLite WAL 在 Windows 上偶发文件锁 | 连接生命周期由 FastAPI lifespan 管理；关闭前 checkpoint；测试用内存 checkpointer |
 | 17 | 解释 LLM 可能改写等级或给出越权结论 | 解释 schema 无等级字段；Quality Gate 拦截“合同无效/已批准/已签署”等表述；失败用规则理由兜底（ADR-003） |
 | 18 | `AsyncSqliteSaver` 导入路径容易写错 | 必须 `from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver`；`from_conn_string` 是异步上下文管理器 |
 | 19 | `langgraph-checkpoint-sqlite` 会带入 `sqlite-vec` 原生扩展 | 已确认有 Windows amd64 wheel；若安装失败，记录错误并评估改用同步 `SqliteSaver`（需改 ADR） |
+| 20 | Pydantic state 的 `timings` 是整体替换，不是合并 | 每个节点返回 `{**state.timings, "xxx_ms": ...}`；不能只返回自己的那一条 |
+| 21 | `Settings` 是 frozen dataclass，测试里不能直接改属性 | 用 `dataclasses.replace(settings, max_contract_chars=100)` 后 monkeypatch 模块级 `settings` |
+| 22 | Pydantic 只把 `ValueError` 当校验失败；`re.error` 会直接冒泡 | 正则校验里 `except re.error` 转 `ValueError`，保证规则加载期报 `ValidationError` |
+| 23 | 缺失条款类规则（如“未约定适用法律”）没有原文命中区间 | 报告显示“无原文证据”是预期行为；不要用模糊匹配伪造证据，HITL/UI 需明确标注 |
+| 24 | 文本级“缺失关键词”规则可能被无关表述误命中 | 关键词表要窄；扩规则时先加 fixture/gold，再做误报回归 |
 
 ---
 
@@ -275,8 +265,14 @@ Agent_Alex外贸合同智审助手/
 
 ## 10. 下一步交接动作
 
-1. 等用户确认 `ADR-001 ~ ADR-005`（ADR-006 已接受）。
-2. 确认后进入第三阶段第 1 步：创建 `.venv`（Python 3.12）、安装依赖并记录实际版本；创建 `.gitignore`；初始化 git。
-3. 写最小可运行图（2–3 个纯函数节点：ingest → rules → report），验证环境、编译、调用链；先不接 LLM/HITL。
-4. 最小图跑通后，按 ADR 逐个加：规则引擎 → 文档解析/条款切分 → LLM 抽取 → 条件边/HITL → LLM 解释 → 报告 → FastAPI/Streamlit。
-5. 每完成一个阶段：更新 `00_PROJECT_STATE.md`、写当日 `03_DEV_LOGS/YYYY-MM-DD.md`、更新本文件的“当前完成度/已知坑”。
+1. ~~等用户确认 ADR-001 ~ ADR-005~~ ✅ 已确认（2026-10-26，全部“已接受”）。
+2. ~~创建 `.venv`、安装依赖、`.gitignore`、git init~~ ✅ 已完成（Python 3.12.10，提交 `cf0fd63`）。
+3. ~~最小图 ingest → segment → rules → report 跑通~~ ✅ 已完成（45 个测试通过）。
+4. 下一步按顺序：
+   - **第 2 步**：`ingest` 接入 PDF（pypdf）/DOCX（python-docx）；`segment` 加标题识别、超长条款拆分、完整 `clause_type` 表；补 PDF/DOCX fixture。
+   - **第 3 步**：`app/services/llm.py` + `nodes/extract.py` + `nodes/validate.py`（Fake LLM 测试，无需 Key）。
+   - **第 4 步**：`is_red` 条件边 + `interrupt()` + checkpointer（测试用 InMemorySaver，运行用 AsyncSqliteSaver）+ 8 条 HITL 测试。
+   - **第 5 步**：`nodes/explain.py` + Quality Gate + 报告合并。
+   - **第 6 步**：FastAPI + Streamlit。
+   - 规则扩到 10–12 条（ISSUE-009），再建 20–30 条 gold（ISSUE-005）。
+5. 每完成一个阶段：更新 `00_PROJECT_STATE.md`、写当日 `03_DEV_LOGS/YYYY-MM-DD.md`、更新本文件的“当前完成度/已知坑”、更新 `05_OPEN_ISSUES.md`。
