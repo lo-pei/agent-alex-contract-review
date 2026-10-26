@@ -1,0 +1,21 @@
+[project]
+name = "contract-review-agent"
+version = "0.1.0"
+description = "面向国际货物销售合同的 AI 预审智能体（LangGraph + 规则引擎 + HITL）"
+requires-python = ">=3.12"
+# 依赖版本锁定在 requirements.txt / requirements-dev.txt，保持单一事实来源
+dependencies = []
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+addopts = "-q"

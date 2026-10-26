@@ -1,0 +1,6 @@
+# 开发依赖：先安装运行依赖，再安装本文件
+-r requirements.txt
+
+pytest==9.1.1
+pytest-asyncio==1.4.1
+ruff==0.17.2

@@ -1,0 +1,14 @@
+# 运行依赖（版本锁定基于 2026-10-26 PyPI 最新稳定版，见 docs/devlog/02_ARCHITECTURE_DECISIONS/ADR-006）
+# Python 3.12（Streamlit 1.66.1 要求 >=3.11，故不能使用 3.9）
+langgraph==1.2.17
+langchain==1.4.7
+langchain-openai==1.7.2
+langgraph-checkpoint-sqlite==3.1.2
+fastapi==0.162.0
+uvicorn==0.54.0
+streamlit==1.66.1
+pydantic==2.14.1
+python-docx==1.2.0
+pypdf==6.21.2
+python-dotenv==1.2.4
+pyyaml==6.0.3

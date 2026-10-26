@@ -1,0 +1,24 @@
+# 虚拟环境 / 缓存
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# 密钥与本地配置
+.env
+.env.*
+!.env.example
+
+# 运行期数据（checkpoint / 报告 / 上传文件）
+.data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

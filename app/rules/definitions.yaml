@@ -1,0 +1,102 @@
+# 首批规则（阶段 3 第 1 步：5 条文本级高置信规则）
+# 契约：app/rules/engine.py 的 RuleDefinition（rule_id/title/category/risk_level/reason/
+#       suggestion/requires_fields/condition/source）
+# 说明：
+# - 这里只放“能用确定性文本/字段判定”的规则；语义型规则（如“赔偿上限是否过低”）先不做。
+# - 规则只代表业务风险提示，不是法律结论；报告必须保留 limitation。
+# - 后续扩到 10–12 条时，先补 fixture 与 gold（ISSUE-009 / ISSUE-005）。
+
+version: 1
+
+rules:
+  - rule_id: R-TRD-001
+    title: 贸易术语未约定 Incoterms 版本
+    category: trade_term
+    risk_level: yellow
+    reason: >-
+      合同使用了贸易术语，但未注明 Incoterms 版本，风险转移节点与费用划分可能产生歧义。
+    suggestion: 写成带版本的完整术语，例如“FOB Shanghai, Incoterms 2020”。
+    requires_fields: []
+    condition:
+      type: all_of
+      conditions:
+        - type: contains_any
+          keywords: [FOB, CIF, CFR, EXW, DDP, DAP, FCA]
+        - type: none_of
+          conditions:
+            - type: regex_match
+              pattern: "Incoterms\\s*(19|20)\\d{2}"
+    source: 国际货物销售合同常见争议点：贸易术语版本歧义（业务规则）
+    version: "1.0"
+
+  - rule_id: R-PAY-001
+    title: 要求买方全额预付货款
+    category: payment
+    risk_level: red
+    reason: >-
+      合同要求买方在发货前全额付款，买方承担卖方不履约时的全部资金风险。
+    suggestion: 改为分阶段付款（如 30% 预付 + 70% 见提单副本），或改用信用证（L/C）。
+    requires_fields: []
+    condition:
+      type: contains_any
+      keywords:
+        - "100% advance payment"
+        - "payment in advance"
+        - "full payment in advance"
+        - "全额预付"
+        - "预付全款"
+    source: 国际贸易付款风险控制惯例（业务规则）
+    version: "1.0"
+
+  - rule_id: R-PAY-002
+    title: 未约定付款方式或付款节点
+    category: payment
+    risk_level: yellow
+    reason: >-
+      合同未出现付款方式/节点相关表述，可能导致发货后收款依据不足。
+    suggestion: 明确付款方式（T/T、L/C、O/A）、比例与时间节点。
+    requires_fields: []
+    condition:
+      type: none_of
+      conditions:
+        - type: contains_any
+          keywords: [payment, "T/T", "L/C", 信用证, 付款]
+    source: 国际货物销售合同常见争议点：付款条款缺失（业务规则）
+    version: "1.0"
+
+  - rule_id: R-DIS-001
+    title: 未约定适用法律
+    category: dispute
+    risk_level: red
+    reason: >-
+      合同未约定适用法律，发生争议时缺少可预期的法律依据，准据法需另行确定。
+    suggestion: 增加 Governing Law / 适用法律条款，明确具体国家或地区的法律。
+    requires_fields: []
+    condition:
+      type: none_of
+      conditions:
+        - type: contains_any
+          keywords:
+            - governing law
+            - applicable law
+            - "shall be governed by"
+            - 适用法律
+            - 法律适用
+    source: 国际货物销售合同常见争议点：准据法缺失（业务规则）
+    version: "1.0"
+
+  - rule_id: R-DIS-002
+    title: 未约定争议解决方式
+    category: dispute
+    risk_level: red
+    reason: >-
+      合同未约定仲裁或诉讼管辖安排，争议发生时可能产生管辖权争议与额外成本。
+    suggestion: 明确仲裁机构/规则/地点，或约定有管辖权的法院。
+    requires_fields: []
+    condition:
+      type: none_of
+      conditions:
+        - type: contains_any
+          keywords: [arbitration, 仲裁, jurisdiction, 管辖, "competent court", 诉讼]
+    source: 国际货物销售合同常见争议点：争议解决条款缺失（业务规则）
+    version: "1.0"
