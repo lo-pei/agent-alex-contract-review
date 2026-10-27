@@ -1,12 +1,14 @@
-# 首批规则（阶段 3 第 1 步：5 条文本级高置信规则）
+# 规则集（阶段 3 第 3 步：5 条文本规则 + 2 条依赖抽取字段的规则）
 # 契约：app/rules/engine.py 的 RuleDefinition（rule_id/title/category/risk_level/reason/
-#       suggestion/requires_fields/condition/source）
+#       suggestion/requires_fields/requires_extraction/condition/source）
 # 说明：
 # - 这里只放“能用确定性文本/字段判定”的规则；语义型规则（如“赔偿上限是否过低”）先不做。
 # - 规则只代表业务风险提示，不是法律结论；报告必须保留 limitation。
+# - `requires_extraction: true`：抽取整体不可用（未配置 Key / 失败）时该规则标记 skipped，
+#   不计入 pass 也不误报 yellow，避免把“抽取失败”说成“合同缺少该要素”。
 # - 后续扩到 10–12 条时，先补 fixture 与 gold（ISSUE-009 / ISSUE-005）。
 
-version: 1
+version: 2
 
 rules:
   - rule_id: R-TRD-001
@@ -62,6 +64,37 @@ rules:
         - type: contains_any
           keywords: [payment, "T/T", "L/C", 信用证, 付款]
     source: 国际货物销售合同常见争议点：付款条款缺失（业务规则）
+    version: "1.0"
+
+  - rule_id: R-DLV-001
+    title: 未约定交付期限
+    category: delivery
+    risk_level: yellow
+    reason: >-
+      未抽取到明确的交付日期或装运期限，卖方履约时间缺少可执行约束，买方难以主张逾期。
+    suggestion: >-
+      明确交付日期，或约定“收到信用证/预付款后 N 天内装运”，并写明逾期处理方式。
+    requires_fields: []
+    requires_extraction: true
+    condition:
+      type: field_missing
+      field: delivery_date
+    source: 国际货物销售合同常见争议点：交付期限缺失（业务规则）
+    version: "1.0"
+
+  - rule_id: R-INP-001
+    title: 未约定检验标准或检验机构
+    category: inspection
+    risk_level: yellow
+    reason: >-
+      未抽取到检验标准或检验机构约定，货物质量争议缺少双方认可的判定依据。
+    suggestion: 约定检验机构（如 SGS/BV）、检验标准、检验地点与检验证书效力。
+    requires_fields: []
+    requires_extraction: true
+    condition:
+      type: field_missing
+      field: inspection_standard
+    source: 国际货物销售合同常见争议点：检验条款缺失（业务规则）
     version: "1.0"
 
   - rule_id: R-DIS-001

@@ -116,8 +116,14 @@ def test_invalid_regex_rejected_at_load() -> None:
 
 def test_load_default_rules() -> None:
     rules = load_rules()
-    assert len(rules) >= 5
+    assert len(rules) == 7
     assert [r.risk_level for r in rules if r.rule_id == "R-DIS-001"] == ["red"]
+
+    by_id = {r.rule_id: r for r in rules}
+    # 字段规则必须显式声明依赖抽取，才能在抽取降级时被跳过
+    assert by_id["R-DLV-001"].requires_extraction
+    assert by_id["R-INP-001"].requires_extraction
+    assert not by_id["R-PAY-001"].requires_extraction
 
 
 def test_load_rejects_duplicate_ids(tmp_path: Path) -> None:
@@ -182,7 +188,12 @@ def _by_rule_id(evaluations):
 
 
 def test_sample_contract_levels(sample_state: ContractReviewState) -> None:
-    evaluations = evaluate_rules(load_rules(), sample_state.clauses, sample_state.raw_text)
+    evaluations = evaluate_rules(
+        load_rules(),
+        sample_state.clauses,
+        sample_state.raw_text,
+        extraction_available=False,
+    )
     results = _by_rule_id(evaluations)
 
     assert results["R-TRD-001"].risk_level == "yellow"
@@ -190,6 +201,9 @@ def test_sample_contract_levels(sample_state: ContractReviewState) -> None:
     assert results["R-PAY-002"].risk_level == "pass"
     assert results["R-DIS-001"].risk_level == "red"
     assert results["R-DIS-002"].risk_level == "red"
+    # 无抽取时字段规则跳过：既不算 pass 命中，也不算风险
+    assert results["R-DLV-001"].skipped
+    assert results["R-INP-001"].skipped
     assert overall_level(evaluations) == "red"
     assert len(evaluations) == len(load_rules())
 
@@ -207,9 +221,77 @@ def test_triggered_rule_has_grounded_evidence(sample_state: ContractReviewState)
 
 
 def test_clean_contract_all_pass(clean_state: ContractReviewState) -> None:
-    evaluations = evaluate_rules(load_rules(), clean_state.clauses, clean_state.raw_text)
+    evaluations = evaluate_rules(
+        load_rules(),
+        clean_state.clauses,
+        clean_state.raw_text,
+        extraction_available=False,
+    )
     assert all(e.risk_level == "pass" for e in evaluations)
+    assert {e.rule_id for e in evaluations if e.skipped} == {"R-DLV-001", "R-INP-001"}
     assert overall_level(evaluations) == "pass"
+
+
+def test_field_rule_skipped_when_extraction_unavailable() -> None:
+    rule = RuleDefinition(
+        rule_id="R-DLV-001",
+        title="未约定交付期限",
+        category="delivery",
+        risk_level="yellow",
+        reason="未抽取到交付期限",
+        suggestion="明确交付期限",
+        requires_extraction=True,
+        condition=FieldMissing(field="delivery_date"),
+        source="test",
+    )
+
+    evaluations = evaluate_rules([rule], [], "", facts={}, extraction_available=False)
+
+    assert evaluations[0].risk_level == "pass"
+    assert evaluations[0].skipped
+    assert not evaluations[0].requires_human
+    assert "未执行" in evaluations[0].reason
+
+
+def test_field_rule_triggers_when_field_missing() -> None:
+    rule = RuleDefinition(
+        rule_id="R-DLV-001",
+        title="未约定交付期限",
+        category="delivery",
+        risk_level="yellow",
+        reason="未抽取到交付期限",
+        suggestion="明确交付期限",
+        requires_extraction=True,
+        condition=FieldMissing(field="delivery_date"),
+        source="test",
+    )
+
+    evaluations = evaluate_rules([rule], [], "", facts={}, extraction_available=True)
+
+    assert evaluations[0].risk_level == "yellow"
+    assert not evaluations[0].skipped
+    assert evaluations[0].reason == "未抽取到交付期限"
+
+
+def test_field_rule_passes_when_field_present() -> None:
+    rule = RuleDefinition(
+        rule_id="R-INP-001",
+        title="未约定检验标准",
+        category="inspection",
+        risk_level="yellow",
+        reason="未抽取到检验标准",
+        suggestion="明确检验标准",
+        requires_extraction=True,
+        condition=FieldMissing(field="inspection_standard"),
+        source="test",
+    )
+
+    evaluations = evaluate_rules(
+        [rule], [], "", facts={"inspection_standard": "SGS"}, extraction_available=True
+    )
+
+    assert evaluations[0].risk_level == "pass"
+    assert not evaluations[0].skipped
 
 
 def test_missing_required_field_yields_yellow() -> None:

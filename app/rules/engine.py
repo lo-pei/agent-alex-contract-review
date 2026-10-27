@@ -48,6 +48,8 @@ class RuleDefinition(BaseModel):
     reason: str = Field(min_length=1)
     suggestion: str = Field(min_length=1)
     requires_fields: list[str] = Field(default_factory=list)
+    #: 依赖 LLM 抽取字段；抽取不可用（未配置/失败）时跳过而不是误报
+    requires_extraction: bool = False
     condition: Condition
     source: str = Field(min_length=1)
     version: str | None = None
@@ -105,11 +107,15 @@ def evaluate_rules(
     clauses: list[Clause],
     text: str,
     facts: dict[str, Any] | None = None,
+    *,
+    extraction_available: bool = True,
 ) -> list[RuleEvaluation]:
     """执行全部规则。
 
     `text` 是 canonical_text（与 `Clause.start/end` 同一坐标系），用于证据偏移回填。
-    `facts` 是抽取并校验后的合同级字段（阶段 3 第 1 步为空）。
+    `facts` 是抽取并校验后的合同级字段。
+    `extraction_available=False`（未配置 LLM / 抽取失败）时，字段规则标记为 `skipped`，
+    不产出黄色误报，也不静默算 pass（评测可单独统计跳过率）。
     """
     facts = facts or {}
     if not rules:
@@ -118,6 +124,19 @@ def evaluate_rules(
     evaluations: list[RuleEvaluation] = []
     for rule in rules:
         try:
+            if rule.requires_extraction and not extraction_available:
+                evaluations.append(
+                    RuleEvaluation(
+                        rule_id=rule.rule_id,
+                        title=rule.title,
+                        risk_level="pass",
+                        reason="要素抽取不可用，该字段规则未执行（不计入 pass/触发）。",
+                        suggestion=None,
+                        skipped=True,
+                    )
+                )
+                continue
+
             missing = [f for f in rule.requires_fields if facts.get(f) in (None, "")]
             if missing:
                 evaluations.append(

@@ -1,7 +1,9 @@
-"""最小图演示入口（无 LLM）：`python -m app.graph_demo [合同路径] [--json]`。
+"""图演示入口：`python -m app.graph_demo [合同路径] [--json]`。
 
-角色：阶段 3 第 1 步的“跑通验证”：环境、图编译、节点串联、规则引擎、报告。
+角色：阶段 3 的“跑通验证”：环境、图编译、节点串联、LLM 抽取降级、规则引擎、报告。
 依赖：`app/graph.py`、`app/schemas.py`、`data/samples/*`。
+说明：没有配置 `LLM_API_KEY` 时抽取会降级（字段规则 skipped），
+这正是要验证的降级路径；配置 Key 后同一入口自动启用真实抽取。
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ from pathlib import Path
 from langgraph.checkpoint.memory import InMemorySaver
 
 from app.graph import build_graph
-from app.schemas import ContractReviewState
+from app.schemas import ContractReviewState, format_citation
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SAMPLE = PROJECT_ROOT / "data" / "samples" / "sample_sales_contract.txt"
@@ -35,7 +37,7 @@ def run_review(path: Path) -> ContractReviewState:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="运行最小合同审查图（无 LLM）")
+    parser = argparse.ArgumentParser(description="运行合同审查图（LLM 可降级）")
     parser.add_argument("contract", nargs="?", default=str(DEFAULT_SAMPLE), help="合同文件路径")
     parser.add_argument("--json", action="store_true", help="只输出报告 JSON")
     args = parser.parse_args(argv)
@@ -54,6 +56,24 @@ def main(argv: list[str] | None = None) -> int:
     print(f"条款数量：{len(state.clauses)}")
     print(f"总体等级：{state.overall_level}")
     print(f"审查状态：{state.status}")
+    print(f"要素抽取：{state.extraction_status}", end="")
+    if state.extraction_model:
+        print(f"（模型 {state.extraction_model}，prompt {state.prompt_version}）")
+    else:
+        print()
+    if state.facts:
+        print("抽取字段：")
+        for field, value in state.facts.items():
+            citation = ""
+            evidence = state.fact_evidence.get(field)
+            if evidence is not None:
+                citation = f"（{format_citation(state.source_filename, evidence)}）"
+            print(f"  - {field}: {value!r}{citation}")
+    if state.to_verify:
+        print("待人工核对：")
+        for item in state.to_verify:
+            where = f"[{item.clause_id}] " if item.clause_id else ""
+            print(f"  - {where}{item.field}: {item.reason}")
     if state.errors:
         print("错误：")
         for error in state.errors:

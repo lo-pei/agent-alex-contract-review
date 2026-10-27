@@ -18,7 +18,9 @@ def test_graph_runs_on_sample(sample_path: Path) -> None:
 
     assert state.status == "completed"
     assert state.overall_level == "red"
-    assert len(state.rule_evaluations) == 5
+    # 7 条规则：5 条文本规则 + 2 条字段规则（无 Key 时字段规则 skipped）
+    assert len(state.rule_evaluations) == 7
+    assert state.extraction_status == "degraded"
     assert len(state.clauses) >= 5
     assert state.report is not None
 
@@ -98,6 +100,8 @@ def test_timings_recorded_for_every_node(sample_path: Path) -> None:
     assert {
         "ingest_document_ms",
         "segment_clauses_ms",
+        "extract_fields_ms",
+        "validate_extraction_ms",
         "evaluate_rules_ms",
         "build_report_ms",
     } <= set(state.timings)

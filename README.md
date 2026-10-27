@@ -2,7 +2,7 @@
 
 面向**国际货物销售合同**的 AI 预审智能体：上传合同 → 条款切分 → LLM 抽取关键要素 → **Python 规则引擎判定红/黄/绿风险**（唯一等级来源）→ 红色风险经 **LangGraph `interrupt()` 真人工确认** → LLM 依据规则结果与原文生成解释 → 输出可追溯报告。
 
-> 当前处于**第三阶段（代码实现）第 2 步**：最小可运行图已跑通（`ingest → segment → rules → report`，纯 Python、不接 LLM），并已支持 **TXT / Markdown / 文本型 PDF / DOCX** 解析与标题式条款切分。LLM 抽取/解释、HITL、FastAPI、Streamlit 尚未实现，详见 [`docs/devlog/00_PROJECT_STATE.md`](docs/devlog/00_PROJECT_STATE.md)。
+> 当前处于**第三阶段（代码实现）第 3 步**：已跑通 `ingest → segment → extract → validate → rules → report`——支持 **TXT / Markdown / 文本型 PDF / DOCX** 解析、标题式条款切分、LLM 17 字段要素抽取与 Python 引文校验，7 条规则（5 条文本 + 2 条字段）。**HITL、LLM 解释、FastAPI、Streamlit 尚未实现**；未配置 `LLM_API_KEY` 时抽取自动降级，字段规则标记跳过。详见 [`docs/devlog/00_PROJECT_STATE.md`](docs/devlog/00_PROJECT_STATE.md)。
 
 ## 当前完成度
 
@@ -10,7 +10,7 @@
 |---|---|---|
 | 1. GitHub 调研 | ✅ | 8 个开源项目源码级分析，产出借鉴/不借鉴清单 |
 | 2. 架构设计 | ✅ | ADR-001 ~ ADR-006 全部已接受 |
-| 3. 代码实现 | 🚧 第 2 步完成 | 环境、最小图、规则引擎（5 条规则）、PDF/DOCX/TXT 解析、标题切分、63 个测试 |
+| 3. 代码实现 | 🚧 第 3 步完成 | 环境、6 节点图、规则引擎（7 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、115 个测试 |
 | 4. 测试与评测 | ⏳ 未开始 | 尚无评测集，**不公布任何准确率** |
 | 5. 文档与交付 | ⏳ 进行中 | 开发日志与交接文档已建立 |
 
@@ -30,7 +30,7 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -U pip
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 
-# 2) 运行最小图（无需 LLM / API Key）
+# 2) 运行全链路（无需 Key：抽取会自动降级；字段规则标记跳过）
 .\.venv\Scripts\python.exe -m app.graph_demo
 .\.venv\Scripts\python.exe -m app.graph_demo data\samples\sample_clean_contract.txt
 .\.venv\Scripts\python.exe -m app.graph_demo --json
@@ -42,25 +42,42 @@ py -3.12 -m venv .venv
 
 环境变量：复制 `.env.example` 为 `.env` 后填写。**不要提交真实 Key**（`.env` 已在 `.gitignore`）。
 
+配置 `LLM_API_KEY`（任意 OpenAI 兼容端点）后，同一命令会自动启用真实要素抽取；不配置时走降级路径，报告会写明“要素抽取未完整执行”并跳过字段规则。
+
+```text
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_API_KEY=
+LLM_MODEL=gpt-4.1-mini
+LLM_TIMEOUT_SECONDS=60
+LLM_MAX_REPAIR_RETRIES=1
+MAX_EXTRACT_CLAUSES=40
+```
+
 ## 目录结构
 
 ```text
 app/
-  config.py              # 环境变量与文档上限（唯一读取 .env 的地方）
-  schemas.py             # Pydantic：State / Clause / Evidence / RuleEvaluation / Report
-  graph.py               # LangGraph 组装（当前为确定性顺序主干）
-  graph_demo.py          # 最小图演示入口（无 LLM）
+  config.py              # 环境变量与上限（唯一读取 .env 的地方）
+  schemas.py             # Pydantic：State / Clause / Evidence / 抽取 schema / RuleEvaluation / Report
+  graph.py               # LangGraph 组装（6 节点确定性顺序主干）
+  graph_demo.py          # 演示入口（无 Key 自动降级）
   nodes/
     ingest.py            # TXT/Markdown/PDF/DOCX → canonical text + 页偏移 + sha256
     segment.py           # 标题切分 + 小条款合并 + 超长拆分（无标题时段落 fallback）
+    extract.py           # LLM 17 字段抽取（唯一 LLM 抽取节点，按条款串行）
+    validate.py          # 引文定位校验 + 数值归一 + 一致性 → facts / to_verify
     rules.py             # 调用规则引擎，产出唯一等级
-    report.py            # 汇总非 pass 结果 → 可追溯报告
+    report.py            # 汇总非 pass 结果 → 可追溯报告（含抽取状态说明）
+  services/
+    llm.py               # 结构化输出 + 1 次修复重试 + 未配置/输出错误类型
+    evidence.py          # locate_quote：精确匹配 → NFC/空白规范化
   rules/
-    definitions.yaml     # 首批 5 条文本级规则
+    definitions.yaml     # 7 条规则（5 文本 + 2 字段，version 2）
     dsl.py               # 白名单条件 DSL（无 eval/exec）
-    engine.py            # 规则加载 + 求值 + fail-closed 聚合
+    engine.py            # 规则加载 + 求值 + fail-closed + 字段规则 skipped
 data/samples/            # 2 份自拟脱敏合同（含风险 / 全部通过）
-tests/                   # 63 个测试（ingest/PDF/DOCX/segment/rules/graph）
+tests/                   # 115 个测试（含 Fake LLM，无需 Key）
+tests/fakes.py           # Fake LLM（实现 StructuredLLM 协议）
 docs/devlog/             # 项目状态、调研、ADR、开发日志、交接、待决事项
 ```
 
@@ -68,17 +85,21 @@ docs/devlog/             # 项目状态、调研、ADR、开发日志、交接�
 
 1. **规则唯一判级**：`red / yellow / pass` 只由 Python 规则产生；LLM 的 schema 中不出现 `risk_level`。
 2. **LLM 只做两件事**：抽取 17 个合同要素（缺失为 null）、生成带原文引用的风险解释。
-3. **HITL 真中断**：节点内 `interrupt()` + checkpointer + `Command(resume=...)`；审批前零业务写入；超时标记 `unreviewed_red_risk`，绝不自动通过。
-4. **失败显式降级**：输入/解析/规则异常都有明确路径，不崩溃、不静默 pass；规则执行异常 → 系统 red 并进入人工确认。
-5. **证据可追溯**：每条风险引用格式 `文件名:p页:start-end`，可在原文精确定位。
+3. **抽取状态必须显式**：`ok / degraded / skipped` 进报告；`degraded` 时字段规则 `skipped`，不把“没抽到”说成“合同缺条款”。
+4. **HITL 真中断**：节点内 `interrupt()` + checkpointer + `Command(resume=...)`；审批前零业务写入；超时标记 `unreviewed_red_risk`，绝不自动通过。
+5. **失败显式降级**：输入/解析/规则异常都有明确路径，不崩溃、不静默 pass；规则执行异常 → 系统 red 并进入人工确认。
+6. **证据可追溯**：每条风险引用格式 `文件名:p页:start-end`，可在原文精确定位；LLM 引文只允许空白/Unicode 规范化，不允许模糊匹配。
 
 ## 已知限制（当前步骤）
 
 - 支持 TXT / Markdown / 文本型 PDF / DOCX；**扫描件与加密 PDF 明确报错**，不做 OCR。
 - PDF 表格/多栏可能打乱列顺序，只在 `warnings` 提示人工核对；DOCX 无真实页码，统一 `p1`。
 - 条款切分依赖标题格式（`第X条` / `ARTICLE N` / `1.` 等）；无标题合同走段落 fallback，可能切得不理想。
-- 只有 5 条文本级规则；字段级规则待 LLM 抽取接入后启用。
-- 无 LLM、无人工审批、无 API/UI；报告只有规则结果。
+- 7 条规则（5 文本 + 2 字段），**未覆盖**责任上限、不可抗力、所有权保留、合规条款等。
+- 未配置 `LLM_API_KEY` 时抽取降级：文本规则照常跑，字段规则跳过（报告有 limitation）。
+- 条款数超过 `MAX_EXTRACT_CLAUSES`（默认 40）时只抽取部分条款，字段规则跳过；长合同精度有限。
+- **中文 PDF / 复杂版式未验证**；真实模型抽取效果**无数据**。
+- 无人工审批、无 LLM 解释、无 API/UI；报告只有规则结果。
 - **没有评测数据**：README 与文档中的任何指标都必须来自 `eval/results/*.json`，当前为空。
 
 ## 第三方代码与许可

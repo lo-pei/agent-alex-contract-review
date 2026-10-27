@@ -37,6 +37,7 @@ class Settings:
     llm_model: str
     llm_timeout_seconds: int
     llm_max_repair_retries: int
+    max_extract_clauses: int
 
     # 持久化 / HITL
     checkpoint_backend: str
@@ -57,6 +58,7 @@ def load_settings() -> Settings:
         llm_model=os.getenv("LLM_MODEL", "gpt-4.1-mini"),
         llm_timeout_seconds=_int_env("LLM_TIMEOUT_SECONDS", 60),
         llm_max_repair_retries=_int_env("LLM_MAX_REPAIR_RETRIES", 1),
+        max_extract_clauses=_int_env("MAX_EXTRACT_CLAUSES", 40),
         checkpoint_backend=os.getenv("CHECKPOINT_BACKEND", "sqlite"),
         checkpoint_sqlite_path=os.getenv(
             "CHECKPOINT_SQLITE_PATH", str(PROJECT_ROOT / ".data" / "checkpoints.sqlite")

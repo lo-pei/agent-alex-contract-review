@@ -91,6 +91,81 @@ class RuleEvaluation(BaseModel):
     evidence: list[Evidence] = Field(default_factory=list)
     requires_human: bool = False
     is_system_finding: bool = False
+    # 抽取不可用时字段规则被跳过（不是 pass，也不是触发）；评测应单独统计
+    skipped: bool = False
+
+
+# ---------- LLM 抽取契约（ADR-003 §3.7） ----------
+
+#: MVP 的 17 个合同级字段；新增字段必须先改这里 + 测试 + prompt
+EXTRACTED_FIELDS: tuple[str, ...] = (
+    "seller",
+    "buyer",
+    "goods_description",
+    "quantity",
+    "unit_price",
+    "total_amount",
+    "currency",
+    "incoterms",
+    "incoterms_version",
+    "delivery_date",
+    "payment_method",
+    "payment_terms",
+    "inspection_standard",
+    "warranty_period",
+    "liability_cap",
+    "governing_law",
+    "dispute_resolution",
+)
+
+#: 需要归一化为数字的字段（规则 NumericLt/NumericGt 依赖）
+NUMERIC_FIELDS: tuple[str, ...] = ("unit_price", "total_amount")
+
+
+class FieldValue(BaseModel):
+    """LLM 对单个字段的抽取结果：未提及 → value/quote 都为 null。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: str | int | float | None = None
+    quote: str | None = Field(default=None, max_length=1000)
+
+
+def _empty_field() -> FieldValue:
+    return FieldValue()
+
+
+class ExtractedFieldSet(BaseModel):
+    """显式 17 字段（不用自由 dict），schema 中**没有** risk_level/confidence。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    seller: FieldValue = Field(default_factory=_empty_field)
+    buyer: FieldValue = Field(default_factory=_empty_field)
+    goods_description: FieldValue = Field(default_factory=_empty_field)
+    quantity: FieldValue = Field(default_factory=_empty_field)
+    unit_price: FieldValue = Field(default_factory=_empty_field)
+    total_amount: FieldValue = Field(default_factory=_empty_field)
+    currency: FieldValue = Field(default_factory=_empty_field)
+    incoterms: FieldValue = Field(default_factory=_empty_field)
+    incoterms_version: FieldValue = Field(default_factory=_empty_field)
+    delivery_date: FieldValue = Field(default_factory=_empty_field)
+    payment_method: FieldValue = Field(default_factory=_empty_field)
+    payment_terms: FieldValue = Field(default_factory=_empty_field)
+    inspection_standard: FieldValue = Field(default_factory=_empty_field)
+    warranty_period: FieldValue = Field(default_factory=_empty_field)
+    liability_cap: FieldValue = Field(default_factory=_empty_field)
+    governing_law: FieldValue = Field(default_factory=_empty_field)
+    dispute_resolution: FieldValue = Field(default_factory=_empty_field)
+
+
+class ClauseExtraction(BaseModel):
+    """单条款抽取结果（原始或已校验，节点不同语义不同）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    clause_id: str
+    fields: ExtractedFieldSet
 
 
 class HitlDecision(BaseModel):
@@ -165,9 +240,15 @@ class ContractReviewState(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     clauses: list[Clause] = Field(default_factory=list)
 
-    # LLM 抽取（阶段 3 后续步骤实现）
+    # LLM 抽取（`extract_fields`）+ Python 校验（`validate_extraction`）
     extraction_status: Literal["ok", "degraded", "skipped"] = "skipped"
+    extractions: list[ClauseExtraction] = Field(default_factory=list)
+    # 校验后的合同级事实（只包含引文已定位的字段）
+    facts: dict[str, str | int | float | None] = Field(default_factory=dict)
+    fact_evidence: dict[str, Evidence] = Field(default_factory=dict)
     to_verify: list[ToVerifyItem] = Field(default_factory=list)
+    extraction_model: str | None = None
+    prompt_version: str = "n/a"
 
     # 规则（唯一等级来源）
     rule_evaluations: list[RuleEvaluation] = Field(default_factory=list)

@@ -1,7 +1,7 @@
 # 开发交接文档（Handover）
 
-> 更新时间：2026-10-26（第三阶段第 2 步完成后）
-> 当前状态：**第三阶段第 2 步完成：TXT/Markdown/文本型 PDF/DOCX 解析 + 标题式条款切分可用；63 个测试通过；仍无 LLM/HITL/API/UI**
+> 更新时间：2026-10-26（第三阶段第 3 步完成后）
+> 当前状态：**第三阶段第 3 步完成：LLM 要素抽取 + Python 校验已接入图（`ingest → segment → extract → validate → rules → report`）；115 个测试通过；仍无 HITL/解释/API/UI**
 > 交接原则：任何新接手的人只读本文件 + `00_PROJECT_STATE.md` + `02_ARCHITECTURE_DECISIONS/README.md`，就能继续开发。
 
 ---
@@ -28,12 +28,12 @@
 | GitHub 调研 | ✅ 完成 | `01_RESEARCH_LOG.md`，8 个仓库源码级分析 |
 | 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~006` |
 | 环境与依赖 | ✅ 完成 | `.venv`（Python 3.12.10）+ `requirements*.txt`；实际版本见 ADR-006 §6 |
-| 业务代码（第 2 步） | 🚧 解析 + 切分可用 | `app/`；尚无 LLM / HITL / API / UI |
-| 测试 | 🚧 63 个通过 | `tests/`；`pytest` 全绿 |
+| 业务代码（第 3 步） | 🚧 解析/切分/抽取/校验/规则/报告可用 | `app/`；尚无 HITL / 解释 / API / UI |
+| 测试 | 🚧 115 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
 | 评测集 | ⏳ 未开始 | 无 `data/eval/`、无 `eval/results/`；**没有任何准确率数据** |
-| Git 仓库 | ✅ 已初始化 | 提交 `cf0fd63`、`71e8a9d` |
+| Git 仓库 | ✅ 已初始化 | 提交 `cf0fd63`、`71e8a9d`、`750cca3`，以及 `feat: 接入LLM要素抽取与Python校验` |
 
-> 不要在汇报里说“已有 LLM/HITL/API/UI”或“已通过评测”；当前只有最小图、规则引擎、文档解析与条款切分。
+> 不要在汇报里说“已有 HITL/API/UI”或“已通过评测”或“抽取准确率 X%”；当前只有解析、切分、抽取（Fake LLM 已验证）、校验、规则与报告。
 
 ### 2.1 架构决策速览（ADR-001~006）
 
@@ -116,6 +116,7 @@ LLM_API_KEY=
 LLM_MODEL=gpt-4.1-mini
 LLM_TIMEOUT_SECONDS=60
 LLM_MAX_REPAIR_RETRIES=1
+MAX_EXTRACT_CLAUSES=40
 
 CHECKPOINT_BACKEND=sqlite
 CHECKPOINT_SQLITE_PATH=.data/checkpoints.sqlite
@@ -130,7 +131,7 @@ MAX_PAGES=200
 
 ---
 
-## 4. 目录现状（第 2 步已创建的部分）
+## 4. 目录现状（第 3 步已创建的部分）
 
 ```text
 Agent_Alex外贸合同智审助手/
@@ -142,34 +143,44 @@ Agent_Alex外贸合同智审助手/
 ├─ README.md
 ├─ app/
 │  ├─ __init__.py
-│  ├─ config.py                   # 环境变量、路径、上限（含 MAX_PAGES）
-│  ├─ schemas.py                  # Pydantic：State/Clause/Evidence/RuleEvaluation/Report
-│  ├─ graph.py                    # LangGraph 组装（当前 4 节点顺序主干）
-│  ├─ graph_demo.py               # 最小图（无 LLM）演示入口
+│  ├─ config.py                   # 环境变量、路径、上限（MAX_PAGES / MAX_EXTRACT_CLAUSES）
+│  ├─ schemas.py                  # State/Clause/Evidence/FieldValue/ExtractedFieldSet/RuleEvaluation/Report
+│  ├─ graph.py                    # 6 节点顺序主干
+│  ├─ graph_demo.py               # 演示入口（无 Key 自动走抽取降级路径）
 │  ├─ nodes/
 │  │  ├─ ingest.py                # TXT/MD/PDF/DOCX → pages + canonical text + 全局偏移
 │  │  ├─ segment.py               # 标题切分 + 合并 + 超长拆分 + 段落 fallback
+│  │  ├─ extract.py               # LLM 17 字段抽取（唯一 LLM 抽取节点）
+│  │  ├─ validate.py              # 引文核验 + 数值归一 + 一致性 → facts / to_verify
 │  │  ├─ rules.py                 # 规则节点（唯一等级来源）
-│  │  ├─ report.py                # 报告汇总
-│  │  ├─ extract.py               # 计划（未创建）
-│  │  ├─ validate.py              # 计划（未创建）
+│  │  ├─ report.py                # 报告汇总（抽取状态 limitation）
 │  │  ├─ hitl.py                  # 计划（未创建）
 │  │  └─ explain.py               # 计划（未创建）
 │  ├─ rules/
-│  │  ├─ definitions.yaml         # 首批 5 条规则
+│  │  ├─ definitions.yaml         # 7 条规则（5 文本 + 2 字段，version 2）
 │  │  ├─ dsl.py                   # 白名单条件 DSL
-│  │  └─ engine.py                # 加载/求值/证据/fail-closed
-│  ├─ services/                   # 计划（未创建：llm/evidence/checkpointer/review_store）
+│  │  └─ engine.py                # 加载/求值/证据/fail-closed/skipped
+│  ├─ services/
+│  │  ├─ llm.py                   # 结构化输出 + 1 次修复 + 异常类型 + get_llm()
+│  │  ├─ evidence.py              # locate_quote（精确 → NFC/空白规范化）
+│  │  └─ checkpointer.py          # 计划（未创建）
+│  ├─ review_store.py             # 计划（未创建）
 │  ├─ api.py                      # 计划（未创建）
 │  ├─ ui.py                       # 计划（未创建）
 │  └─ __main__.py                 # 计划（未创建）
 ├─ tests/
 │  ├─ conftest.py
+│  ├─ fakes.py                    # Fake LLM（无需 Key）
 │  ├─ test_ingest.py              # TXT/编码/上限
 │  ├─ test_ingest_formats.py      # PDF/DOCX/扫描件/加密/页数/文件头/表格顺序
 │  ├─ test_segment.py             # 标题/合并/拆分/上限/页面映射
-│  ├─ test_rules.py
-│  ├─ test_graph.py
+│  ├─ test_evidence.py            # 引文定位（精确/空白/NFC/失败）
+│  ├─ test_llm_service.py         # 修复重试/异常/未配置
+│  ├─ test_extract.py             # Fake LLM 成功/失败隔离/降级/上限/注入防护
+│  ├─ test_validate.py            # 定位/丢弃/数值/冲突/一致性
+│  ├─ test_rules.py               # 文本规则 + 字段规则 skipped/触发
+│  ├─ test_graph.py               # 无 Key 全链路降级
+│  ├─ test_graph_extraction.py    # Fake LLM 全链路
 │  └─ fixtures/
 │     └─ pdf_builder.py           # 纯标准库构造最小 PDF
 ├─ data/
@@ -187,9 +198,10 @@ Agent_Alex外贸合同智审助手/
 
 | 形态 | 命令 | 状态 |
 |---|---|---|
-| 最小图（TXT） | `.\.venv\Scripts\python.exe -m app.graph_demo` | ✅ 可用（无 LLM） |
-| 最小图（PDF/DOCX） | `.\.venv\Scripts\python.exe -m app.graph_demo path\to\contract.pdf` | ✅ 可用（无 LLM） |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 63 个通过 |
+| 全链路（TXT，无 Key 走降级） | `.\.venv\Scripts\python.exe -m app.graph_demo` | ✅ 可用 |
+| 全链路（PDF/DOCX） | `.\.venv\Scripts\python.exe -m app.graph_demo path\to\contract.pdf` | ✅ 可用 |
+| 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 115 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行 | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `uvicorn app.api:app --reload` | ⏳ 计划（`api.py` 未创建） |
@@ -208,9 +220,10 @@ Agent_Alex外贸合同智审助手/
 3. **HITL 真中断**：节点内 `interrupt()`；checkpointer 持久化；`Command(resume=HitlDecision)` 恢复；审批前零业务写入；超时不自动通过。
 4. **失败显式降级**：LLM 失败 → 抽取降级/解释兜底；规则执行异常 → fail-closed 系统 red（`is_system_finding=true`，进入 HITL）；HITL 超时 → `unreviewed_red_risk`。
 5. **证据可定位**：`文件:第N页:字符start-end`；LLM 引文必须精确出现在条款原文（仅允许空白/Unicode 规范化）。
-6. **图结构**：确定性顺序主干；只有“是否有 red”“是否 approve”两个条件边；不用 Supervisor/并行/单体 ReAct。
-7. **持久化**：运行用 SQLite checkpointer，测试用内存；`thread_id=review_id`；报告/pending/审计与 checkpoint 分离。
-8. **不引入**：Supervisor、多智能体、RAG 知识库、Neo4j、训练模型、Docker、React/Vue、Postgres/Redis、PyMuPDF 默认依赖、无许可证仓库代码。
+6. **抽取状态是一等状态**：`ok / degraded / skipped` 都必须进报告；`degraded` 时字段规则 `skipped`，不得把系统降级伪装成“合同缺少条款”。
+7. **图结构**：确定性顺序主干；只有“是否有 red”“是否 approve”两个条件边；不用 Supervisor/并行/单体 ReAct。
+8. **持久化**：运行用 SQLite checkpointer，测试用内存；`thread_id=review_id`；报告/pending/审计与 checkpoint 分离。
+9. **不引入**：Supervisor、多智能体、RAG 知识库、Neo4j、训练模型、Docker、React/Vue、Postgres/Redis、PyMuPDF 默认依赖、无许可证仓库代码。
 
 ---
 
@@ -249,6 +262,14 @@ Agent_Alex外贸合同智审助手/
 | 29 | `is_heading` 对纯数字编号有三重约束 | 改正则时先跑 `test_body_line_starting_with_number_is_not_heading`，否则正文会被切成标题 |
 | 30 | 条款数 > 200 会让整次审查 `status="failed"` | 不是 bug，是防静默截断；UI/API 要提示“拆分合同或调大 `MAX_PAGES`/上限” |
 | 31 | PDF 测试 fixture 只支持 ASCII（Helvetica/WinAnsi） | 中文 PDF fixture 需嵌入 CJK 字体，暂未做；不要用 ASCII fixture 证明中文 PDF 可用 |
+| 32 | “部分条款抽取成功”若算 `ok`，字段规则会把“没抽到”判成“合同缺条款” | `extraction_status` 只有**全量成功**才是 `ok`；部分覆盖/失败一律 `degraded`，字段规则 skipped |
+| 33 | `extra="forbid"` 只挡未知字段，挡不住“字段给了但引文是编的” | 非 null 字段必须有 `quote` 且 `locate_quote` 成功；否则丢弃字段 + `to_verify`（宁缺勿假） |
+| 34 | 逐字符 `unicodedata.normalize` 无法合成组合字符 | `locate_quote` 必须整簇规范化（基字符 + 组合符一起），并用起止索引表映射回原文 |
+| 35 | 数值字段 LLM 会返回 `"USD 620,000"` 之类带单位文本 | 归一为 float 但检测到单位/币种残留 → `to_verify`；不静默当作可信金额 |
+| 36 | 同一字段在多个条款出现且不一致 | 保留首个并 `to_verify`；不自动选“看起来更合理”的值，也不做汇率换算 |
+| 37 | `tests/fakes.py` 的 Fake LLM 必须实现 `StructuredLLM` 协议（`model_id` + `invoke`） | 新节点依赖 LLM 时用同一协议，测试注入 `FakeLLM`，禁止在业务代码里写 if-test 分支 |
+| 38 | `get_llm()` 是 `lru_cache(maxsize=1)`；测试改 `settings` 后必须 `cache_clear()` | 否则会一直用旧 Key/模型；已在 `test_llm_service.py` 用 try/finally 示范 |
+| 39 | 条款数 > `MAX_EXTRACT_CLAUSES`（默认 40）时只抽部分条款 | 按“全量成功才算 ok”的规则，此时字段规则全部 skipped；长合同要么调大上限，要么接受跳过并在报告提示 |
 
 ---
 
@@ -281,8 +302,8 @@ Agent_Alex外贸合同智审助手/
 3. ~~最小图 ingest → segment → rules → report 跑通~~ ✅ 已完成（45 个测试通过）。
 4. 下一步按顺序：
    - ~~**第 2 步**：`ingest` 接入 PDF（pypdf）/DOCX（python-docx）；`segment` 加标题识别、超长条款拆分、完整 `clause_type` 表；补 PDF/DOCX fixture。~~ ✅ 已完成（2026-10-26，63 个测试）。
-   - **第 3 步（当前下一步）**：`app/services/llm.py` + `nodes/extract.py` + `nodes/validate.py`（Fake LLM 测试，无需 Key）。
-   - **第 4 步**：`is_red` 条件边 + `interrupt()` + checkpointer（测试用 InMemorySaver，运行用 AsyncSqliteSaver）+ 8 条 HITL 测试。
+   - ~~**第 3 步**：`app/services/llm.py` + `services/evidence.py` + `nodes/extract.py` + `nodes/validate.py`；Fake LLM 测试，无需 Key。~~ ✅ 已完成（2026-10-26，115 个测试；规则 5 → 7 条）。
+   - **第 4 步（当前下一步）**：`is_red` 条件边 + `interrupt()` + checkpointer（测试用 InMemorySaver，运行用 AsyncSqliteSaver）+ 8 条 HITL 测试。
    - **第 5 步**：`nodes/explain.py` + Quality Gate + 报告合并。
    - **第 6 步**：FastAPI + Streamlit。
    - 规则扩到 10–12 条（ISSUE-009），再建 20–30 条 gold（ISSUE-005）。

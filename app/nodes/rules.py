@@ -39,7 +39,15 @@ def evaluate_rules_node(state: ContractReviewState) -> dict:
         return finish(rule_evaluations=[], overall_level="unknown")
 
     rules = list(get_rules())
-    evaluations = evaluate_rules(rules, state.clauses, state.raw_text, facts={})
+    # 只有抽取整体成功时才让字段规则参与判定；降级/跳过时字段规则标记 skipped，
+    # 避免“抽取失败”被误判成“合同缺少该要素”的黄色风险。
+    evaluations = evaluate_rules(
+        rules,
+        state.clauses,
+        state.raw_text,
+        facts=state.facts,
+        extraction_available=state.extraction_status == "ok",
+    )
     level = overall_level(evaluations)
 
     degraded = list(state.degraded_steps)

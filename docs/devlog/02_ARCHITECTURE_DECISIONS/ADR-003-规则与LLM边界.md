@@ -345,3 +345,75 @@ class RiskExplanation(BaseModel):
 - zihan `python/src/agents/structured.py:34-89`：修复重试与 `StructuredOutputError`；
 - bcefghj / zihan 的“LLM 判级”反例，见 `01_RESEARCH_LOG.md` 2.1/2.2；
 - `01_RESEARCH_LOG.md` 第 4 节模式 A、D、E。
+
+---
+
+## 7. 实现回填（2026-10-26，第三阶段第 3 步完成）
+
+本节记录 §3.3–3.7 落地时的实际参数与**对本文档的补充/修正**。与上文冲突时以本节为准。
+
+### 7.1 代码落点
+
+| 契约 | 实现文件 | 说明 |
+|---|---|---|
+| LLM 调用 | `app/services/llm.py` | `StructuredLLM` 协议 + `OpenAICompatibleLLM` + `call_structured()`；节点不直接接触 LangChain |
+| 引文定位 | `app/services/evidence.py` | `locate_quote()` / `normalize()`；抽取、解释、规则证据共用 |
+| 抽取 | `app/nodes/extract.py` | `EXTRACTION_PROMPT_VERSION = "extract-v1"` |
+| 校验 | `app/nodes/validate.py` | 引文核验 → `facts` / `fact_evidence` / `to_verify` |
+| 判级 | `app/rules/engine.py` | `RuleDefinition.requires_extraction`；`evaluate_rules(..., extraction_available=...)` |
+
+### 7.2 落地参数
+
+| 项 | 实际值 |
+|---|---|
+| 字段数 | 17（`EXTRACTED_FIELDS`，与 §3.7 表格一致） |
+| 数值字段 | `unit_price`、`total_amount`（归一为 `float`） |
+| 抽取粒度 | 按条款串行，每条款一次调用 |
+| 条款选取 | 前言 + `trade_term/payment/delivery/inspection/warranty/liability/dispute/force_majeure` 优先，上限 `MAX_EXTRACT_CLAUSES=40`，再按原文顺序 |
+| 超时 | `LLM_TIMEOUT_SECONDS=60`（`ChatOpenAI(timeout=..., max_retries=0)`，重试由 `call_structured` 控制） |
+| 修复重试 | `LLM_MAX_REPAIR_RETRIES=1`（把校验错误回传模型，只重试 1 次） |
+| 结构化输出 | `with_structured_output(schema, method="json_schema")`；仅当异常“看起来像不支持该方式”时回退 `function_calling` |
+| Prompt 注入防护 | 条款文本放入 `<untrusted_contract>`，转义其中的 `<`/`>`；LLM 无工具 |
+
+### 7.3 对 §3.7 的两处修正
+
+1. **`extraction_status` 的判定更严格**：原文档写“全部条款失败 → `degraded`”。实现取更保守口径——**只有全量条款抽取成功才为 `ok`**；任一条款失败、或条款数超过 `MAX_EXTRACT_CLAUSES` 导致覆盖不全，都记 `degraded`。
+   - 原因：部分覆盖时，“字段为 null”既可能是合同未约定，也可能是没抽到。若算 `ok`，字段规则会输出“合同缺少交付期限”的假阳性。
+2. **字段规则的降级语义从 yellow 改为 `skipped`**：§3.6 原表写“抽取整体 degraded → 字段规则因缺字段 → yellow”。实现新增 `RuleEvaluation.skipped`：
+   - `requires_extraction: true` 且 `extraction_available=False` → `risk_level="pass"`、`skipped=True`、`requires_human=False`，理由为“要素抽取不可用，该字段规则未执行（不计入 pass/触发）”；
+   - 目的：把“系统降级”与“合同确实缺条款”分开，避免 HITL 与报告被系统故障淹没；评测时可单独统计跳过率；
+   - 报告侧补偿：`extraction_status="degraded"` 时追加 limitation，摘要在末尾写“另有 N 条字段规则因抽取不可用被跳过”。
+   - `skipped` 的规则**不计入** pass 统计，也不作为“规则已执行”的证据。
+
+### 7.4 校验环节的实际规则
+
+| 情况 | 行为 |
+|---|---|
+| `value` 为 null 或空白 | 忽略该字段（视为“未提及”） |
+| 非 null 但 `quote` 为 null | 丢弃字段 + `to_verify`（“非 null 字段缺少原文引文”） |
+| `quote` 无法 `locate_quote` | 丢弃字段 + `to_verify`（“引文无法在原文定位”） |
+| `clause_id` 不在本次条款中 | 忽略该抽取结果 + `to_verify` |
+| 数值字段含单位/币种残留（如 `USD 3,100,000`） | 保留归一后的数字，同时 `to_verify` |
+| 数值无法解析（如 `to be agreed`） | 保留原字符串 + `to_verify` |
+| 同一字段多条款取值不一致 | 保留首个，`to_verify` 记录被忽略的值 |
+| 有金额但无 `currency` | `to_verify`（不猜测币种） |
+| 只有 `unit_price` 无 `total_amount` | `to_verify`（不做乘法推算） |
+| 有 `incoterms` 无 `incoterms_version` | `to_verify`（不在规则层假设 2020） |
+| `delivery_date` 非 ISO 日期 | 保留原文 + `to_verify`（不自行解析“45 天后”） |
+
+引文匹配只允许两种形式：**原文精确匹配**、**NFC 整簇规范化 + 连续空白折叠**。不做模糊相似度、不做标点/数字改写，找不到就丢弃——宁可少一个字段，也不产生无法回溯的“证据”。
+
+### 7.5 测试替身
+
+- `tests/fakes.py::FakeLLM` 实现 `StructuredLLM` 协议（`model_id` + `invoke`），按剧本返回 schema 实例或抛异常；
+- 业务代码中**没有** `if testing:` 分支；所有降级都由真实异常路径触发；
+- 覆盖：成功、单条款失败、全部失败、未配置 Key、超覆盖上限、修复重试、`LLMError` 不重试、注入分隔符转义；
+- 真实供应商联调仍未做（`05_OPEN_ISSUES.md` ISSUE-013），因此**不公布任何抽取准确率**。
+
+### 7.6 本步未实现（留给后续）
+
+- `explain` 节点与 §3.8 的 Quality Gate（第 5 步）；
+- 越权表述黑名单与 `explanation_status`；
+- 规则数仍为 7 条（5 文本 + 2 字段），未达 §3.3 目标 10–12 条（ISSUE-009）；
+- 字段规则覆盖的字段有限（仅 `delivery_date`、`inspection_standard`），其余 15 个字段尚无对应规则。
+
