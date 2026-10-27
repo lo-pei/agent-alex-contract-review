@@ -1,4 +1,4 @@
-"""最小图端到端测试：编译、调用、报告、失败降级、checkpointer。"""
+"""图端到端测试：编译、暂停/恢复、报告、失败降级、checkpointer、耗时。"""
 
 from __future__ import annotations
 
@@ -10,22 +10,26 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from app.graph import build_graph
 from app.graph_demo import run_review
-from app.schemas import ContractReviewState
+from app.schemas import ContractReviewState, HitlDecision
+
+#: 风险样例必然触发 HITL；测试显式批准（不存在自动通过路径）
+APPROVE = HitlDecision(action="approve", reviewer="test-reviewer")
 
 
 def test_graph_runs_on_sample(sample_path: Path) -> None:
-    state = run_review(sample_path)
+    state = run_review(sample_path, decision=APPROVE)
 
-    assert state.status == "completed"
+    assert state.status == "approved"
     assert state.overall_level == "red"
     # 7 条规则：5 条文本规则 + 2 条字段规则（无 Key 时字段规则 skipped）
     assert len(state.rule_evaluations) == 7
     assert state.extraction_status == "degraded"
     assert len(state.clauses) >= 5
     assert state.report is not None
+    assert state.hitl is not None and state.hitl.reviewer == "test-reviewer"
 
     report = state.report
-    assert report.status == "completed"
+    assert report.status == "approved"
     assert report.overall_level == "red"
     assert report.review_id == state.review_id
     assert report.source_filename == "sample_sales_contract.txt"
@@ -38,10 +42,13 @@ def test_graph_runs_on_sample(sample_path: Path) -> None:
     assert levels == sorted(levels, key=lambda x: 0 if x == "red" else 1)
     # 报告必须包含免责声明
     assert any("不构成法律意见" in item for item in report.limitations)
+    # 人工确认必须写进摘要，便于审计
+    assert "人工确认" in report.summary
+    assert report.hitl is not None and report.hitl.reviewer == "test-reviewer"
 
 
 def test_citations_are_traceable(sample_path: Path) -> None:
-    state = run_review(sample_path)
+    state = run_review(sample_path, decision=APPROVE)
     assert state.report is not None
 
     pattern = re.compile(r"^sample_sales_contract\.txt:p1:\d+-\d+$")
@@ -71,20 +78,21 @@ def test_clean_contract_fast_path(clean_sample_path: Path) -> None:
 
 
 def test_graph_is_deterministic(sample_path: Path) -> None:
-    first = run_review(sample_path)
-    second = run_review(sample_path)
+    first = run_review(sample_path, decision=APPROVE)
+    second = run_review(sample_path, decision=APPROVE)
     first_report = first.report.model_dump() if first.report else {}
     second_report = second.report.model_dump() if second.report else {}
     assert first_report["findings"] == second_report["findings"]
     assert first_report["overall_level"] == second_report["overall_level"]
 
 
-def test_checkpointer_persists_state(sample_path: Path) -> None:
-    graph = build_graph(checkpointer=InMemorySaver())
+def test_checkpointer_persists_state(clean_sample_path: Path) -> None:
+    checkpoint = InMemorySaver()
+    graph = build_graph(checkpointer=checkpoint)
     initial = ContractReviewState(
         review_id=uuid.uuid4().hex,
-        source_filename=sample_path.name,
-        source_path=str(sample_path),
+        source_filename=clean_sample_path.name,
+        source_path=str(clean_sample_path),
     )
     config = {"configurable": {"thread_id": initial.review_id}}
 
@@ -92,16 +100,17 @@ def test_checkpointer_persists_state(sample_path: Path) -> None:
 
     snapshot = graph.get_state(config)
     assert snapshot.values["status"] == "completed"
-    assert snapshot.values["overall_level"] == "red"
+    assert snapshot.values["overall_level"] == "pass"
 
 
 def test_timings_recorded_for_every_node(sample_path: Path) -> None:
-    state = run_review(sample_path)
+    state = run_review(sample_path, decision=APPROVE)
     assert {
         "ingest_document_ms",
         "segment_clauses_ms",
         "extract_fields_ms",
         "validate_extraction_ms",
         "evaluate_rules_ms",
+        "human_review_ms",
         "build_report_ms",
     } <= set(state.timings)

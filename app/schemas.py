@@ -179,6 +179,49 @@ class HitlDecision(BaseModel):
     overrides: dict[str, str] = Field(default_factory=dict)
 
 
+class ApprovalFinding(BaseModel):
+    """审批载荷中的一条红色风险（只来自规则结果，不含 LLM 解释）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule_id: str
+    title: str
+    risk_level: Literal["red"] = "red"
+    reason: str
+    suggestion: str | None = None
+    clause_ids: list[str] = Field(default_factory=list)
+    citations: list[str] = Field(default_factory=list)
+    #: 原文片段（截断），供人工在审批页核对
+    quotes: list[str] = Field(default_factory=list)
+    is_system_finding: bool = False
+
+
+class ApprovalPayload(BaseModel):
+    """`interrupt()` 的审批载荷（ADR-002 §3.2）。
+
+    约束：不含 LLM 解释、不含“建议通过/拒绝”、不含时间戳（时间戳由 API 侧写入，
+    保证节点 resume 重跑时载荷稳定）。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["red_risk_approval"] = "red_risk_approval"
+    review_id: str
+    source_filename: str
+    overall_level: OverallLevel
+    findings: list[ApprovalFinding] = Field(default_factory=list)
+    #: 红色风险总数（`findings` 最多展示 20 条）
+    findings_total: int = 0
+    truncated: int = 0
+    extraction_status: Literal["ok", "degraded", "skipped"] = "skipped"
+    extraction_summary: dict[str, str | int | float | None] = Field(default_factory=dict)
+    to_verify: list[str] = Field(default_factory=list)
+    instructions: str = (
+        "请确认以上红色风险是否属实。可批准（approve）、要求修改（request_changes）"
+        "或拒绝（reject）；超时将被标记为未确认，绝不自动通过。"
+    )
+
+
 class ReportFinding(BaseModel):
     """报告中的一条风险（仅非 pass 的规则结果）。"""
 

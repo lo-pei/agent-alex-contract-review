@@ -237,3 +237,41 @@ result = await graph.ainvoke(
 - zihan `python/src/pipeline/graph.py:383-418`、`services/review_service.py:288-289`：`interrupt_before` + `aupdate_state` + `ainvoke(None)` 对照；
 - bcefghj `python/src/pipeline/graph.py:42-52`、`api/main.py:112-115`：伪 HITL 反例；
 - `01_RESEARCH_LOG.md` 第 4 节模式 B、第 5 节不借鉴清单。
+
+---
+
+## 7. 实现回填（2026-10-27，第三阶段第 4 步）
+
+> 本节只记录“实际实现与原决策的差异/细化”，不改变 §1~§6 的结论。
+
+### 7.1 落地文件
+
+| 文件 | 内容 |
+|---|---|
+| `app/nodes/hitl.py` | `build_approval_payload()`、`interrupt()`、决策解析与 fail-closed、`route_by_risk()` |
+| `app/services/checkpointer.py` | `memory_checkpointer()` / `sqlite_checkpointer()` / `open_checkpointer()` + `JsonPlusSerializer` 类型登记 |
+| `app/review_service.py` | `ReviewService.start()/get()/resume()`、惰性超时、幂等 |
+| `app/graph.py` | 7 节点 + `add_conditional_edges("evaluate_rules", route_by_risk, ...)` + 强制 checkpointer |
+| `tests/test_hitl.py` | 14 个 HITL 测试（覆盖 §5 测试清单并多于 8 条） |
+
+### 7.2 与原决策的差异
+
+| 项 | 原决策 | 实际实现 | 原因 |
+|---|---|---|---|
+| checkpointer | 运行 `AsyncSqliteSaver` | 同步 `SqliteSaver`（`sqlite3.connect(..., check_same_thread=False)`） | CLI 同步调用最简单；未引入异步运行时；FastAPI 阶段如需异步再评估 |
+| 超时触发 | `GET /review/{id}` 惰性检查 | `ReviewService.get()` 惰性检查（API/UI/CLI 共用） | 先把语义固定在 service 层，API/UI 只做展示 |
+| 决策 schema | `HitlDecision` | 同左，但**非法/缺失决策按 fail-closed 处理** | 不能让异常输入被解释成 approve |
+| 人工 override | 未细化 | 仅产生 warning，不写入等级 | 守住“人工不改规则等级”边界 |
+| 载荷上限 | 建议最多 20 条 red | `MAX_PAYLOAD_FINDINGS=20`，超出给 `truncated` | 与建议一致，已测试 |
+| 恢复幂等 | 第二次 resume 不重复写 | 已终态直接返回现有结果，不重跑图 | 已终态再执行会重复生成报告 |
+
+### 7.3 状态语义（实测）
+
+- `invoke()` 暂停返回 `{"__interrupt__": [...], ...state}`，`state.status` 仍为 `running`；
+- `snapshot.next == ("human_review",)` 是“等待审批”的唯一可靠判据；`awaiting_human` 由 service 派生；
+- `resume` 时节点从顶部重跑，因此 `build_approval_payload()` 必须保持纯读取/纯计算；
+- 审批前不写最终报告（`report is None`），测试 `test_no_business_write_before_approval` 断言。
+
+### 7.4 已知不足（对应 ISSUE-017）
+
+`ReviewService._requested_at` 为进程内存字典，重启后惰性超时失效；第 6 步随 FastAPI 落盘 `.data/pending/<review_id>.json` 修复。修复前不得对外宣称“超时一定会触发”。

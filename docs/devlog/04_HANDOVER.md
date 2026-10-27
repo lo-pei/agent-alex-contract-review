@@ -1,7 +1,7 @@
 # 开发交接文档（Handover）
 
-> 更新时间：2026-10-26（第三阶段第 3 步完成后）
-> 当前状态：**第三阶段第 3 步完成：LLM 要素抽取 + Python 校验已接入图（`ingest → segment → extract → validate → rules → report`）；115 个测试通过；仍无 HITL/解释/API/UI**
+> 更新时间：2026-10-27（第三阶段第 4 步完成后）
+> 当前状态：**第三阶段第 4 步完成：条件边 + HITL `interrupt()` 真暂停/恢复 + SQLite checkpointer 已可用（`ingest → segment → extract → validate → rules → [条件边] → human_review → report`）；131 个测试通过；解释/RAG/API/UI 仍未实现**
 > 交接原则：任何新接手的人只读本文件 + `00_PROJECT_STATE.md` + `02_ARCHITECTURE_DECISIONS/README.md`，就能继续开发。
 
 ---
@@ -17,7 +17,7 @@
 - 报告每条风险都有 `rule_id + reason + 原文引用 + 文件:页码:字符偏移`；
 - 交付：Streamlit 演示 + 命令行 + FastAPI。
 
-硬约束来自根目录 `开发提示词.md`：技术栈 Python / LangGraph / Streamlit / FastAPI / Pydantic；禁止 Supervisor、多智能体、前端框架、RAG 知识库、训练模型、Docker；规则决定等级，LLM 只抽取与解释；HITL 必须暂停/恢复；全部代码要解释清、能测试、边界明确。
+硬约束来自根目录 `开发提示词.md`：技术栈 Python / LangGraph / Streamlit / FastAPI / Pydantic；规则决定等级，LLM 只抽取与解释；HITL 必须暂停/恢复；全部代码要解释清、能测试、边界明确。**2026-10-27 用户明确放开 RAG 与多智能体（ADR-007）**：允许 RAG、专家节点与 Supervisor 路由，但判级仍只由 Python 规则产生、HITL 仍必须真中断、证据仍必须可追溯；RAG/多智能体默认关闭（`RAG_ENABLED=false`、`AGENTS_ENABLED=false`）。训练模型、Docker、前端框架仍禁止。
 
 ---
 
@@ -26,25 +26,28 @@
 | 项 | 状态 | 证据 |
 |---|---|---|
 | GitHub 调研 | ✅ 完成 | `01_RESEARCH_LOG.md`，8 个仓库源码级分析 |
-| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~006` |
+| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~007` |
 | 环境与依赖 | ✅ 完成 | `.venv`（Python 3.12.10）+ `requirements*.txt`；实际版本见 ADR-006 §6 |
-| 业务代码（第 3 步） | 🚧 解析/切分/抽取/校验/规则/报告可用 | `app/`；尚无 HITL / 解释 / API / UI |
-| 测试 | 🚧 115 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
+| 业务代码（第 3 步） | ✅ 解析/切分/抽取/校验/规则可用 | `app/` |
+| HITL（第 4 步） | ✅ 条件边 + `interrupt()` + checkpointer | `app/nodes/hitl.py`、`app/review_service.py`、`app/services/checkpointer.py` |
+| 解释 / RAG / API / UI | ⏳ 未实现 | 第 5、6 步 |
+| 测试 | 🚧 131 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
 | 评测集 | ⏳ 未开始 | 无 `data/eval/`、无 `eval/results/`；**没有任何准确率数据** |
-| Git 仓库 | ✅ 已初始化 | 提交 `cf0fd63`、`71e8a9d`、`750cca3`，以及 `feat: 接入LLM要素抽取与Python校验` |
+| Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`，以及第 4 步提交 |
 
-> 不要在汇报里说“已有 HITL/API/UI”或“已通过评测”或“抽取准确率 X%”；当前只有解析、切分、抽取（Fake LLM 已验证）、校验、规则与报告。
+> 不要在汇报里说“已有解释节点/RAG/API/UI”或“已通过评测”或“抽取准确率 X%”；当前只有解析、切分、抽取（Fake LLM 已验证）、校验、规则、HITL 与报告。
 
-### 2.1 架构决策速览（ADR-001~006）
+### 2.1 架构决策速览（ADR-001~007）
 
 | ADR | 结论 | 状态 |
 |---|---|---|
-| 001 图结构 | 确定性顺序主干 + 两个条件边（是否有 red / 是否 approve）+ 单一 HITL 门；不用 Supervisor/并行/单体 ReAct | **已接受** |
-| 002 HITL | 节点内 `interrupt()` + checkpointer + `Command(resume=HitlDecision)`；审批前零业务写入；超时 → `unreviewed_red_risk`，绝不自动通过 | **已接受** |
+| 001 图结构 | 确定性顺序主干 + 两个条件边（是否有 red / 是否 approve）+ 单一 HITL 门；不用 Supervisor/并行/单体 ReAct | **已接受**（当前只实现“是否有 red”；“是否 approve”随第 5 步 `explain` 加入） |
+| 002 HITL | 节点内 `interrupt()` + checkpointer + `Command(resume=HitlDecision)`；审批前零业务写入；超时 → `unreviewed_red_risk`，绝不自动通过 | **已接受**（第 4 步已实现，回填见 ADR-002 §7） |
 | 003 规则/LLM | 规则唯一判级；LLM 只抽 17 字段与解释；schema 禁止 `risk_level`；引文核验、越权表述拦截、失败兜底 | **已接受** |
-| 004 持久化 | 运行用 `AsyncSqliteSaver`，测试用 `InMemorySaver`；`thread_id=review_id`；pending/报告/审计分离；惰性超时 | **已接受** |
+| 004 持久化 | 运行用 `SqliteSaver`（同步，当前实现）/测试用 `InMemorySaver`；`thread_id=review_id`；pending/报告/审计分离；惰性超时 | **已接受**（ADR-004 原写 `AsyncSqliteSaver`，第 4 步实际用同步 `SqliteSaver`，见 ADR-002 §7） |
 | 005 解析/证据 | pypdf + python-docx + TXT；canonical text + 页/全局偏移；`文件名:p页:start-end`；精确/空白规范化定位 | **已接受** |
 | 006 环境 | Python 3.12 + LangGraph 1.2.17 等最新稳定依赖；OpenAI 兼容接口；无 Docker/Redis/Postgres | **已接受** |
+| 007 范围变更 | 允许 RAG/多智能体/Supervisor（仅路由）；判级/HITL/证据边界不变；默认开关关闭 | **已接受**（2026-10-27，尚未实现） |
 
 ---
 
@@ -131,7 +134,7 @@ MAX_PAGES=200
 
 ---
 
-## 4. 目录现状（第 3 步已创建的部分）
+## 4. 目录现状（第 4 步已创建的部分）
 
 ```text
 Agent_Alex外贸合同智审助手/
@@ -143,19 +146,20 @@ Agent_Alex外贸合同智审助手/
 ├─ README.md
 ├─ app/
 │  ├─ __init__.py
-│  ├─ config.py                   # 环境变量、路径、上限（MAX_PAGES / MAX_EXTRACT_CLAUSES）
-│  ├─ schemas.py                  # State/Clause/Evidence/FieldValue/ExtractedFieldSet/RuleEvaluation/Report
-│  ├─ graph.py                    # 6 节点顺序主干
-│  ├─ graph_demo.py               # 演示入口（无 Key 自动走抽取降级路径）
+│  ├─ config.py                   # 环境变量、路径、上限（CHECKPOINT_* / HITL_TIMEOUT_MINUTES / MAX_EXTRACT_CLAUSES）
+│  ├─ schemas.py                  # State/Clause/Evidence/FieldValue/ExtractedFieldSet/RuleEvaluation/Report/ApprovalPayload
+│  ├─ graph.py                    # 7 节点 + 条件边 + 强制 checkpointer
+│  ├─ review_service.py           # start/get/resume（幂等 + 惰性超时）
+│  ├─ graph_demo.py               # CLI（SQLite 跨进程；--review-id/--decision）
 │  ├─ nodes/
 │  │  ├─ ingest.py                # TXT/MD/PDF/DOCX → pages + canonical text + 全局偏移
 │  │  ├─ segment.py               # 标题切分 + 合并 + 超长拆分 + 段落 fallback
 │  │  ├─ extract.py               # LLM 17 字段抽取（唯一 LLM 抽取节点）
 │  │  ├─ validate.py              # 引文核验 + 数值归一 + 一致性 → facts / to_verify
 │  │  ├─ rules.py                 # 规则节点（唯一等级来源）
-│  │  ├─ report.py                # 报告汇总（抽取状态 limitation）
-│  │  ├─ hitl.py                  # 计划（未创建）
-│  │  └─ explain.py               # 计划（未创建）
+│  │  ├─ hitl.py                  # 审批载荷 + interrupt() + 决策校验 + route_by_risk
+│  │  ├─ report.py                # 报告汇总（跟随人工终态 + limitation）
+│  │  └─ explain.py               # 计划（第 5 步，未创建）
 │  ├─ rules/
 │  │  ├─ definitions.yaml         # 7 条规则（5 文本 + 2 字段，version 2）
 │  │  ├─ dsl.py                   # 白名单条件 DSL
@@ -163,10 +167,10 @@ Agent_Alex外贸合同智审助手/
 │  ├─ services/
 │  │  ├─ llm.py                   # 结构化输出 + 1 次修复 + 异常类型 + get_llm()
 │  │  ├─ evidence.py              # locate_quote（精确 → NFC/空白规范化）
-│  │  └─ checkpointer.py          # 计划（未创建）
-│  ├─ review_store.py             # 计划（未创建）
-│  ├─ api.py                      # 计划（未创建）
-│  ├─ ui.py                       # 计划（未创建）
+│  │  ├─ checkpointer.py          # memory/sqlite 工厂 + JsonPlusSerializer 类型登记
+│  │  └─ rag.py                   # 计划（第 5 步，未创建）
+│  ├─ api.py                      # 计划（第 6 步，未创建）
+│  ├─ ui.py                       # 计划（第 6 步，未创建）
 │  └─ __main__.py                 # 计划（未创建）
 ├─ tests/
 │  ├─ conftest.py
@@ -179,12 +183,14 @@ Agent_Alex外贸合同智审助手/
 │  ├─ test_extract.py             # Fake LLM 成功/失败隔离/降级/上限/注入防护
 │  ├─ test_validate.py            # 定位/丢弃/数值/冲突/一致性
 │  ├─ test_rules.py               # 文本规则 + 字段规则 skipped/触发
-│  ├─ test_graph.py               # 无 Key 全链路降级
+│  ├─ test_hitl.py                # HITL 暂停/恢复/幂等/超时/载荷/非法决策（14 个）
+│  ├─ test_graph.py               # 无 Key 全链路（风险样例显式批准）
 │  ├─ test_graph_extraction.py    # Fake LLM 全链路
 │  └─ fixtures/
 │     └─ pdf_builder.py           # 纯标准库构造最小 PDF
 ├─ data/
-│  └─ samples/                    # 2 份自拟脱敏合同（TXT）
+│  ├─ samples/                    # 2 份自拟脱敏合同（TXT）
+│  └─ knowledge/                  # 计划（RAG 语料，见 06_RAG与多智能体资料清单.md）
 ├─ eval/                          # 计划（未创建）
 └─ docs/
    └─ devlog/                     # 本目录
@@ -198,32 +204,35 @@ Agent_Alex外贸合同智审助手/
 
 | 形态 | 命令 | 状态 |
 |---|---|---|
-| 全链路（TXT，无 Key 走降级） | `.\.venv\Scripts\python.exe -m app.graph_demo` | ✅ 可用 |
+| 全链路（TXT，无 Key 走降级） | `.\.venv\Scripts\python.exe -m app.graph_demo` | ✅ 可用（风险样例停在人工确认） |
 | 全链路（PDF/DOCX） | `.\.venv\Scripts\python.exe -m app.graph_demo path\to\contract.pdf` | ✅ 可用 |
 | 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 115 个通过 |
+| 恢复人工决定 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision approve --reviewer zhangsan` | ✅ 可用（SQLite 跨进程） |
+| 超时语义 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision timeout` | ✅ 可用 → `unreviewed_red_risk` |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 131 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
-| 命令行 | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
+| 命令行（统一入口） | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `uvicorn app.api:app --reload` | ⏳ 计划（`api.py` 未创建） |
 | UI | `streamlit run app/ui.py` | ⏳ 计划（`ui.py` 未创建） |
 | 规则评测 | `python eval/run_eval.py --mode rules` | ⏳ 计划（`eval/` 未创建） |
 | 全链路评测 | `python eval/run_eval.py --mode full` | ⏳ 计划（需要 LLM Key） |
 
-> 标 ✅ 的命令已实际执行验证；标 ⏳ 的尚不可用。
+> 标 ✅ 的命令已实际执行验证；标 ⏳ 的尚不可用。`--decision` 支持 `approve / reject / changes(request_changes) / timeout`；`--memory` 用内存 checkpointer（仅单进程调试）。
 
 ---
 
 ## 6. 已确认的设计底线
 
-1. **规则唯一判级**：`red / yellow / pass` 只能由 Python 规则产生；LLM 输出里不允许有 `risk_level` 字段。
-2. **LLM 只做两件事**：抽取条款要素（缺失写 null）；解释风险与给建议（必须引用原文）。
+1. **规则唯一判级**：`red / yellow / pass` 只能由 Python 规则产生；LLM 输出（抽取/解释/专家）里不允许有 `risk_level` 字段。
+2. **LLM 只做两件事**：抽取条款要素（缺失写 null）；解释风险与给建议（必须引用原文）。RAG/专家节点只能增强解释，不能新增或改写等级。
 3. **HITL 真中断**：节点内 `interrupt()`；checkpointer 持久化；`Command(resume=HitlDecision)` 恢复；审批前零业务写入；超时不自动通过。
-4. **失败显式降级**：LLM 失败 → 抽取降级/解释兜底；规则执行异常 → fail-closed 系统 red（`is_system_finding=true`，进入 HITL）；HITL 超时 → `unreviewed_red_risk`。
-5. **证据可定位**：`文件:第N页:字符start-end`；LLM 引文必须精确出现在条款原文（仅允许空白/Unicode 规范化）。
+4. **失败显式降级**：LLM 失败 → 抽取降级/解释兜底；规则执行异常 → fail-closed 系统 red（`is_system_finding=true`，进入 HITL）；HITL 超时 → `unreviewed_red_risk`；RAG 无命中 → 退化为纯规则解释。
+5. **证据可定位**：`文件:第N页:字符start-end`；LLM 引文必须精确出现在条款原文（仅允许空白/Unicode 规范化）；知识引用必须能定位到 `source_id#section`。
 6. **抽取状态是一等状态**：`ok / degraded / skipped` 都必须进报告；`degraded` 时字段规则 `skipped`，不得把系统降级伪装成“合同缺少条款”。
-7. **图结构**：确定性顺序主干；只有“是否有 red”“是否 approve”两个条件边；不用 Supervisor/并行/单体 ReAct。
+7. **图结构**：确定性顺序主干；条件边只用于“是否有 red”（第 5 步再加“是否 approve”）；不用并行/单体 ReAct；Supervisor 仅白名单路由（ADR-007）。
 8. **持久化**：运行用 SQLite checkpointer，测试用内存；`thread_id=review_id`；报告/pending/审计与 checkpoint 分离。
-9. **不引入**：Supervisor、多智能体、RAG 知识库、Neo4j、训练模型、Docker、React/Vue、Postgres/Redis、PyMuPDF 默认依赖、无许可证仓库代码。
+9. **RAG/多智能体默认关闭**：`RAG_ENABLED=false`、`AGENTS_ENABLED=false`；开启后也只用于解释/建议/条款比对；Supervisor 与专家不得判级。
+10. **不引入**：Neo4j/GraphRAG、向量数据库、训练模型、Docker、React/Vue、Postgres/Redis、PyMuPDF 默认依赖、无许可证仓库代码。
 
 ---
 
@@ -234,7 +243,7 @@ Agent_Alex外贸合同智审助手/
 | 1 | 默认 `python` 是 3.14，直接 `python -m venv` 会装不上/跑不稳 | 显式用 `py -3.12 -m venv .venv`，命令都用 `.venv\Scripts\python.exe` |
 | 2 | `git clone github.com` 在本机被重置 | 依赖安装走 PyPI；拉参考仓库用 `codeload.github.com` tar.gz；不要反复重试 clone |
 | 3 | LangGraph resume 会从 `interrupt()` 所在节点顶部重跑 | interrupt 之前只做纯读取；所有写库/外部调用放到 interrupt 之后 |
-| 4 | MemorySaver 不跨进程持久化 | 演示/生产用 `AsyncSqliteSaver`；MemorySaver 只用于测试 |
+| 4 | MemorySaver 不跨进程持久化 | 演示/生产用 `sqlite_checkpointer()`（同步 `SqliteSaver`）；MemorySaver 只用于测试（`memory_checkpointer()`） |
 | 5 | `interrupt_before` 与节点内 `interrupt()` 两种方案混用会混淆 | 本项目统一用节点内 `interrupt()`；不要同时用 `interrupt_before`（ADR-002） |
 | 6 | 让 LLM 输出等级会导致不可回归 | 抽取/解释 schema 都不含 `risk_level`；Pydantic `extra="forbid"` |
 | 7 | PDF 解析是最大不确定性 | 只支持文本型 PDF（pypdf）；扫描件明确提示“不支持/需 OCR”；DOCX 用 python-docx；TXT 直接读（ADR-005） |
@@ -270,6 +279,15 @@ Agent_Alex外贸合同智审助手/
 | 37 | `tests/fakes.py` 的 Fake LLM 必须实现 `StructuredLLM` 协议（`model_id` + `invoke`） | 新节点依赖 LLM 时用同一协议，测试注入 `FakeLLM`，禁止在业务代码里写 if-test 分支 |
 | 38 | `get_llm()` 是 `lru_cache(maxsize=1)`；测试改 `settings` 后必须 `cache_clear()` | 否则会一直用旧 Key/模型；已在 `test_llm_service.py` 用 try/finally 示范 |
 | 39 | 条款数 > `MAX_EXTRACT_CLAUSES`（默认 40）时只抽部分条款 | 按“全量成功才算 ok”的规则，此时字段规则全部 skipped；长合同要么调大上限，要么接受跳过并在报告提示 |
+| 40 | SQLite checkpoint 会告警“Deserializing unregistered type app.schemas.X ... will be blocked in a future version” | 必须用 `app/services/checkpointer.py` 的 `_serde()`（`JsonPlusSerializer(allowed_msgpack_modules=[...])`）登记 `app.schemas` 全部 Pydantic 类型；不要直接用裸 `SqliteSaver`/`InMemorySaver` |
+| 41 | `SqliteSaver.from_conn_string()` 不接受 `serde` | 手动 `sqlite3.connect(path, check_same_thread=False)` → `SqliteSaver(conn, serde=_serde())`，并在 `finally` 关闭连接 |
+| 42 | `invoke()` 暂停时返回值含 `__interrupt__` 键，直接 `ContractReviewState.model_validate(raw)` 会因 extra 字段失败 | 用 `{k: v for k, v in raw.items() if not k.startswith("__")}` 过滤后再校验 |
+| 43 | 暂停时 `state.status` 仍是 `running`，不是 `awaiting_human` | `awaiting_human` 由 `ReviewService` 从 `snapshot.next` 派生；不要把状态机写成“节点返回 awaiting_human” |
+| 44 | 已终态 review 再次 `resume` 会重跑图/重复生成报告 | `ReviewService.resume()` 先查 `snapshot.next`；不在 `human_review` 且状态属于 `FINAL_STATUSES` 时直接返回现有结果（幂等） |
+| 45 | CLI 误把 checkpointer 传给 `ReviewService`（第一个参数是 compiled graph） | 正确写法 `ReviewService(build_graph(checkpointer=sqlite_checkpointer()))`；`SqliteSaver` 没有 `invoke` |
+| 46 | `interrupt()` 抛出的暂停不是异常，不会让 CLI 非零退出 | CLI 需要显式判断 `awaiting_human` 并打印 `review_id` 与恢复命令；不要用“进程失败”表示等待审批 |
+| 47 | `ReviewService._requested_at` 仅存进程内存，重启后惰性超时失效 | 单进程演示可接受；第 6 步落盘 `.data/pending/<review_id>.json`（ISSUE-017）；不要把缺失时间当作“已超时” |
+| 48 | 人工意见里的 `overrides` 可能引用不存在的 `rule_id` | 节点只产生 warning，不写入报告等级；规则等级永远不会被人工意见改写 |
 
 ---
 
@@ -303,8 +321,23 @@ Agent_Alex外贸合同智审助手/
 4. 下一步按顺序：
    - ~~**第 2 步**：`ingest` 接入 PDF（pypdf）/DOCX（python-docx）；`segment` 加标题识别、超长条款拆分、完整 `clause_type` 表；补 PDF/DOCX fixture。~~ ✅ 已完成（2026-10-26，63 个测试）。
    - ~~**第 3 步**：`app/services/llm.py` + `services/evidence.py` + `nodes/extract.py` + `nodes/validate.py`；Fake LLM 测试，无需 Key。~~ ✅ 已完成（2026-10-26，115 个测试；规则 5 → 7 条）。
-   - **第 4 步（当前下一步）**：`is_red` 条件边 + `interrupt()` + checkpointer（测试用 InMemorySaver，运行用 AsyncSqliteSaver）+ 8 条 HITL 测试。
-   - **第 5 步**：`nodes/explain.py` + Quality Gate + 报告合并。
-   - **第 6 步**：FastAPI + Streamlit。
+   - ~~**第 4 步**：`route_by_risk` 条件边 + `interrupt()` + checkpointer（测试 `InMemorySaver`，运行 `SqliteSaver`）+ HITL 测试。~~ ✅ 已完成（2026-10-27，131 个测试；14 个 HITL 测试；SQLite 跨进程实测）。
+   - **第 5 步（当前下一步）**：`nodes/explain.py` + Quality Gate + 报告合并；RAG MVP（BM25/字符 n-gram，默认 `RAG_ENABLED=false`）。
+   - **第 6 步**：FastAPI + Streamlit（上传、运行、展示/确认、下载；`.data/pending` 落盘 + `asyncio.Lock`）。
    - 规则扩到 10–12 条（ISSUE-009），再建 20–30 条 gold（ISSUE-005）。
-5. 每完成一个阶段：更新 `00_PROJECT_STATE.md`、写当日 `03_DEV_LOGS/YYYY-MM-DD.md`、更新本文件的“当前完成度/已知坑”、更新 `05_OPEN_ISSUES.md`。
+   - RAG 语料与授权（ISSUE-015）按 `06_RAG与多智能体资料清单.md` 准备；多智能体范围（ISSUE-016）阶段 B 再定。
+6. 每完成一个阶段：更新 `00_PROJECT_STATE.md`、写当日 `03_DEV_LOGS/YYYY-MM-DD.md`、更新本文件的“当前完成度/已知坑”、更新 `05_OPEN_ISSUES.md`。
+
+---
+
+## 11. RAG / 多智能体边界（ADR-007）
+
+| 允许 | 禁止 |
+|---|---|
+| 本地知识检索增强解释/建议（BM25、字符 n-gram） | 用 RAG 结果决定 `red / yellow / pass` |
+| 知识引用格式 `source_id#section` | 引用未登记/无授权的文档 |
+| 专家节点补充解释（付款/交付/争议） | 专家改级、新增 red/yellow、越权给法律结论 |
+| Supervisor 白名单路由 | Supervisor 判级、自由规划、动态生成节点 |
+| 开关控制（默认关闭） | 默认开启、隐式联网调用 embedding 服务 |
+
+默认行为：`RAG_ENABLED=false` 时 `explain` 只用规则 `reason` + 合同原文；RAG 无命中时必须退化为纯规则解释，并在 `limitations` 说明“未使用知识库”。

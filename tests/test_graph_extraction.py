@@ -9,8 +9,11 @@ import pytest
 from app.graph_demo import run_review
 from app.nodes import extract as extract_module
 from app.nodes.report import EXTRACTION_DEGRADED_LIMITATION
-from app.schemas import ExtractedFieldSet
+from app.schemas import ExtractedFieldSet, HitlDecision
 from tests.fakes import FakeLLM, by_clause, clause_id_of, field, field_set
+
+#: 样例合同含 red 风险，图会停在 human_review；测试里显式批准（不是自动通过）
+APPROVE = HitlDecision(action="approve", reviewer="test-reviewer")
 
 FIELDS = {
     "C000": field_set(
@@ -46,10 +49,10 @@ def test_graph_extracts_fields_with_fake_llm(
 ) -> None:
     monkeypatch.setattr(extract_module, "get_llm", lambda: by_clause(FIELDS))
 
-    state = run_review(sample_path)
+    state = run_review(sample_path, decision=APPROVE)
     assert state.report is not None
 
-    assert state.status == "completed"
+    assert state.status == "approved"
     assert state.extraction_status == "ok"
     assert state.extraction_model == "fake-llm"
     assert state.prompt_version == "extract-v1"
@@ -85,7 +88,7 @@ def test_graph_extracts_fields_with_fake_llm(
 
 
 def test_graph_without_key_degrades_and_skips_field_rules(sample_path: Path) -> None:
-    state = run_review(sample_path)
+    state = run_review(sample_path, decision=APPROVE)
     assert state.report is not None
 
     assert state.extraction_status == "degraded"
@@ -104,7 +107,7 @@ def test_graph_without_key_degrades_and_skips_field_rules(sample_path: Path) -> 
 
     assert EXTRACTION_DEGRADED_LIMITATION in state.report.limitations
     assert "跳过" in state.report.summary
-    assert state.status == "completed"
+    assert state.status == "approved"
 
 
 def test_partial_failure_degrades_and_skips_field_rules(
@@ -118,7 +121,7 @@ def test_partial_failure_degrades_and_skips_field_rules(
 
     monkeypatch.setattr(extract_module, "get_llm", lambda: FakeLLM(handler))
 
-    state = run_review(sample_path)
+    state = run_review(sample_path, decision=APPROVE)
     assert state.report is not None
 
     assert state.extraction_status == "degraded"
@@ -127,7 +130,7 @@ def test_partial_failure_degrades_and_skips_field_rules(
     assert state.facts["total_amount"] == 3_100_000.0
     assert _evaluations(state)["R-DLV-001"].skipped
     assert state.report.extracted_fields["total_amount"] == 3_100_000.0
-    assert state.report.status == "completed"
+    assert state.report.status == "approved"
 
 
 def test_graph_timings_include_llm_nodes(
@@ -135,6 +138,6 @@ def test_graph_timings_include_llm_nodes(
 ) -> None:
     monkeypatch.setattr(extract_module, "get_llm", lambda: by_clause(FIELDS))
 
-    state = run_review(sample_path)
+    state = run_review(sample_path, decision=APPROVE)
 
     assert {"extract_fields_ms", "validate_extraction_ms"} <= set(state.timings)
