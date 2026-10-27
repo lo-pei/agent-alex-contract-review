@@ -153,26 +153,63 @@ def test_sidebar_kept_but_main_content_is_minimal() -> None:
 
 
 def test_review_focus_lives_in_main_composer_not_sidebar() -> None:
-    """审查重点 / 附件 / Skill 选择属于右侧对话输入区，不再塞在侧栏。"""
+    """审查重点 / 附件 / Skill 选择属于右侧对话输入区；仓库入口在侧栏。"""
     page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
 
     sidebar = page.split('<header class="topbar"', 1)[0]
-    for needle in ("focus-input", "attach-button", "skill-select", "open-skills"):
+    for needle in ("focus-input", "attach-button", "skill-select"):
         assert needle not in sidebar, f"侧栏仍包含输入组件：{needle}"
         assert needle in script, f"app.js 缺少输入组件：{needle}"
+
+    # Skill 仓库是侧栏入口；输入区不再重复放一个“Skill 仓库”按钮
+    assert 'id="open-skills"' in sidebar
+    assert 'id="open-skills"' not in script.split('id="composer-box"', 1)[-1]
+    assert "open-skills" not in page.split('class="composer-tools"', 1)[-1].split("</div>", 1)[0]
 
     # 输入区按对话式排布：文本域 + 工具行 + 圆形发送键
     assert 'class="composer-box"' in script
     assert 'class="composer-tools"' in script
     assert 'class="send"' in script
-    assert "Shift" in script and "Enter" in script
+    # Enter 发送、Shift+Enter 换行（代码里是 event.shiftKey）
+    assert "event.key" in script and "shiftKey" in script
+
+
+def test_skill_select_defaults_to_repo_last_and_no_empty_option() -> None:
+    """Skill 下拉默认给几个内置 Skill，最后一项固定为 Skill 仓库。"""
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert 'SKILL_REPO_VALUE = "__repo__"' in script
+    assert "Skill 仓库…" in script
+    # 旧的“不使用 Skill”占位已删除
+    assert "不使用 Skill" not in script
+    # 默认选中内置“全量体检”
+    assert "builtin:full" in script
+    # 选中仓库项时不当作 Skill，而是打开侧栏仓库
+    assert "onSkillSelectChange" in script
+
+
+def test_sidebar_has_skill_repo_and_history_submenu() -> None:
+    """侧栏有 Skill 仓库入口；“审查历史”展开为子目录，可改名 / 置顶 / 删除。"""
+    page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    assert "Skill 仓库" in page
+    assert 'id="open-skills"' in page
+    assert 'id="open-history"' in page
+    assert "审查历史" in page
+    assert 'id="history-sub"' in page
+    # 记录操作走 PATCH / DELETE，不改等级
+    assert 'method: "PATCH"' in script
+    assert 'method: "DELETE"' in script
+    assert "data-rename" in script and "data-pin" in script and "data-delete" in script
+    assert ".rec-item" in styles and ".rec-rename" in styles
 
 
 def test_auth_dialog_keeps_single_entry_and_stable_size() -> None:
-    """侧栏只保留“登录”；注册在弹窗内切换，切换时高度不跳动。"""
+    """侧栏只保留“登录”；注册在弹窗内切换，切换时高度不跳动、字段间距均匀。"""
     page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
-    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
     sidebar = page.split('<header class="topbar"', 1)[0]
@@ -181,11 +218,29 @@ def test_auth_dialog_keeps_single_entry_and_stable_size() -> None:
     assert 'data-auth="register"' not in sidebar
 
     assert 'data-auth-tab="register"' in page
-    assert 'id="auth-switch-hint"' in page
-    assert ".auth-extra" in styles
-    assert "auth-switch-hint" in script
-    # 两个模式共用同一块占位区域，弹窗尺寸不随切换变化
-    assert "min-height: 62px" in styles
+    # 昵称栏直接放在表单里（登录时隐藏），邮箱与密码之间不再插一块占位
+    form = page.split('id="auth-form"', 1)[1].split("</form>", 1)[0]
+    assert 'id="name-field"' in form
+    assert "auth-extra" not in form
+    assert "auth-switch-hint" not in page
+    # 弹窗正文有固定最小高度：多一个昵称栏也不会把弹窗撑大
+    assert "#auth-dialog .dialog-body" in styles
+    assert "min-height: 396px" in styles
+    # 字段之间只有统一间距（邮箱→密码 = 10px）
+    assert "gap: 10px" in styles.split(".dialog-form", 1)[1][:80]
+
+
+def test_login_and_register_require_manual_consent() -> None:
+    """登录与注册都必须手动勾选同意隐私条款与使用政策，默认不勾选。"""
+    page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="auth-consent"' in page
+    assert 'type="checkbox"' in page
+    assert "checked" not in page.split('id="auth-consent"', 1)[1].split(">", 1)[0]
+    assert "请先勾选同意隐私条款与使用政策。" in script
+    # 切到登录/注册时都复位成未勾选
+    assert "consent.checked = false" in script
 
 
 def test_footer_disclaimer_and_legal_dialogs() -> None:

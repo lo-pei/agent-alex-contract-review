@@ -310,6 +310,67 @@ def test_history_requires_login(client: TestClient) -> None:
     assert client.get("/api/reviews").status_code == 401
 
 
+def _record_one(client: TestClient) -> str:
+    created = client.post(
+        "/api/reviews",
+        files={"file": ("contract.txt", CONTRACT.encode("utf-8"), "text/plain")},
+    )
+    assert created.status_code == 201, created.text
+    return created.json()["review_id"]
+
+
+def test_review_record_can_be_renamed_and_pinned(client: TestClient) -> None:
+    """历史列表支持改标签名与置顶；置顶排在最前，改名不影响等级。"""
+    register(client)
+    first = _record_one(client)
+    second = _record_one(client)
+
+    renamed = client.patch(f"/api/reviews/{first}", json={"title": "  亚洲客户·2026  "})
+    assert renamed.status_code == 200, renamed.text
+    assert renamed.json()["title"] == "亚洲客户·2026"
+
+    pinned = client.patch(f"/api/reviews/{first}", json={"pinned": True})
+    assert pinned.status_code == 200
+    assert pinned.json()["pinned"] is True
+
+    listed = client.get("/api/reviews").json()["reviews"]
+    assert [item["review_id"] for item in listed] == [first, second]
+    assert listed[0]["title"] == "亚洲客户·2026"
+
+    # 传空标签 = 恢复显示文件名
+    cleared = client.patch(f"/api/reviews/{first}", json={"title": ""})
+    assert cleared.json()["title"] is None
+
+    # 改名/置顶不改等级：记录里的等级仍来自规则（停待确认时是 unknown）
+    assert listed[0]["overall_level"] in {"red", "yellow", "green", "unknown"}
+
+
+def test_review_record_can_be_deleted_and_then_is_missing(client: TestClient) -> None:
+    register(client)
+    review_id = _record_one(client)
+    assert client.get(f"/api/reviews/{review_id}").status_code == 200
+
+    removed = client.delete(f"/api/reviews/{review_id}")
+    assert removed.status_code == 204
+    assert client.get("/api/reviews").json()["total"] == 0
+    assert client.get(f"/api/reviews/{review_id}").status_code == 404
+
+
+def test_record_edit_and_delete_are_scoped_to_owner(client: TestClient) -> None:
+    register(client)
+    review_id = _record_one(client)
+    client.post("/api/auth/logout")
+    register(client, "seller@example.com")
+
+    assert client.patch(f"/api/reviews/{review_id}", json={"pinned": True}).status_code == 404
+    assert client.delete(f"/api/reviews/{review_id}").status_code == 404
+
+
+def test_history_edit_requires_login(client: TestClient) -> None:
+    assert client.patch("/api/reviews/r-1", json={"pinned": True}).status_code == 401
+    assert client.delete("/api/reviews/r-1").status_code == 401
+
+
 def test_other_account_cannot_read_review(client: TestClient) -> None:
     register(client)
     review_id = client.post(

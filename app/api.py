@@ -169,6 +169,15 @@ class ReviewHistory(BaseModel):
     total: int
 
 
+class ReviewPatch(BaseModel):
+    """审查记录的改名 / 置顶（字段缺省表示不改）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = Field(default=None, max_length=60)
+    pinned: bool | None = None
+
+
 class RuleSummary(BaseModel):
     """规则集目录项：只读展示用，不含正则/DSL（避免把判定细节泄露给客户端）。"""
 
@@ -378,11 +387,13 @@ def create_app(
         if user is None or state is None:
             return
         reds, yellows = _level_counts(state)
+        # 图暂停在人工确认时 `state.status` 仍是 running；历史列表要显示“待确认”
+        status = "awaiting_human" if run.awaiting_human else run.status
         store_of(request).record_review(
             review_id=run.review_id,
             owner_id=user.id,
             source_filename=state.source_filename,
-            status=run.status,
+            status=status,
             overall_level=state.overall_level,
             reds=reds,
             yellows=yellows,
@@ -450,6 +461,33 @@ def create_app(
         user = require_user(request)
         items = store_of(request).list_reviews(user.id, limit=limit)
         return ReviewHistory(reviews=items, total=len(items))
+
+    @app.patch("/api/reviews/{review_id}", response_model=ReviewRecord)
+    def patch_review(
+        payload: ReviewPatch,
+        request: Request,
+        review_id: str = ApiPath(pattern=REVIEW_ID_PATTERN),
+    ) -> ReviewRecord:
+        """改标签名 / 置顶：只动 `review_records`，不重跑审查、不改任何等级。"""
+        user = require_user(request)
+        store = store_of(request)
+        if payload.pinned is not None:
+            record = store.set_review_pinned(user.id, review_id, payload.pinned)
+            if payload.title is None:
+                return record
+        return store.rename_review(user.id, review_id, payload.title or "")
+
+    @app.delete("/api/reviews/{review_id}", status_code=204)
+    def delete_review(
+        request: Request,
+        review_id: str = ApiPath(pattern=REVIEW_ID_PATTERN),
+    ) -> Response:
+        """删除历史记录：只有归属账号能删；同时清掉本机 checkpoint 与上传文件。"""
+        user = require_user(request)
+        store_of(request).delete_review(user.id, review_id)
+        _service_of(request).discard(review_id)
+        shutil.rmtree(upload_root / review_id, ignore_errors=True)
+        return Response(status_code=204)
 
     # ---------- Skill ----------
 

@@ -195,6 +195,23 @@ class ReviewService:
             raise ReviewStateError(f"审查不存在：{review_id}", missing=True)
         return ContractReviewState.model_validate(snapshot.values)
 
+    def discard(self, review_id: str) -> None:
+        """删除一次审查在本机留下的运行痕迹（历史记录被删时调用）。
+
+        只做清理：pending 时间戳、checkpoint 线程、进程内模型配置。
+        归属校验由 API 层用 `review_records` 完成；清理失败不阻断记录删除。
+        """
+        with self._lock_for(review_id):
+            self._pending.pop(review_id)
+            clear_llm_runtime(review_id)
+            saver = getattr(self._graph, "checkpointer", None)
+            delete_thread = getattr(saver, "delete_thread", None)
+            if callable(delete_thread):
+                try:
+                    delete_thread(review_id)
+                except Exception:  # noqa: BLE001 - 清理是尽力而为，不影响接口返回
+                    pass
+
     # ---------- 内部 ----------
 
     def _lock_for(self, review_id: str) -> threading.RLock:

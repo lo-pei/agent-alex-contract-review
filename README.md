@@ -12,7 +12,7 @@
 |---|---|---|
 | 1. GitHub 调研 | ✅ | 8 个开源项目源码级分析，产出借鉴/不借鉴清单 |
 | 2. 架构设计 | ✅ | ADR-001 ~ ADR-013 全部已接受 |
-| 3. 代码实现 | ✅ 第 6 步完成 | 环境、9 节点图（含文档类型闸门）、规则引擎（13 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭；本机 `.env` 已开启，真实语料 14 篇：模型不可用时解释回退规则理由，但仍列出检索到的 `source_id#section`）、FastAPI + 对话式 Web 前端 + 账号/审查记录/Skill 仓库/BYOK + Streamlit、288 个测试 |
+| 3. 代码实现 | ✅ 第 6 步完成 | 环境、9 节点图（含文档类型闸门）、规则引擎（13 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭；本机 `.env` 已开启，真实语料 14 篇：模型不可用时解释回退规则理由，但仍列出检索到的 `source_id#section`）、FastAPI + 对话式 Web 前端 + 账号/审查历史（改名/置顶/删除）/Skill 仓库/BYOK + Streamlit、295 个测试 |
 | 4. 测试与评测 | ⏳ 第 4 轮完成 | 50 份模拟合同 + 21 个 silver gold 现象 + 四批留出集 40 份；三组指标（rule/contract/coverage）；**holdout4（唯一未消耗）P=1.00 / R=0.889 / F1=0.941，silver gold 待人工复核**；检索评测未做 |
 | 5. 文档与交付 | ⏳ 进行中 | 开发日志、ADR、交接文档、评测结果与 RAG 资料清单已建立 |
 
@@ -60,6 +60,7 @@ py -3.12 -m venv .venv
 #   GET  /api/reviews/{id}/report?format=json|markdown
 #   账号：POST /api/auth/register|login、POST /api/auth/logout、GET /api/auth/me
 #   记录：GET /api/reviews（需登录；未登录 401；跨账号 404）
+#   记录运维：PATCH /api/reviews/{id}（title / pinned，空串恢复文件名）、DELETE /api/reviews/{id}（204，连带清 pending/checkpoint/上传目录）
 #   Skill：GET /api/skills（未登录只给内置 7 个）、POST /api/skills、DELETE /api/skills/{id}
 #   BYOK：GET /api/llm/providers、GET|PUT|DELETE /api/llm（只回 has_key + 尾号）、POST /api/llm/test
 #   GET  /api/rules                  规则目录（只读；13 条，不返回正则/DSL；页面不再消费）
@@ -70,7 +71,7 @@ py -3.12 -m venv .venv
 
 # 6) 测试与静态检查
 .\.venv\Scripts\python.exe -m pytest
-# 288 passed
+# 295 passed
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
@@ -143,7 +144,7 @@ RAG_MIN_SCORE=1.0
 
 侧栏与顶栏（导航壳）：
 
-- 侧栏：品牌（Agent Alex / 合同审查助手）→ 导航“上传合同 / 当前审查（带高风险计数徽标）” → 底部 **API 配置**（含“未配置 / 需填 Key / 默认模型 / 已接入”状态）、**`/docs` 接口文档**、账号区（未登录只有“登录”；登录后“退出 + 我的审查”）；
+- 侧栏：品牌（Agent Alex / 合同审查助手）→ 导航“上传合同 / **审查历史**（点击展开子目录，带高风险计数徽标）”→ 底部 **Skill 仓库**（内置 7 个 + 自建，带数量）、**API 配置**（含“未配置 / 需填 Key / 默认模型 / 已接入”状态）、**`/docs` 接口文档**、账号区（未登录只有“登录”；登录后“退出”）；
 - 顶栏：面包屑（合同审查 / 当前页）+ 服务状态 pill；窄屏（≤900px）侧栏收成抽屉，汉堡按钮开合、遮罩点击或 `Esc` 关闭；
 - 接口版本 / checkpoint / RAG 开关等运行环境信息不进入界面（需要时看 `/health`）。
 
@@ -151,13 +152,15 @@ RAG_MIN_SCORE=1.0
 
 | 视图 / 路由 | 内容 |
 |---|---|
-| 对话首屏 `#/` | 居中的品牌小块 + 标题（未登录“今天想审查哪份合同？”/ 登录后“欢迎回来，{昵称}”）+ 圆角输入区：多行“审查重点”文本域 + 工具行（**合同**按钮 / 文件名 / **Skill 下拉** / **Skill 仓库** / 圆形发送键）+ 两行提示；**Enter 发送、Shift+Enter 换行**，合同也可直接拖进输入区（txt / md / 文本型 pdf / docx，前端先校验类型、空文件与 15 MB 上限） |
+| 对话首屏 `#/` | 居中的品牌小块 + 标题（未登录“今天想审查哪份合同？”/ 登录后“欢迎回来，{昵称}”）+ 圆角输入区：多行“审查重点”文本域 + 工具行（**合同**按钮 / 文件名 / **Skill 下拉**（内置 + 自建，末项固定“Skill 仓库…”）/ 圆形发送键）；**Enter 发送、Shift+Enter 换行**，合同也可直接拖进输入区（txt / md / 文本型 pdf / docx，前端先校验类型、空文件与 15 MB 上限） |
 | 风险点 `#/review/{id}` | 待确认：先列出规则已定位的**红色风险**（结论 + 建议 + 折叠的原文/位置），再请人工确认；确认后同一路由刷新为完整风险清单（含解释与知识引用），并提供 Markdown 报告下载 |
 | 不是合同 `#/review/{id}` | 文档类型闸门判否时：标题“这份文件不是合同”+ 判定依据 + “换一份合同”，不显示任何风险结论 |
 
-弹窗：**登录**（tab 内可切“注册”，切换时高度不跳动；注册多一个昵称字段）、“API 配置”（厂商 / Base URL / 模型 / Key / 测试连接 / 清除）、“Skill 仓库”（内置 7 个 + 自建增删）、“我的审查”（状态 / 红黄数 / 时间 / 审查重点）、“隐私条款 / 使用政策”（`01…` 编号条款，从页面右下角打开）。
+弹窗：**登录**（tab 内可切“注册”，两种模式弹窗尺寸一致 460×453；注册多一个昵称字段；**登录/注册都必须手勾“同意隐私条款与使用政策”，默认不勾选**）、“API 配置”（厂商 / Base URL / 模型 / Key / 测试连接 / 清除）、“Skill 仓库”（内置 7 个 + 自建增删）、“隐私条款 / 使用政策”（`01…` 编号条款，从页面右下角打开）。
 
-刷新或分享 `#/review/{id}` 可回到同一次审查；“当前审查”导航回到最近一次审查。未登录也能审查，但只有登录后的审查会进入“我的审查”，且不同账号之间读取一律 404。
+审查历史（侧栏子目录，替换原弹窗）：未登录显示“登录后可以查看过往审查记录。”；登录后按“置顶优先 + 时间倒序”列出最近 20 条（标题 / 状态 / 红黄计数 / 时间），点击回到 `#/review/{id}`；每行可**置顶**（`PATCH pinned`）、**改名**（行内表单，空串恢复文件名、截断 60 字）、**删除**（确认后 `DELETE`，连带清 pending / checkpoint / 上传目录）。
+
+刷新或分享 `#/review/{id}` 可回到同一次审查。未登录也能审查，但只有登录后的审查会进入“审查历史”，且不同账号之间读取/改名/删除一律 404。
 
 约束落地（`app/web/` + `tests/test_web.py`）：
 
@@ -169,7 +172,7 @@ RAG_MIN_SCORE=1.0
 - **上传先判类型**：`document_check.is_contract=false` 时只渲染“不是合同”页，不显示任何风险结论；
 - **所有后端文本先转义再插入 DOM**，避免合同内容里的 HTML 被执行；
 - **可访问性**：跳转链接、`aria-live` 结果区、`aria-current` 导航高亮、抽屉收起时 `visibility: hidden`（不能 Tab 到屏幕外）、`prefers-reduced-motion`、`prefers-color-scheme` 深色、打印时隐藏导航；
-- **测试**：入口与静态资源 200、本地字体（`font/*` + OFL）、无外链、无本地判级 / `Command`、侧栏保留但**输入区在主区**（侧栏不得出现 `focus-input` / `attach-button` / `skill-select` / `open-skills`）、登录单入口且弹窗切换等高（`.auth-extra{min-height:62px}`）、底部免责 + 右下角政策弹窗带编号（`legal-no`）、待确认先展示规则风险、下载指向 `/report`。
+- **测试**：入口与静态资源 200、本地字体（`font/*` + OFL）、无外链、无本地判级 / `Command`、侧栏保留但**输入区在主区**（侧栏不得出现 `focus-input` / `attach-button` / `skill-select`；Skill 仓库入口只在侧栏）、Skill 下拉末项固定为仓库且默认 `builtin:full`、侧栏有“审查历史”子目录且记录带改名/置顶/删除、登录单入口且弹窗定高（`#auth-dialog .dialog-body{min-height:396px}`）、登录/注册需手勾同意（默认不勾选）、底部免责 + 右下角政策弹窗带编号（`legal-no`）、待确认先展示规则风险、下载指向 `/report`。
 
 > 页面是“hash 路由 + 服务端契约渲染”的轻量前端；Streamlit（`app/ui.py`，端口 8501）保留为备用界面，与页面共用同一套 `ReviewService`。
 
@@ -223,7 +226,7 @@ data/contracts_holdout3/ # 8 份留出合同（H21–H28）→ 第 4 轮已消�
 data/contracts_holdout4/ # 12 份留出合同（H29–H40）→ 唯一未消耗，对外报数用这一批
 data/eval/               # gold_contracts.json（105 条检索期望）/ gold_rules.json（21 个 silver 现象）/ gold_holdout{,2,3,4}.json
 data/knowledge/          # 真实语料 14 篇 + manifest（RAG 默认关闭）；模拟合同1..6.md 为评测来源，不进 manifest
-tests/                   # 288 个测试（账号/记录/Skill/BYOK 24 / API 17 / 前端 13 / 文档类型 11 / pending 11 / RAG + 解释 24 / HITL 17 / 指标 11 / 规则含四批留出回归，无需 Key）
+tests/                   # 295 个测试（账号/记录/Skill/BYOK 28 / API 17 / 前端 16 / 文档类型 11 / pending 11 / RAG 22 + 解释 15 / HITL 17 / 指标 11 / 规则 53 含四批留出回归，无需 Key）
 tests/fakes.py           # Fake LLM（实现 StructuredLLM 协议）
 docs/devlog/             # 项目状态、调研、ADR、开发日志、交接、待决事项、RAG 资料清单
 ```

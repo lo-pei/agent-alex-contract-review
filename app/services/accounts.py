@@ -45,6 +45,7 @@ MAX_BASE_URL_CHARS = 300
 MAX_MODEL_CHARS = 120
 MAX_API_KEY_CHARS = 256
 MAX_FILENAME_CHARS = 200
+MAX_TITLE_CHARS = 60
 
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,185}\.[^@\s]{2,63}$")
 BASE_URL_RE = re.compile(r"^https?://[^\s]+$")
@@ -82,6 +83,10 @@ class ReviewRecord(BaseModel):
     yellows: int = 0
     focus: str | None = None
     skill_name: str | None = None
+    #: 用户给这条记录起的标签名；为空时前端显示 `source_filename`
+    title: str | None = None
+    #: 置顶（历史列表按 pinned desc, created_at desc 排序）
+    pinned: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -219,6 +224,8 @@ class AccountsStore:
                 yellows INTEGER NOT NULL DEFAULT 0,
                 focus TEXT,
                 skill_name TEXT,
+                title TEXT,
+                pinned INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -226,7 +233,21 @@ class AccountsStore:
                 ON review_records(owner_id, created_at DESC);
             """
         )
+        self._ensure_review_columns()
         self._connection.commit()
+
+    def _ensure_review_columns(self) -> None:
+        """老库平滑升级：`title` / `pinned` 是本轮新增列（ADR-013 第 2 轮）。"""
+        existing = {
+            row["name"]
+            for row in self._connection.execute("PRAGMA table_info(review_records)")
+        }
+        if "title" not in existing:
+            self._connection.execute("ALTER TABLE review_records ADD COLUMN title TEXT")
+        if "pinned" not in existing:
+            self._connection.execute(
+                "ALTER TABLE review_records ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0"
+            )
 
     # ---------- 账号 ----------
 
@@ -562,24 +583,74 @@ class AccountsStore:
     def list_reviews(self, owner_id: str, limit: int = 20) -> list[ReviewRecord]:
         rows = self._fetchall(
             "SELECT * FROM review_records WHERE owner_id = ?"
-            " ORDER BY created_at DESC LIMIT ?",
+            " ORDER BY pinned DESC, created_at DESC LIMIT ?",
             (owner_id, max(1, min(limit, 50))),
         )
-        return [
-            ReviewRecord(
-                review_id=row["review_id"],
-                source_filename=row["source_filename"],
-                status=row["status"],
-                overall_level=row["overall_level"],
-                reds=row["reds"],
-                yellows=row["yellows"],
-                focus=row["focus"],
-                skill_name=row["skill_name"],
-                created_at=_parse_time(row["created_at"]),
-                updated_at=_parse_time(row["updated_at"]),
-            )
-            for row in rows
-        ]
+        return [self._record_from_row(row) for row in rows]
+
+    def rename_review(self, owner_id: str, review_id: str, title: str) -> ReviewRecord:
+        """改标签名；传空字符串表示恢复成文件名。"""
+        cleaned = (title or "").strip()[:MAX_TITLE_CHARS] or None
+        self._update_review(
+            owner_id, review_id, "UPDATE review_records SET title = ? WHERE review_id = ?",
+            (cleaned, review_id),
+        )
+        return self._get_record(owner_id, review_id)
+
+    def set_review_pinned(
+        self, owner_id: str, review_id: str, pinned: bool
+    ) -> ReviewRecord:
+        self._update_review(
+            owner_id,
+            review_id,
+            "UPDATE review_records SET pinned = ? WHERE review_id = ?",
+            (1 if pinned else 0, review_id),
+        )
+        return self._get_record(owner_id, review_id)
+
+    def delete_review(self, owner_id: str, review_id: str) -> None:
+        self._update_review(
+            owner_id, review_id, "DELETE FROM review_records WHERE review_id = ?", (review_id,)
+        )
+
+    def _update_review(
+        self, owner_id: str, review_id: str, statement: str, params: tuple
+    ) -> None:
+        """只有归属账号能改/删；不存在与越权都按 not_found 处理（不泄露存在性）。"""
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT owner_id FROM review_records WHERE review_id = ?", (review_id,)
+            ).fetchone()
+            if row is None or row["owner_id"] != owner_id:
+                raise AccountError("审查记录不存在", code="not_found")
+            self._connection.execute(statement, params)
+            self._connection.commit()
+
+    def _get_record(self, owner_id: str, review_id: str) -> ReviewRecord:
+        row = self._fetchone(
+            "SELECT * FROM review_records WHERE review_id = ? AND owner_id = ?",
+            (review_id, owner_id),
+        )
+        if row is None:
+            raise AccountError("审查记录不存在", code="not_found")
+        return self._record_from_row(row)
+
+    @staticmethod
+    def _record_from_row(row: sqlite3.Row) -> ReviewRecord:
+        return ReviewRecord(
+            review_id=row["review_id"],
+            source_filename=row["source_filename"],
+            status=row["status"],
+            overall_level=row["overall_level"],
+            reds=row["reds"],
+            yellows=row["yellows"],
+            focus=row["focus"],
+            skill_name=row["skill_name"],
+            title=row["title"] if "title" in row.keys() else None,
+            pinned=bool(row["pinned"]) if "pinned" in row.keys() else False,
+            created_at=_parse_time(row["created_at"]),
+            updated_at=_parse_time(row["updated_at"]),
+        )
 
     # ---------- 内部 ----------
 

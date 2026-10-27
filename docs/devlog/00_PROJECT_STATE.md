@@ -1,6 +1,6 @@
 ﻿# 项目状态快照
 
-> 更新时间：2026-10-27（界面轮 5：账号/审查记录/Skill 仓库/BYOK + 右侧对话式首屏；界面轮 4：极简 C 端页“上传合同 → 看风险点”；界面轮 3：非合同闸门 + 收掉内部信息；界面轮 2：B 端工作台；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
+> 更新时间：2026-10-27（界面轮 6：审查历史子目录 + 记录改名/置顶/删除 + 侧栏 Skill 仓库 + 满屏布局 + 登录弹窗定高与同意勾选；界面轮 5：账号/审查记录/Skill 仓库/BYOK + 右侧对话式首屏；界面轮 4：极简 C 端页“上传合同 → 看风险点”；界面轮 3：非合同闸门 + 收掉内部信息；界面轮 2：B 端工作台；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
 > 当前阶段：**交付形态补齐：对话式 Web 前端（`app/web/` 原生 HTML/CSS/JS，右侧对话式首屏 + 结果页；侧栏 = 导航壳 + API 配置 + 接口文档 + 账号区；无框架/无 CDN/无构建/本地字体）；账号体系按 **ADR-013** 落地（本地 SQLite：口令 PBKDF2、会话只存哈希、审查记录按账号隔离、Skill 仓库、BYOK 密文盒 + 每审查模型运行时，`API_VERSION 1.0.0`）；上传先做**文档类型闸门**（论文/法规不进入判级）；第四阶段（测试与评测）进行中：规则 13 条（`version: 5`）；silver gold 21 个现象；四批留出集 40 份；当前唯一可对外报的数来自 holdout4（12 份）：P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）**
 > 项目目录：`d:\A项目\Agent_Alex外贸合同智审助手`
 > Git：`cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`（第 3 步）、`e41d235`（第 4 步）、`c7f24a9`（第 6 步）、`6eaff8c`（第 4 阶段第 1 轮）、`5dc05bd`（第 2 轮）、`c540259`（第 3 轮）、`eba67c0`（界面轮 1）、`892ddf2`（界面轮 2），本轮提交见 `git log`
@@ -22,6 +22,7 @@
 | 第三阶段第 4 步：HITL 真中断 | ✅ 100% | 条件边/`interrupt()`/审批载荷/checkpointer/幂等/惰性超时；15 个 HITL 测试 |
 | 第三阶段第 5 步：解释 + 质量门 + RAG MVP | ✅ 100% | `explain_risks` 节点/越权拦截/引用定位/BM25 检索/引用白名单；28 个新测试 |
 | 第三阶段第 6 步：FastAPI + Streamlit | ✅ 100% | 上传/审查/人工决定/下载 JSON+Markdown；pending 落盘；37 个新测试 |
+| 界面轮 6：历史子目录 / Skill 归位 / 满屏 / 弹窗定高 | ✅ 100% | “当前审查”改“审查历史”并在侧栏展开子目录（改名 / 置顶 / 删除）；Skill 仓库入口收到侧栏、下拉末项固定“Skill 仓库…”且默认 `builtin:full`；主区铺满屏幕；登录弹窗两种模式定高 460×453；登录/注册都必须手勾同意；`PATCH|DELETE /api/reviews/{id}`；全量 **295 测试** |
 | 界面轮 5：账号 / 记录 / Skill / BYOK + 对话式首屏 | ✅ 100% | 本地 SQLite 五表（账号/会话/Skill/模型配置/审查记录）、PBKDF2 口令与哈希会话、密文盒 Key（只回尾号）、每审查 `LLMRuntime`、7 个内置 Skill + 自建、右侧对话式输入区（Enter 发送/拖拽/审查重点/Skill 下拉）、底部免责 + 右下角政策弹窗；`API_VERSION 1.0.0`；`tests/test_accounts.py` 24 项 + `tests/test_web.py` 14 项；全量 **288 测试** |
 | 界面轮 4：侧栏保留 + 主区极简 | ✅ 100% | `app/web/` 主区收成两屏（上传 → 风险点），侧栏/顶栏导航壳保留；待确认态直接列出审批载荷中的红色风险；下载改指 `/report`；`tests/test_web.py` 10 项；全量 261 测试 |
 | 界面轮 3：非合同闸门 + 收掉内部信息 | ✅ 100% | 新增 `precheck_document`（`app/services/document_type.py`，纯规则）；`status=not_contract` 直接出“未执行审查”报告，不切条款/不抽取/不判级/不触发 HITL；`ReviewSummary.document_check`；前端新增“不是合同”页并移除侧栏“运行环境”；API 0.9.0；11 个闸门测试 + 1 个 API 测试 + 1 个前端测试 |
@@ -29,7 +30,28 @@
 | 第四阶段：测试与评测 | ⏳ 85% | 规则 13 条（`version: 5`：三类措辞 + 保额邻近判定）；50 份合同 + 21 个 silver gold 现象 + 四批留出集 40 份；**当前唯一未消耗的 holdout4：P=1.00 / R=0.889 / F1=0.941**（漏报 H39，故意不修）；检索评测（ISSUE-018）与人工复核 gold 仍未做 |
 | 第五阶段：文档与交付 | ⏳ 45% | README/状态/交接/ADR/资料清单/开发日志已同步；答辩材料未做 |
 
-## 最新产出（2026-10-27 界面轮 5：账号 / 审查记录 / Skill 仓库 / BYOK，右侧改成对话式）
+## 最新产出（2026-10-27 界面轮 6：历史可运维、Skill 入口归位、铺满屏幕、弹窗定高）
+
+- **起因（用户原话 7 条）**：
+  1. 删掉首屏三行说明（“上传合同，先判断是不是合同…”“也可以把合同文件拖进输入区…”“审查重点只影响解释的侧重…”）；
+  2. Skill 下拉把“不使用 Skill”换成“Skill”，默认配几个 Skill，**最后一个固定为 Skill 仓库**，删掉输入区的“Skill 仓库”按钮；
+  3. 左侧侧边栏增加 **Skill 仓库**，并配置默认的、跟审理合同有关的几个 Skill；
+  4. 页面没有填充整个屏幕、图片右侧大量空白 → 充分利用屏幕；
+  5. 登录弹窗中邮箱与密码之间空隙太大 → 均匀排列；
+  6. 登录和注册都要勾选同意隐私政策与使用条款，**默认不勾选**；
+  7. “当前审查”改为“审查历史”，点击展开子目录，可查看过往记录并**重命名 / 置顶 / 删除**。
+- **首屏与布局**（`app/web/app.js`、`app/web/styles.css`）：`.chat-sub / .chat-note / .chat-fine` 与三行文案全部删除；`.view` 改为 `display:flex; flex-direction:column; width:100%; max-width:none`，`.chat{flex:1; justify-content:center; padding:0 0 8vh}` 让首屏在整屏内垂直居中、输入区 `max-width:880px`；CDP 在 1440 量到白纸右边缘距视口 8px、1440 / 480 均无横向溢出。
+- **Skill 入口唯一化**：下拉选项 = 内置 7 个 + 自建（标“（我的）”）+ 固定末项 `<option value="__repo__">Skill 仓库…</option>`；选末项不提交，而是弹回 `state.skillId` 并打开侧栏仓库；默认 `builtin:full`（全量体检）。侧栏底部新增“Skill 仓库”入口（带 `#skill-count`），输入区不再有仓库按钮。
+- **审查历史子目录**（替换原弹窗）：侧栏“审查历史”是 `button.nav-action`（`aria-expanded` / `aria-controls`），点击展开 `#history-sub`；未登录显示“登录后可以查看过往审查记录。”；已登录 `GET /api/reviews?limit=20` 渲染 `.rec-item`（标题 / 状态 / 红黄计数 / 时间），每行三个工具：置顶、改名（行内表单）、删除（`confirm`）。标题缺省回退文件名，改名存 `title`，置顶排到列表最前。
+- **记录可运维的后端**（`app/services/accounts.py`、`app/api.py`）：`review_records` 新增 `title TEXT` / `pinned INTEGER NOT NULL DEFAULT 0`，用 `PRAGMA table_info` + `ALTER TABLE` 平滑升级老库；`list_reviews()` 改 `ORDER BY pinned DESC, created_at DESC`；新增 `PATCH /api/reviews/{id}`（`title` / `pinned`，空串 → 恢复文件名、截断 60 字）与 `DELETE /api/reviews/{id}`（204）；越权与不存在统一 **404**；删除时 `ReviewService.discard()` 清 pending 时间戳、`clear_llm_runtime()`、尽力 `checkpointer.delete_thread()`，API 再删上传目录。
+- **登录弹窗**：删掉 `.auth-extra` 包裹层与切换提示框（原 98px 空隙的来源），昵称字段直接进入表单（登录时隐藏）；用 `#auth-dialog .dialog-body{min-height:396px; justify-content:center}` 定高，登录/注册实测都是 **460×453**、body 396/396；表单 `gap:10px`，邮箱→密码实测 34px（含标签）。新增 `.auth-consent` 勾选行（“我已阅读并同意 使用政策 与 隐私条款”），`#auth-consent` 默认不勾选，切换模式也复位；未勾选提交提示“请先勾选同意隐私条款与使用政策。”。
+- **状态修正**：`record()` 在图停在人工确认时写 `status="awaiting_human"`（原来写 `running`，历史里会误显示“审查中”）。
+- **验证**：
+  - `pytest` **295 passed**（288 + `test_accounts.py` 4 项 + `test_web.py` 3 项）；`ruff check .` All checks passed；`node --check app/web/app.js` 通过；
+  - **CDP 冒烟 26 项全过**：主区铺满（sheetRight=1432 / innerWidth=1440 / view=1138）、输入区 880px、下拉 8 项且末项 `__repo__`、默认 `builtin:full`、输入区无 `#open-skills` / 侧栏有、同意默认不勾选、未勾选被拦、邮箱→密码 gap 34px、弹窗 460×453（body 396/396）、历史子目录三条工具、改名 / 置顶 / 删除全通、480px 无溢出；截图复核 5 张。
+- **仍未做**：同意勾选没有留痕（`consent_version` / `consent_at`，见 ISSUE-025）；历史列表无分页（先 20 条）；密码找回、登录限流、多 worker 运行时共享仍未做（同上轮）。
+
+## 上一轮产出（2026-10-27 界面轮 5：账号 / 审查记录 / Skill 仓库 / BYOK，右侧改成对话式）
 
 - **起因（用户原话要点）**：
   1. 要做登录/注册、每个账号记录自己的上传与审查情况 → 需要后台数据库；
@@ -363,8 +385,8 @@ START → ingest → precheck(是不是合同?) ─否→ report(not_contract)
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
-# 288 个用例：236 基础 + 前端（test_web.py 14）+ 规则目录 + 文档类型闸门 11
-#   + 账号/记录/Skill/BYOK（test_accounts.py 24）+ RAG 兜底
+# 295 个用例：236 基础 + 前端（test_web.py 16）+ 规则目录 + 文档类型闸门 11
+#   + 账号/记录/Skill/BYOK（test_accounts.py 28）+ RAG 兜底
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
@@ -425,6 +447,7 @@ START → ingest → precheck(是不是合同?) ─否→ report(not_contract)
 # → POST .../decisions（approve）→ GET /api/reviews/{id}/report?format=json|markdown
 # 账号（ADR-013）：POST /api/auth/register|login、POST /api/auth/logout、GET /api/auth/me
 # 记录：GET /api/reviews（需登录；未登录 401）
+# 记录运维：PATCH /api/reviews/{id}（title / pinned，空串恢复文件名）、DELETE /api/reviews/{id}（204，连带清 checkpoint/pending/上传目录）
 # Skill：GET /api/skills（未登录只给内置 7 个）、POST /api/skills、DELETE /api/skills/{id}
 # BYOK：GET /api/llm/providers、GET|PUT|DELETE /api/llm（只回 has_key + 尾号）、POST /api/llm/test
 # 只读规则目录（页面不消费）：GET /api/rules（13 条、5 红 / 8 黄；不返回正则/DSL）
@@ -460,6 +483,7 @@ API/UI（`tests/test_api.py` 16 个 + `tests/test_web.py` 6 个 + `tests/test_pe
    - ~~界面轮 3：非合同闸门 + 收掉内部信息~~ ✅ 已完成（2026-10-27，259 个测试）：`precheck_document` 先判断是不是合同；`not_contract` 直接出“未执行审查”报告；前端新增“不是合同”页并移除侧栏运行环境；`API_VERSION 0.9.0`；修复顶部“选择合同”按钮；`.env` 开启 RAG，且模型不可用时仍列出检索到的知识引用。
    - ~~界面轮 4：侧栏保留 + 主区两屏~~ ✅ 已完成（2026-10-27，261 个测试）：主区只留“上传合同 / 风险点”，待确认态先展示审批载荷中的红色风险；下载改指 `/report?format=markdown`。
    - ~~界面轮 5：账号 / 记录 / Skill 仓库 / BYOK + 右侧对话式~~ ✅ 已完成（2026-10-27，288 个测试）：本地 SQLite 五表 + PBKDF2 口令 + 哈希会话；密文盒 Key（只回尾号）+ 每审查 `LLMRuntime`；7 个内置 Skill + 自建；审查重点/附件/Skill 移到右侧对话式输入区；侧栏只留登录（注册在弹窗内、尺寸不变）；底部免责 + 右下角政策弹窗（编号排版）；`API_VERSION 1.0.0`。
+   - ~~界面轮 6：审查历史可运维 + Skill 归位 + 满屏 + 弹窗定高~~ ✅ 已完成（2026-10-27，295 个测试）：删掉首屏三行说明；Skill 下拉末项固定“Skill 仓库…”并默认 `builtin:full`，仓库入口移到侧栏；“当前审查”→“审查历史”侧栏子目录（改名 / 置顶 / 删除，`PATCH|DELETE /api/reviews/{id}`）；主区铺满整屏；登录/注册弹窗定高 460×453、邮箱→密码 gap 34px；两种模式都需手勾同意。
 6. **第四阶段（进行中）**：
    - ~~第 1 轮：规则 7 → 13 条（ISSUE-009）~~ ✅ 每条新规则都有语料命中集合回归；
    - ~~第 2 轮：silver gold（21 现象）+ 指标（rule/contract/coverage）+ 独立留出集（8 份）~~ ✅ 留出集 P=1.00 / R=0.71 / F1=0.83，暴露 2 个英文/同义改写漏报（ISSUE-021）；

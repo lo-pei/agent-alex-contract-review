@@ -10,6 +10,8 @@
 
   const MAX_BYTES = 15 * 1024 * 1024;
   const ALLOWED = [".pdf", ".docx", ".txt", ".md", ".markdown"];
+  /** Skill 下拉里的固定末项：选中即打开侧栏的 Skill 仓库 */
+  const SKILL_REPO_VALUE = "__repo__";
 
   const STATUS_LABEL = {
     awaiting_human: "待确认",
@@ -37,7 +39,6 @@
     accountLine: document.getElementById("account-line"),
     authLogin: document.getElementById("auth-login"),
     authLogout: document.getElementById("auth-logout"),
-    historyButton: document.getElementById("open-history"),
     llmState: document.getElementById("llm-state"),
   };
 
@@ -53,6 +54,7 @@
     llm: null,
     skills: [],
     providers: [],
+    history: [],
     authMode: "login",
   };
 
@@ -283,6 +285,8 @@
 
   function bindSidebarActions() {
     on("open-llm", "click", openLlmDialog);
+    // 需求：Skill 仓库是侧栏入口；输入区不再放“Skill 仓库”按钮
+    on("open-skills", "click", openSkills);
   }
 
   /* ---------- 账号 ---------- */
@@ -308,13 +312,23 @@
     const user = state.user;
     if (dom.accountLine) {
       dom.accountLine.hidden = !user;
-      dom.accountLine.textContent = user
-        ? (user.display_name || user.email) + " · " + user.email
-        : "";
+      if (!user) {
+        dom.accountLine.textContent = "";
+      } else {
+        // 昵称与邮箱分开显示；没填昵称就只显示邮箱（避免 "a@b · a@b" 这种重复）
+        const name = user.display_name || "";
+        dom.accountLine.title = name && name !== user.email ? name + " · " + user.email : user.email;
+        dom.accountLine.innerHTML = name
+          ? '<span class="account-name">' +
+            esc(name) +
+            '</span><span class="account-mail">' +
+            esc(user.email) +
+            "</span>"
+          : '<span class="account-mail">' + esc(user.email) + "</span>";
+      }
     }
     if (dom.authLogin) dom.authLogin.hidden = !!user;
     if (dom.authLogout) dom.authLogout.hidden = !user;
-    if (dom.historyButton) dom.historyButton.hidden = !user;
   }
 
   function setAuthMode(mode) {
@@ -323,9 +337,6 @@
     if (title) title.textContent = state.authMode === "register" ? "注册" : "登录";
     const nameField = document.getElementById("name-field");
     if (nameField) nameField.hidden = state.authMode !== "register";
-    // 登录态用一段提示占住昵称栏的位置，弹窗高度不随切换跳动
-    const switchHint = document.getElementById("auth-switch-hint");
-    if (switchHint) switchHint.hidden = state.authMode === "register";
     const submit = document.getElementById("auth-submit");
     if (submit) submit.textContent = state.authMode === "register" ? "注册并登录" : "登录";
     const note = document.getElementById("auth-note");
@@ -342,10 +353,15 @@
     });
     const error = document.getElementById("auth-error");
     if (error) error.hidden = true;
+    // 每次切换模式都恢复“未勾选”，避免沿用上一次的同意状态
+    const consent = document.getElementById("auth-consent");
+    if (consent) consent.checked = false;
   }
 
   function openAuth(mode) {
     setAuthMode(mode);
+    const consent = document.getElementById("auth-consent");
+    if (consent) consent.checked = false;
     openDialog("auth-dialog");
     const email = document.getElementById("auth-email");
     if (email) email.focus();
@@ -367,16 +383,18 @@
         }
         state.user = null;
         state.llm = null;
+        state.history = [];
         renderAccount();
         updateLlmState();
         renderUploadIfIdle();
         await loadSkills();
+        if (historySubOpen()) loadHistory();
         closeDrawer();
       });
     }
     on("auth-form", "submit", submitAuth);
-    on("auth-terms", "click", () => openLegal("terms"));
-    on("auth-privacy", "click", () => openLegal("privacy"));
+    on("auth-consent-terms", "click", () => openLegal("terms"));
+    on("auth-consent-privacy", "click", () => openLegal("privacy"));
   }
 
   async function submitAuth(event) {
@@ -384,6 +402,7 @@
     const email = document.getElementById("auth-email");
     const password = document.getElementById("auth-password");
     const name = document.getElementById("auth-name");
+    const consent = document.getElementById("auth-consent");
     const submit = document.getElementById("auth-submit");
     const errorBox = document.getElementById("auth-error");
 
@@ -397,6 +416,11 @@
     }
     if (state.authMode === "register" && passwordValue.length < 8) {
       showAuthError("密码至少 8 位。");
+      return;
+    }
+    // 需求：登录与注册都必须手动勾选同意隐私政策与使用条款（默认不勾选）
+    if (!consent || !consent.checked) {
+      showAuthError("请先勾选同意隐私条款与使用政策。");
       return;
     }
 
@@ -453,26 +477,48 @@
     }
     renderSkillSelect();
     renderSkillList();
+    const count = document.getElementById("skill-count");
+    if (count) {
+      count.textContent = String(state.skills.length);
+      count.hidden = state.skills.length === 0;
+    }
+  }
+
+  /** 默认 Skill：内置「全量体检」，没有就取第一个可用的 */
+  function defaultSkillId() {
+    const full = state.skills.find((skill) => skill.id === "builtin:full");
+    return full ? full.id : state.skills[0] ? state.skills[0].id : "";
   }
 
   function renderSkillSelect() {
     // select 只在聊天输入区里存在；结果页不需要（也不应重渲染整页）
     const select = document.getElementById("skill-select");
     if (!select) return;
-    const options = ['<option value="">不使用 Skill</option>'].concat(
-      state.skills.map(
-        (skill) =>
-          '<option value="' +
-          esc(skill.id) +
-          '">' +
-          esc(skill.name) +
-          (skill.builtin ? "" : "（我的）") +
-          "</option>",
-      ),
+    // 默认就有几个内置 Skill 可选；最后一项固定为“Skill 仓库”（选中即打开仓库）
+    const options = state.skills.map(
+      (skill) =>
+        '<option value="' +
+        esc(skill.id) +
+        '">' +
+        esc(skill.name) +
+        (skill.builtin ? "" : "（我的）") +
+        "</option>",
     );
+    options.push('<option value="' + SKILL_REPO_VALUE + '">Skill 仓库…</option>');
     select.innerHTML = options.join("");
     if (state.skillId && !skillById(state.skillId)) state.skillId = "";
+    if (!state.skillId) state.skillId = defaultSkillId();
     select.value = state.skillId;
+  }
+
+  function onSkillSelectChange(select) {
+    if (select.value === SKILL_REPO_VALUE) {
+      // 仓库是“入口”不是“选项”：打开弹窗，下拉回到当前真实选择
+      select.value = state.skillId;
+      openSkills();
+      return;
+    }
+    state.skillId = select.value;
   }
 
   function syncSkillSelectInView() {
@@ -835,59 +881,227 @@
     box.classList.toggle("is-error", !!isError);
   }
 
-  /* ---------- 审查记录 ---------- */
+  /* ---------- 审查历史（侧栏子目录：改名 / 置顶 / 删除） ---------- */
 
   function bindHistory() {
-    if (dom.historyButton) {
-      dom.historyButton.addEventListener("click", openHistory);
+    const toggle = document.getElementById("open-history");
+    if (toggle) {
+      toggle.addEventListener("click", () => {
+        const sub = document.getElementById("history-sub");
+        if (!sub) return;
+        const open = sub.hidden;
+        sub.hidden = !open;
+        toggle.setAttribute("aria-expanded", String(open));
+        if (open) loadHistory();
+      });
     }
-    on("history-list", "click", (event) => {
-      const link = event.target.closest("a[href^='#/review/']");
-      if (link) closeDialog("history-dialog");
-    });
+    on("history-list", "click", onHistoryClick);
+    on("history-list", "submit", onHistoryRename);
   }
 
-  async function openHistory() {
+  function historySubOpen() {
+    const sub = document.getElementById("history-sub");
+    return !!sub && !sub.hidden;
+  }
+
+  function setHistoryError(text) {
+    const box = document.getElementById("history-error");
+    if (!box) return;
+    box.textContent = text || "";
+    box.hidden = !text;
+  }
+
+  async function loadHistory() {
     const list = document.getElementById("history-list");
-    const errorBox = document.getElementById("history-error");
-    if (errorBox) errorBox.hidden = true;
+    const hint = document.getElementById("history-hint");
+    setHistoryError("");
+    if (!state.user) {
+      state.history = [];
+      if (hint) {
+        hint.textContent = "登录后可以查看过往审查记录。";
+        hint.hidden = false;
+      }
+      if (list) list.innerHTML = "";
+      setBadge(0);
+      return;
+    }
+    if (hint) hint.hidden = true;
     if (list) list.innerHTML = '<li class="skill-empty">正在读取…</li>';
-    openDialog("history-dialog");
     try {
       const data = await api("/api/reviews?limit=20");
-      const items = (data && data.reviews) || [];
-      if (!list) return;
-      list.innerHTML = items.length
-        ? items
-            .map((item) => {
-              const meta = [STATUS_LABEL[item.status] || item.status];
-              if (item.reds) meta.push(item.reds + " 处高风险");
-              if (item.yellows) meta.push(item.yellows + " 处需关注");
-              return (
-                '<li class="history-item">' +
-                '<a class="history-link" href="#/review/' +
-                encodeURIComponent(item.review_id) +
-                '">' +
-                '<span class="history-name">' +
-                esc(item.source_filename) +
-                "</span>" +
-                '<span class="history-meta">' +
-                esc(meta.join(" · ")) +
-                "</span>" +
-                '<span class="history-time">' +
-                esc(formatTime(item.created_at)) +
-                "</span>" +
-                "</a></li>"
-              );
-            })
-            .join("")
-        : '<li class="skill-empty">还没有记录，先上传一份合同吧。</li>';
+      state.history = (data && data.reviews) || [];
+      renderHistory();
+      setBadge(latestRedCount());
     } catch (error) {
       if (list) list.innerHTML = "";
-      if (errorBox) {
-        errorBox.textContent = error.message || "读取记录失败。";
-        errorBox.hidden = false;
+      setHistoryError(error.message || "读取记录失败。");
+    }
+  }
+
+  function latestRedCount() {
+    const first = state.history[0];
+    return first ? Math.max(0, first.reds || 0) : 0;
+  }
+
+  function recordTitle(item) {
+    return item.title || item.source_filename;
+  }
+
+  function recordMeta(item) {
+    const meta = [STATUS_LABEL[item.status] || item.status];
+    if (item.reds) meta.push(item.reds + " 处高风险");
+    if (item.yellows) meta.push(item.yellows + " 处需关注");
+    return meta.join(" · ");
+  }
+
+  function renderHistory() {
+    const list = document.getElementById("history-list");
+    if (!list) return;
+    if (!state.history.length) {
+      list.innerHTML = '<li class="skill-empty">还没有记录，先上传一份合同吧。</li>';
+      return;
+    }
+    list.innerHTML = state.history
+      .map((item) => {
+        const id = esc(item.review_id);
+        return (
+          '<li class="rec-item" data-review-id="' +
+          id +
+          '">' +
+          '<div class="rec-row">' +
+          '<a class="rec-link" href="#/review/' +
+          encodeURIComponent(item.review_id) +
+          '">' +
+          '<span class="rec-title">' +
+          (item.pinned ? '<span class="rec-pin" aria-hidden="true">置顶</span>' : "") +
+          esc(recordTitle(item)) +
+          "</span>" +
+          '<span class="rec-meta">' +
+          esc(recordMeta(item)) +
+          "</span>" +
+          "</a>" +
+          '<div class="rec-tools">' +
+          '<button class="rec-tool" type="button" data-pin title="' +
+          (item.pinned ? "取消置顶" : "置顶") +
+          '">' +
+          (item.pinned ? "↓" : "↑") +
+          "</button>" +
+          '<button class="rec-tool" type="button" data-rename title="重命名">✎</button>' +
+          '<button class="rec-tool" type="button" data-delete title="删除">×</button>' +
+          "</div>" +
+          "</div>" +
+          '<form class="rec-rename" hidden>' +
+          '<input type="text" maxlength="60" placeholder="' +
+          esc(item.source_filename) +
+          '" value="' +
+          esc(item.title || "") +
+          '" aria-label="审查记录标签名" />' +
+          '<button class="chip" type="submit">保存</button>' +
+          '<button class="chip chip-quiet" type="button" data-cancel>取消</button>' +
+          "</form>" +
+          '<span class="rec-time">' +
+          esc(formatTime(item.created_at)) +
+          "</span>" +
+          "</li>"
+        );
+      })
+      .join("");
+  }
+
+  function recordOf(reviewId) {
+    return state.history.find((item) => item.review_id === reviewId) || null;
+  }
+
+  function replaceRecord(updated) {
+    state.history = state.history.map((item) =>
+      item.review_id === updated.review_id ? updated : item,
+    );
+    renderHistory();
+  }
+
+  async function onHistoryClick(event) {
+    const row = event.target.closest("[data-review-id]");
+    if (!row) return;
+    const reviewId = row.dataset.reviewId;
+
+    const cancel = event.target.closest("[data-cancel]");
+    if (cancel) {
+      const form = row.querySelector(".rec-rename");
+      if (form) form.hidden = true;
+      return;
+    }
+
+    const rename = event.target.closest("[data-rename]");
+    if (rename) {
+      const form = row.querySelector(".rec-rename");
+      if (!form) return;
+      form.hidden = !form.hidden;
+      if (!form.hidden) {
+        const input = form.querySelector("input");
+        if (input) input.focus();
       }
+      return;
+    }
+
+    const pin = event.target.closest("[data-pin]");
+    if (pin) {
+      const item = recordOf(reviewId);
+      if (!item) return;
+      pin.disabled = true;
+      try {
+        const updated = await api("/api/reviews/" + encodeURIComponent(reviewId), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pinned: !item.pinned }),
+        });
+        replaceRecord(updated);
+      } catch (error) {
+        setHistoryError(error.message || "操作失败，请重试。");
+        pin.disabled = false;
+      }
+      return;
+    }
+
+    const remove = event.target.closest("[data-delete]");
+    if (remove) {
+      const item = recordOf(reviewId);
+      const label = item ? recordTitle(item) : reviewId;
+      if (!window.confirm("删除审查记录“" + label + "”？删除后无法恢复。")) return;
+      remove.disabled = true;
+      try {
+        await api("/api/reviews/" + encodeURIComponent(reviewId), { method: "DELETE" });
+        state.history = state.history.filter((entry) => entry.review_id !== reviewId);
+        renderHistory();
+        if (state.reviewId === reviewId) {
+          state.reviewId = null;
+          location.hash = "#/";
+        }
+      } catch (error) {
+        setHistoryError(error.message || "删除失败，请重试。");
+        remove.disabled = false;
+      }
+    }
+  }
+
+  async function onHistoryRename(event) {
+    const form = event.target.closest(".rec-rename");
+    if (!form) return;
+    event.preventDefault();
+    const row = form.closest("[data-review-id]");
+    if (!row) return;
+    const input = form.querySelector("input");
+    const button = form.querySelector('button[type="submit"]');
+    if (button) button.disabled = true;
+    try {
+      const updated = await api("/api/reviews/" + encodeURIComponent(row.dataset.reviewId), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: input ? input.value.trim() : "" }),
+      });
+      replaceRecord(updated);
+    } catch (error) {
+      setHistoryError(error.message || "保存失败，请重试。");
+      if (button) button.disabled = false;
     }
   }
 
@@ -1030,13 +1244,12 @@
       '<h1 class="chat-title">' +
       esc(chatTitle()) +
       "</h1>" +
-      '<p class="chat-sub">上传合同，先判断是不是合同，再列出需要关注的条款与修改建议。</p>' +
       "</div>" +
       '<div class="composer-box" id="drop">' +
       '<input id="file-input" type="file" accept=".pdf,.docx,.txt,.md" hidden />' +
       '<label class="sr-only" for="focus-input">审查重点</label>' +
       '<textarea class="composer-text" id="focus-input" rows="2" maxlength="800" ' +
-      'placeholder="说明这次要盯住什么，例如：重点看预付款比例与交付期限"></textarea>' +
+      'placeholder="说明这次最想盯住什么，例如：重点看预付款比例与交付期限"></textarea>' +
       '<div class="composer-tools">' +
       '<button class="tool" type="button" id="attach-button" aria-label="添加合同文件">' +
       '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">' +
@@ -1046,8 +1259,7 @@
       '<span class="tool-file" id="attach-file">未添加文件</span>' +
       '<button class="tool-clear" type="button" id="clear-attach" aria-label="移除已选文件" hidden>×</button>' +
       '<label class="sr-only" for="skill-select">选择 Skill</label>' +
-      '<select class="tool-select" id="skill-select"><option value="">不使用 Skill</option></select>' +
-      '<button class="tool-link" type="button" id="open-skills">Skill 仓库</button>' +
+      '<select class="tool-select" id="skill-select"></select>' +
       '<button class="send" type="button" id="start" aria-label="开始审查" title="开始审查" disabled>' +
       '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">' +
       '<path d="M12 19V6m0 0-5 5m5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" ' +
@@ -1055,8 +1267,6 @@
       "</div>" +
       "</div>" +
       '<p class="alert chat-error" id="form-error" role="alert" hidden></p>' +
-      '<p class="chat-note">也可以把合同文件拖进输入区；Enter 发送，Shift + Enter 换行。</p>' +
-      '<p class="chat-fine">审查重点只影响解释的侧重与建议方向，风险等级仍由规则判定。</p>' +
       "</section>";
 
     const input = dom.view.querySelector("#file-input");
@@ -1081,14 +1291,11 @@
 
     if (select) {
       select.value = state.skillId;
-      select.addEventListener("change", () => {
-        state.skillId = select.value;
-      });
+      select.addEventListener("change", () => onSkillSelectChange(select));
     }
 
     on("attach-button", "click", () => dom.view.querySelector("#file-input")?.click());
     on("clear-attach", "click", clearAttachment);
-    on("open-skills", "click", openSkills);
     on("start", "click", startReview);
 
     if (input) {

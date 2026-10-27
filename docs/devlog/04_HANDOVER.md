@@ -33,10 +33,11 @@
 | 解释 / RAG（第 5 步） | ✅ 质量门 + BM25 + 真实语料 | `app/nodes/explain.py`、`app/services/rag.py`、`data/knowledge/` |
 | API / UI（第 6 步） | ✅ FastAPI + pending 落盘 + Streamlit 备用 | `app/api.py`、`app/ui.py`、`app/report_markdown.py`、`app/services/pending_store.py` |
 | B 端审查工作台（界面轮 2） | ✅ 四视图 + 本地字体 + 只读规则目录 | `app/web/index.html`、`app/web/styles.css`、`app/web/app.js`、`app/web/fonts/`；`GET /`、`GET /static/*`、`GET /api/rules`；`tests/test_web.py`（6 项）、`tests/test_api.py::test_rule_catalog_matches_definitions` |
-| 账号 / 记录 / Skill / BYOK（界面轮 5） | ✅ 本地 SQLite + 密文盒 + 每审查模型运行时 | `app/services/accounts.py`、`app/services/secret_box.py`、`app/services/llm_providers.py`、`app/services/skill_catalog.py`、`app/services/llm.py`（`LLMRuntime` / `review_llm_scope`）；`tests/test_accounts.py`（24 项）；`API_VERSION 1.0.0` |
+| 账号 / 记录 / Skill / BYOK（界面轮 5） | ✅ 本地 SQLite + 密文盒 + 每审查模型运行时 | `app/services/accounts.py`、`app/services/secret_box.py`、`app/services/llm_providers.py`、`app/services/skill_catalog.py`、`app/services/llm.py`（`LLMRuntime` / `review_llm_scope`）；`tests/test_accounts.py`（28 项）；`API_VERSION 1.0.0` |
+| 历史可运维 + Skill 归位 + 满屏（界面轮 6） | ✅ 侧栏子目录 + 改名/置顶/删除 + 定高弹窗 | `app/services/accounts.py`（`title`/`pinned` + `ALTER TABLE` 升级 + `rename/set_pinned/delete`）、`app/review_service.py`（`discard`）、`app/api.py`（`PATCH|DELETE /api/reviews/{id}`）、`app/web/*`；`tests/test_accounts.py`（+4 项）、`tests/test_web.py`（+3 项） |
 | 主区极简 + 侧栏保留（界面轮 4） | ✅ 两屏：上传 → 风险点 | `app/web/index.html`、`app/web/app.js`、`app/web/styles.css`；侧栏/顶栏导航壳保留；hash 路由只留 `#/` 与 `#/review/{id}`；待确认态渲染 `approval.findings`；`tests/test_web.py`（10 项） |
 | 文档类型闸门（界面轮 3） | ✅ 先判断是不是合同，不是就停 | `app/services/document_type.py`、`app/nodes/precheck.py`、`app/graph.py`（`ingest → precheck → segment | report`）；`status=not_contract`；`tests/test_document_type.py`（11 项）、`tests/test_api.py::test_non_contract_upload_is_not_reviewed`、`tests/test_web.py::test_runtime_internals_stay_out_of_the_ui` |
-| 测试 | ✅ 288 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
+| 测试 | ✅ 295 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
 | 规则集 | ✅ 13 条 | `app/rules/definitions.yaml`（`version: 5`，三类措辞 + 保额邻近判定）；6 条新规则各有语料命中集合回归（ADR-010） |
 | 评测集 / 指标 | ⏳ 主集完成、四批留出完成、待复核 | `data/eval/gold_rules.json`（21 现象，silver）+ `gold_holdout{,2,3,4}.json`（7/9/7/9 现象）+ `eval/results/rules-*.json`；**silver gold 未经人工复核**，检索评测未做 |
 | Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`、`e41d235`、`c7f24a9`、`6eaff8c`、`5dc05bd`、`c540259`，以及后续每步提交 |
@@ -257,7 +258,7 @@ Agent_Alex外贸合同智审助手/
 | 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
 | 恢复人工决定 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision approve --reviewer zhangsan` | ✅ 可用（SQLite 跨进程） |
 | 超时语义 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision timeout` | ✅ 可用 → `unreviewed_red_risk` |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 288 个通过 |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 295 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行（统一入口） | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` | ✅ 可用（`/docs` 可试；默认 SQLite + 文件 pending） |
@@ -406,6 +407,12 @@ Agent_Alex外贸合同智审助手/
 | 111 | 把用户 API Key 放进 `ContractReviewState` / 函数默认参数，会随 checkpoint 落盘、进日志 | 用 `LLMRuntime` 按 `review_id` 登记 + `with review_llm_scope(...)` 包住 `graph.invoke()`；`get_llm()` 优先级“本次审查配置 → 环境默认 → `LLMNotConfigured` 降级”；终态 `_finish()` 清理运行时 |
 | 112 | 主密钥被删/换后，解密失败若静默回退到环境 Key，会变成“用错模型还要用户付钱” | `SecretBoxError` → 500 并提示“主密钥已变更，请在 API 配置里重新填写 Key”；测试 `test_rotated_master_key_reports_actionable_error` 钉住 |
 | 113 | 冒烟脚本、截图、临时 sqlite 散落在 `.tmp-shots/` 未忽略，容易被 `git add .` 带进仓库 | `.gitignore` 增加 `.tmp-shots/`；临时库用环境变量指到该目录（`USER_DB_PATH`/`CHECKPOINT_SQLITE_PATH`/`PENDING_DIR`/`UPLOAD_DIR`），不要动真实 `.data/` |
+| 114 | 登录弹窗里给“注册态”预留 `min-height:62px` 的包裹层，登录时那块空着，邮箱与密码之间出现 98px 大空隙 | 不要用“留白占位”等高；直接删掉包裹层，用 `#auth-dialog .dialog-body{min-height:396px; justify-content:center}` 让两种模式等高，表单字段回到统一的 `gap:10px`（实测邮箱→密码 34px，含标签） |
+| 115 | 定高的常量靠目测会翻车（先写 300px，注册态 body 实际 396px，切 tab 时弹窗从 460×385 跳到 460×453） | 先用 CDP `Page.captureScreenshot` 或 `dialog-body` 的 `getBoundingClientRect()` 量出**较高那个模式**的高度，再把它写成常量；`tests/test_web.py` 钉住 `min-height: 396px`，改文案/加字段时要同步重量 |
+| 116 | `review_records` 已上线后直接改建表语句，老库用户不会获得新列，`ORDER BY pinned` 直接报 `no such column` | `_init_schema()` 末尾用 `PRAGMA table_info(review_records)` 判断列是否存在，缺则 `ALTER TABLE ... ADD COLUMN`；`_record_from_row()` 用 `row.keys()` 兼容缺列，别假设 `sqlite3.Row` 一定有 |
+| 117 | 删历史记录只删索引行，checkpoint / pending 时间戳 / 上传文件仍留在磁盘，列表“空了”但占空间、且旧 review_id 还能被 resume | `ReviewService.discard(review_id)` 清 `_pending`、`clear_llm_runtime`、尽力 `checkpointer.delete_thread`（无此方法/失败就静默），API 再 `shutil.rmtree(upload_root/review_id, ignore_errors=True)`；删除接口返回 204，越权与不存在统一 404，避免探测别人的 review_id |
+| 118 | 侧栏子目录里的记录行每行带“置顶/改名/删除”，给每个按钮单独 `addEventListener` 会在每次刷新列表后泄漏/失效 | 事件委托：`#history-list` 上监听 `click` + `submit`，用 `event.target.closest("[data-pin],[data-rename],[data-delete]")` 分发；改名是行内 `<form>`，必须 `preventDefault()` 再 `PATCH` JSON |
+| 119 | 480px 窄屏下把 `.composer-tools .send{margin-left:0}` 会把发送键贴到下拉框左边，看起来像误触 | 工具行换行后用 `margin-left:auto` 让发送键靠右（第二行右端）；窄屏改动要 CDP 实测 `overflow-x` 与按钮坐标，不要只看截图 |
 
 ---
 
@@ -455,6 +462,10 @@ Agent_Alex外贸合同智审助手/
      - 后端：`app/services/accounts.py`（本地 SQLite 五表，PBKDF2 口令，会话只存 token 哈希，跨账号 404）、`secret_box.py`（`v1:` 密文盒 + `.data/secret.key`）、`llm_providers.py`（9 个厂商目录）、`skill_catalog.py`（7 个内置 Skill + `compose_focus`）、`llm.py`（`LLMRuntime` / `review_llm_scope` / `probe_llm`）；`POST /api/reviews` 增加 `focus / skill_id / reference`，`ReviewSummary.focus/skill_name`、`ReviewReport.focus/skill`；`API_VERSION 1.0.0`。
      - 前端：审查重点/附件/Skill 移到 `#view` 的对话式 `.composer-box`（Enter 发送、Shift+Enter 换行、拖拽）；侧栏只留登录入口（注册在弹窗 tab 内、`.auth-extra` 等高）；底部免责一行 + 右下角隐私条款/使用政策弹窗（`01…` 编号、13.5px/1.62）；新增 API 配置、Skill 仓库、我的审查三个弹窗。
      - 验证：`pytest` 288 通过；`ruff` / `node --check` 通过；HTTP 端到端 34 项（注册→Skill→带 focus 上传→approve→Markdown→记录→BYOK 密文→退出→跨账号 404）全过；CDP 11 项（对话式首屏、弹窗等高 460×458、政策编号、480px 无溢出）全过。
+   - **界面轮 6（已完成，2026-10-27）**：历史可运维 + Skill 入口归位 + 满屏 + 弹窗定高。
+     - 后端：`review_records` 加 `title / pinned`（`PRAGMA` + `ALTER TABLE` 平滑升级）；`list_reviews()` 改 `pinned DESC, created_at DESC`；新增 `PATCH /api/reviews/{id}`（改名 / 置顶，空串恢复文件名、截断 60 字）与 `DELETE /api/reviews/{id}`（204）；`ReviewService.discard()` 连带清 pending / 运行时 / checkpoint；`record()` 在暂停时写 `awaiting_human`（原来误写 `running`）。
+     - 前端：删掉首屏三行说明；主区 `.view` 满宽 + `.chat` 垂直居中 + 输入区 880px；Skill 下拉 = 内置 + 自建 + 固定末项“Skill 仓库…”（选它打开侧栏仓库，默认 `builtin:full`）；“当前审查”→“审查历史”侧栏折叠子目录（改名 / 置顶 / 删除，事件委托）；侧栏底部新增 Skill 仓库入口（带数量）；登录/注册共用定高弹窗（460×453、body 396/396）并必须手勾同意（默认不勾选）。
+     - 验证：`pytest` 295 通过；`ruff` / `node --check` 通过；CDP 26 项（铺满 1432/1440、下拉 8 项末项 `__repo__`、同意未勾被拦、gap 34px、弹窗 460×453、子目录改名/置顶/删除、480px 无溢出）全过。
    - **下一步（第四阶段）**：
      - 修 H39（`R-DIS-004` modal 与动词之间放宽为 `[^.]{0,80}?`），**另写 holdout5（8–12 份）再报数**（ISSUE-021）；
      - 人工复核 21 个 silver 现象 + 32 个留出现象，silver 升 gold（ISSUE-020）；
