@@ -1,7 +1,7 @@
 # 开发交接文档（Handover）
 
-> 更新时间：2026-10-27（第四阶段：规则扩充 + 合同级评测基线）
-> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI + Streamlit 全部可用）；第四阶段第 1 轮完成：规则 13 条、50 份模拟合同拆分为评测输入、规则级评测基线已跑出；209 个测试通过**；规则级 gold 与检索评测尚未完成
+> 更新时间：2026-10-27（第四阶段第 2 轮：silver gold + 指标 + 留出验证）
+> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI + Streamlit 全部可用）；第四阶段第 1–2 轮完成：规则 13 条、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、8 份独立留出集（P=1.00 / R=0.71 / F1=0.83）；220 个测试通过**；检索评测与人工复核 gold 尚未完成
 > 交接原则：任何新接手的人只读本文件 + `00_PROJECT_STATE.md` + `02_ARCHITECTURE_DECISIONS/README.md`，就能继续开发。
 
 ---
@@ -32,14 +32,14 @@
 | HITL（第 4 步） | ✅ 条件边 + `interrupt()` + checkpointer | `app/nodes/hitl.py`、`app/review_service.py`、`app/services/checkpointer.py` |
 | 解释 / RAG（第 5 步） | ✅ 质量门 + BM25 + 真实语料 | `app/nodes/explain.py`、`app/services/rag.py`、`data/knowledge/` |
 | API / UI（第 6 步） | ✅ FastAPI + Streamlit + pending 落盘 | `app/api.py`、`app/ui.py`、`app/report_markdown.py`、`app/services/pending_store.py` |
-| 测试 | ✅ 209 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
+| 测试 | ✅ 220 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
 | 规则集 | ✅ 13 条 | `app/rules/definitions.yaml`（`version: 3`）；6 条新规则各有语料命中集合回归（ADR-010） |
-| 评测集 / 基线 | ⏳ 部分完成 | `data/contracts/` 50 份 + `data/eval/gold_contracts.json`（105 条检索期望）+ `eval/results/rules-20261027.json`；**规则级 gold 与准确率仍未做** |
-| Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`、`e41d235`、`c7f24a9`，以及后续每步提交 |
+| 评测集 / 指标 | ⏳ 主集完成、留出集完成、待复核 | `data/eval/gold_rules.json`（21 现象，silver）+ `gold_holdout.json`（7 现象）+ `eval/results/rules-*.json`；**silver gold 未经人工复核**，检索评测未做 |
+| Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`、`e41d235`、`c7f24a9`、`6eaff8c`，以及后续每步提交 |
 
-> 不要在汇报里说“已通过评测”或“抽取准确率 X%”。当前有**规则级触发基线**（50 份模拟合同：11 份命中 / 39 份未命中，`pass:39 / yellow:9 / red:2`），但它只说明“规则是否触发”，**不是 precision/recall，也不代表合同真的无风险**。
+> 报数纪律（ADR-011）：对外只引用**留出集**指标（8 份，P=1.00 / R=0.71 / F1=0.83），并同时注明“silver gold 待复核、样本 8 份”。主集（50 份）P/R=1.0 是**同分布**产物，只能作为回归守卫，不能当准确率；覆盖率 52.4% 与 2 个留出漏报（H01/H03）才是当前真实短板。
 
-### 2.1 架构决策速览（ADR-001~010）
+### 2.1 架构决策速览（ADR-001~011）
 
 | ADR | 结论 | 状态 |
 |---|---|---|
@@ -53,6 +53,7 @@
 | 008 RAG/质量门 | 本地 BM25 + 中文二元组；`source_id#section` 白名单；Python 质量门拦截越权；无命中/配置错误降级 | **已接受**（第 5 步已实现） |
 | 009 API/UI | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘；上传校验；Markdown 纯渲染 | **已接受**（第 6 步已实现） |
 | 010 规则扩充/评测 | 规则 7 → 13 条；新规则准入四关；模拟合同拆入 `data/contracts/`；评测只报触发情况 | **已接受**（2026-10-27 第 1 轮已实现） |
+| 011 评测方法 | gold 三层（检索期望 / silver 规则 gold / 留出 gold）；三组指标；留出集发现漏报也不回改规则；报数纪律 | **已接受**（2026-10-27 第 2 轮已实现） |
 
 ---
 
@@ -193,6 +194,7 @@ Agent_Alex外贸合同智审助手/
 │  ├─ test_ingest.py / test_ingest_formats.py / test_segment.py
 │  ├─ test_evidence.py / test_llm_service.py / test_extract.py / test_validate.py / test_rules.py
 │  │  └─ test_rules.py 含 6 条新规则正反 fixture + 50 份语料命中集合回归 + 样例零误报
+│  ├─ test_eval_metrics.py        # 指标计算 + gold 完整性 + 留出自洽（11 个，纯计算，无需 Key）
 │  ├─ test_hitl.py                # HITL 暂停/恢复/幂等/超时/载荷/非法决策（17 个）
 │  ├─ test_explain.py             # 解释与质量门（13 个）
 │  ├─ test_rag.py                 # BM25/manifest/DOCX/长段/缓存/真实语料（22 个）
@@ -205,11 +207,15 @@ Agent_Alex外贸合同智审助手/
 ├─ data/
 │  ├─ samples/                    # 2 份自拟脱敏合同（TXT）
 │  ├─ contracts/                  # 50 份模拟合同（由 eval/prepare_contracts.py 生成，可重建）
-│  ├─ eval/gold_contracts.json    # 50 份 / 105 条“条款 → Q 编号 → 期望召回 → 干扰项”
+│  ├─ contracts_holdout/          # 8 份独立留出合同（H01–H08，新写、未参与规则设计）
+│  ├─ eval/gold_contracts.json    # 50 份 / 105 条“条款 → Q 编号 → 期望召回 → 干扰项”（检索期望）
+│  ├─ eval/gold_rules.json        # silver gold：21 个风险现象（11 有规则 / 10 缺口）
+│  ├─ eval/gold_holdout.json      # 留出集 gold：7 个现象（H04 为干净对照）
 │  └─ knowledge/                  # 真实语料 14 篇 + manifest；模拟合同1..6.md 为评测来源，不进 manifest
 ├─ eval/
 │  ├─ prepare_contracts.py        # 拆分模拟合同 → data/contracts/ + gold
-│  ├─ run_eval.py                 # 规则级评测（不调 LLM）→ eval/results/rules-YYYYMMDD.json
+│  ├─ metrics.py                  # 指标纯计算（rule_level / contract_level / coverage）
+│  ├─ run_eval.py                 # 规则级评测 + 指标 → eval/results/rules[-tag]-YYYYMMDD.json
 │  └─ results/                    # 评测结果
 └─ docs/
    └─ devlog/                     # 本目录
@@ -228,14 +234,15 @@ Agent_Alex外贸合同智审助手/
 | 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
 | 恢复人工决定 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision approve --reviewer zhangsan` | ✅ 可用（SQLite 跨进程） |
 | 超时语义 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision timeout` | ✅ 可用 → `unreviewed_red_risk` |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 209 个通过 |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 220 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行（统一入口） | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` | ✅ 可用（`/docs` 可试；默认 SQLite + 文件 pending） |
 | UI | `.\.venv\Scripts\python.exe -m streamlit run app/ui.py` | ✅ 可用（上传/审批/下载） |
 | 拆合同 + gold | `.\.venv\Scripts\python.exe eval\prepare_contracts.py` | ✅ 可用（50 份合同 / 105 条映射） |
-| 规则评测 | `.\.venv\Scripts\python.exe eval\run_eval.py` | ✅ 可用（无需 Key，输出 `eval/results/rules-YYYYMMDD.json`） |
-| 全链路评测（含抽取/解释） | 计划 | ⏳ 未实现（需要 LLM Key，且规则级 gold 未标注） |
+| 主集评测 | `.\.venv\Scripts\python.exe eval\run_eval.py` | ✅ 可用（无需 Key；含三组指标） |
+| 留出集评测 | `... eval\run_eval.py --contracts data\contracts_holdout --gold data\eval\gold_holdout.json --gold-rules data\eval\gold_holdout.json --tag holdout` | ✅ 可用（对外报数用这组） |
+| 全链路评测（含抽取/解释） | 计划 | ⏳ 未实现（需要 LLM Key；规则级 gold 待人工复核） |
 
 > 标 ✅ 的命令已实际执行验证；标 ⏳ 的尚不可用。`--decision` 支持 `approve / reject / changes(request_changes) / timeout`；`--memory` 用内存 checkpointer（仅单进程调试）。API 必须用 `--factory`（`create_app` 是工厂函数，不是模块级 `app`）；多 worker 未支持（ISSUE-019）。
 
@@ -324,7 +331,13 @@ Agent_Alex外贸合同智审助手/
 | 61 | `data/contracts/` 是生成物，不是用户原始语料 | 用 `eval/prepare_contracts.py` 重建；不要手改单份合同，否则 gold 与原文会不一致 |
 | 62 | “CIF 没写保险条款”不等于缺陷（Incoterms 默认规则补位） | `R-INS-001` 只在“约定了投保但没写保额/比例”时触发；新增保险类规则前先确认是否与默认规则重复 |
 | 63 | 规则数量变化会让多处硬编码断言失败 | 新增/删除规则时同步 `test_load_default_rules`、`test_graph.py` 的规则数断言与文档中的“N 条规则” |
-| 64 | 模拟合同自带映射摘要是“检索期望”，不是规则判级 gold | 不要用 `gold_contracts.json` 直接算规则 precision；规则级 gold 需另行标注 `合同 × rule_id → red/yellow/pass` |
+| 64 | 模拟合同自带映射摘要是“检索期望”，不是规则判级 gold | 不要用 `gold_contracts.json` 直接算规则 precision；规则级 gold 另存 `gold_rules.json`，检索评测另做（ISSUE-018） |
+| 65 | 用“规则设计时的同一批合同”算出的 P/R 必然接近 1.0 | 同分布指标只能当回归守卫；对外报数必须用**未参与规则设计**的留出集（ADR-011） |
+| 66 | 留出集上发现漏报后，本能是立刻改正则 | 改了就不再是留出集，指标会虚高；正确做法是记录漏报 → 下轮改规则 → **另写新留出集**重验（ISSUE-021） |
+| 67 | 中文规则的正则常把关键词语序写死（“运费由卖方”） | 实际写作“费用由卖方承担并预付”就漏检；规则要么放宽语序，要么用 `contains_any` + 距离约束 |
+| 68 | 英文合同可能“碰巧命中”中文规则（靠 `insurance` 等英文词） | 碰巧命中不能算英文支持；H02 就是这样过的，补英文表达时不要因此以为已覆盖 |
+| 69 | 指标零分母时返回 0.0 会误导 | 返回 `None`（JSON `null`），并在报告里说明“无正例，不计算 P/R” |
+| 70 | 字段规则在评测里恒为 skipped | `gold_rules.json` 用 `unscored_rules` 显式排除，否则会把“降级”算成“漏报” |
 
 ---
 
@@ -362,10 +375,11 @@ Agent_Alex外贸合同智审助手/
    - ~~**第 5 步**：`nodes/explain.py` + Quality Gate + 报告合并；RAG MVP（BM25/字符 n-gram，默认 `RAG_ENABLED=false`）。~~ ✅ 已完成（2026-10-27，160 个测试）。
    - ~~**第 6 步**：FastAPI + Streamlit（上传、运行、展示/确认、下载；`.data/pending` 落盘 + 锁）。~~ ✅ 已完成（2026-10-27，197 个测试；真实语料 14 篇接入）。
    - **第四阶段第 1 轮（已完成，2026-10-27）**：规则 7 → 13 条（ADR-010）；50 份模拟合同拆入 `data/contracts/`；`eval/run_eval.py` 跑出触发基线（11/50 命中）；209 个测试通过。
+   - **第四阶段第 2 轮（已完成，2026-10-27）**：`data/eval/gold_rules.json`（21 现象，silver）+ `data/contracts_holdout/H01–H08` + `data/eval/gold_holdout.json`；`eval/metrics.py` 三组指标；`run_eval.py` 支持 `--tag`；**留出集 P=1.00 / R=0.714 / F1=0.833，暴露 2 个漏报**；220 个测试通过（ADR-011）。
    - **下一步（第四阶段）**：
-     - 规则级 gold：为 50 份合同标注 `合同 × rule_id → red/yellow/pass + span`，再算 micro P/R/F1（ISSUE-005/020）；
-     - 留出验证：新规则是在同一批 50 份合同上设计的，需另找/另写独立合同集做泛化验证（ISSUE-020）；
-     - 继续补规则主题：不可抗力、责任上限、质保期、所有权保留、合规（ISSUE-009，当前 39/50 未命中）；
+     - 修英文/同义改写漏报（H01 英文“或裁或审”、H03“费用由卖方承担并预付”），**并另写 10–15 份新留出集**重验（ISSUE-021）；
+     - 人工复核 21 + 7 个 gold 现象，silver 升 gold（ISSUE-020）；
+     - 补规则缺口：不可抗力缺失、检验条款缺失、责任上限、质保期（ISSUE-009，当前覆盖率 52.4%）；
      - RAG 检索评测：先做 `100问题.md` → manifest 映射（ISSUE-018），再调 `RAG_TOP_K`/`RAG_MIN_SCORE`；
      - 语料授权与 `effective_date` 复核（ISSUE-015）；多智能体范围（ISSUE-016）阶段 B 再定。
 6. 每完成一个阶段：更新 `00_PROJECT_STATE.md`、写当日 `03_DEV_LOGS/YYYY-MM-DD.md`、更新本文件的“当前完成度/已知坑”、更新 `05_OPEN_ISSUES.md`。

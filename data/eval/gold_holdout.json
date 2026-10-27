@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "created_at": "2026-10-27",
+  "provenance": "holdout：为验证泛化能力另行书写的 8 份合同（中英混合、措辞刻意不同于 data/contracts/），未参与规则设计；gold 为 AI 初标，待人工复核",
+  "annotation_protocol": [
+    "书写时刻意避开 data/contracts/ 的模板句式：英文条款、同义改写、条款顺序不同",
+    "gold 按业务事实标注『该合同是否存在该风险』，不考虑现有规则能否命中（否则失去留出验证意义）",
+    "等级口径与 gold_rules.json 一致：red=可能致重大损失或权利落空；yellow=条款缺失/口径矛盾"
+  ],
+  "scored_rules": {
+    "R-TRD-001": "yellow",
+    "R-PAY-001": "red",
+    "R-PAY-002": "yellow",
+    "R-DIS-001": "red",
+    "R-DIS-002": "red",
+    "R-DIS-003": "red",
+    "R-DIS-004": "red",
+    "R-INS-001": "yellow",
+    "R-INC-001": "yellow",
+    "R-INC-002": "yellow",
+    "R-INP-002": "yellow"
+  },
+  "unscored_rules": {
+    "R-DLV-001": "依赖 LLM 抽取字段，评测不调用 LLM",
+    "R-INP-001": "依赖 LLM 抽取字段，评测不调用 LLM"
+  },
+  "contract_ids": ["H01", "H02", "H03", "H04", "H05", "H06", "H07", "H08"],
+  "phenomena": [
+    {
+      "contract_id": "H01",
+      "phenomenon": "争议解决条款允许申请人在仲裁与向法院起诉之间二选一（或裁或审）",
+      "level": "red",
+      "rule_id": "R-DIS-003",
+      "evidence": "第9.2条 either submit ... to arbitration, or bring an action before the competent court"
+    },
+    {
+      "contract_id": "H02",
+      "phenomenon": "CIF 下仅约定投保一切险，未写明保险金额/投保比例",
+      "level": "yellow",
+      "rule_id": "R-INS-001",
+      "evidence": "第5.1条 insure the goods against all risks（无 insured value / 110%）"
+    },
+    {
+      "contract_id": "H03",
+      "phenomenon": "FOB 术语下约定海运费由卖方承担并预付至目的港",
+      "level": "yellow",
+      "rule_id": "R-INC-001",
+      "evidence": "第5.1条 海运费及舱位订舱费用由卖方承担并预付至 Tallinn"
+    },
+    {
+      "contract_id": "H05",
+      "phenomenon": "检验期限 48 小时、通知期限 12 小时，非易腐设备下难以执行",
+      "level": "yellow",
+      "rule_id": "R-INP-002",
+      "evidence": "第5.1、5.2条 48 小时内检验、12 小时内通知"
+    },
+    {
+      "contract_id": "H06",
+      "phenomenon": "约定仲裁裁决作出后仍可向法院起诉，削弱仲裁终局性",
+      "level": "red",
+      "rule_id": "R-DIS-004",
+      "evidence": "第9.2条 仲裁裁决作出后…可以向有管辖权的人民法院提起诉讼"
+    },
+    {
+      "contract_id": "H07",
+      "phenomenon": "FOB 起草却用于集装箱整箱（FCL）货物，卖方无法控制装船节点",
+      "level": "yellow",
+      "rule_id": "R-INC-002",
+      "evidence": "第3.3 条 集装箱整箱（FCL）… 交至集装箱堆场（CY）；第4.1 条 装上船"
+    },
+    {
+      "contract_id": "H08",
+      "phenomenon": "合同未约定付款方式/付款节点",
+      "level": "yellow",
+      "rule_id": "R-PAY-002",
+      "evidence": "全文无付款条款（仅有交货、检验、不可抗力、法律适用与争议解决）"
+    }
+  ]
+}

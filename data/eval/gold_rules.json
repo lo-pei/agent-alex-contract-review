@@ -1,0 +1,185 @@
+{
+  "version": 1,
+  "created_at": "2026-10-27",
+  "provenance": "silver：AI 初标（Trae AI 阅读 data/contracts/ 全文后标注），待人工复核；不是独立人工标注 gold",
+  "annotation_protocol": [
+    "逐份通读合同全文，按『国际货物销售合同高频风险』判断是否存在可确定性描述的现象（不参考规则命中结果）",
+    "每个现象记录：合同、现象描述、预期等级、可定位证据（条款号或原文片段）、对应 rule_id（无规则覆盖则留空）",
+    "等级口径：red=付款/争议解决等可能导致重大损失或权利落空；yellow=条款缺失或口径矛盾，需修改但通常可通过谈判/默认规则缓解",
+    "『未约定检验条款』只标纯货物合同完全无检验/验收表述者；含安装/培训验收条款的混合合同不标（避免把服务验收当成货物检验）",
+    "未列为现象的组合一律视为 pass；标注完成后由 eval/run_eval.py 与规则预测对齐计算指标"
+  ],
+  "scored_rules": {
+    "R-TRD-001": "yellow",
+    "R-PAY-001": "red",
+    "R-PAY-002": "yellow",
+    "R-DIS-001": "red",
+    "R-DIS-002": "red",
+    "R-DIS-003": "red",
+    "R-DIS-004": "red",
+    "R-INS-001": "yellow",
+    "R-INC-001": "yellow",
+    "R-INC-002": "yellow",
+    "R-INP-002": "yellow"
+  },
+  "unscored_rules": {
+    "R-DLV-001": "依赖 LLM 抽取字段 delivery_date；评测不调用 LLM，运行时为 skipped，不参与判级指标",
+    "R-INP-001": "依赖 LLM 抽取字段 inspection_standard；同上"
+  },
+  "contract_ids": [
+    "C01", "C02", "C03", "C04", "C05", "C06", "C07", "C08", "C09", "C10",
+    "C11", "C12", "C13", "C14", "C15", "C16", "C17", "C18", "C19", "C20",
+    "C21", "C22", "C23", "C24", "C25", "C26", "C27", "C28", "C29", "C30",
+    "C31", "C32", "C33", "C34", "C35", "C36", "C37", "C38", "C39", "C40",
+    "C41", "C42", "C43", "C44", "C45", "C46", "C47", "C48", "C49", "C50"
+  ],
+  "phenomena": [
+    {
+      "contract_id": "C04",
+      "phenomenon": "CIF 下约定卖方投保『一切险』，但未写明保险金额/投保比例",
+      "level": "yellow",
+      "rule_id": "R-INS-001",
+      "evidence": "第5条：卖方投保一切险（未出现保额/110%/合同价）"
+    },
+    {
+      "contract_id": "C09",
+      "phenomenon": "检验与不符通知期限压缩到 24 小时/4 小时，非易腐货物下难以执行",
+      "level": "yellow",
+      "rule_id": "R-INP-002",
+      "evidence": "5.1 到达目的港后24小时内检验；5.2 检验完成后4小时内通知"
+    },
+    {
+      "contract_id": "C11",
+      "phenomenon": "FOB 术语下又约定运费由卖方预付，费用划分存在两套口径",
+      "level": "yellow",
+      "rule_id": "R-INC-001",
+      "evidence": "3.2 FOB Shanghai；第5条 运费由卖方预付至Antwerp"
+    },
+    {
+      "contract_id": "C23",
+      "phenomenon": "FOB 起草却用于集装箱整箱（FCL）货物，卖方无法控制装箱装船节点",
+      "level": "yellow",
+      "rule_id": "R-INC-002",
+      "evidence": "3.2 货物为集装箱整箱（FCL）；第4条 按FOB起草与集装箱操作不匹配"
+    },
+    {
+      "contract_id": "C47",
+      "phenomenon": "争议解决把仲裁与诉讼并列为可选路径（或裁或审）",
+      "level": "red",
+      "rule_id": "R-DIS-003",
+      "evidence": "9.1（a）提交仲裁；或（b）向有管辖权的人民法院提起诉讼"
+    },
+    {
+      "contract_id": "C48",
+      "phenomenon": "约定仲裁裁决作出后仍可向法院起诉，削弱仲裁终局性",
+      "level": "red",
+      "rule_id": "R-DIS-004",
+      "evidence": "9.2 仲裁裁决作出后…仍可向法院起诉（与终局性表述冲突）"
+    },
+    {
+      "contract_id": "C39",
+      "phenomenon": "合同未约定付款方式/付款节点（混合安装调试合同）",
+      "level": "yellow",
+      "rule_id": "R-PAY-002",
+      "evidence": "全文无付款/信用证/付款节点表述"
+    },
+    {
+      "contract_id": "C39",
+      "phenomenon": "合同未约定不可抗力条款",
+      "level": "yellow",
+      "rule_id": null,
+      "evidence": "全文无『不可抗力』或 force majeure 表述"
+    },
+    {
+      "contract_id": "C40",
+      "phenomenon": "合同未约定付款方式/付款节点（货物+培训服务）",
+      "level": "yellow",
+      "rule_id": "R-PAY-002",
+      "evidence": "全文无付款/信用证表述（仅约定培训验收标准）"
+    },
+    {
+      "contract_id": "C40",
+      "phenomenon": "合同未约定不可抗力条款",
+      "level": "yellow",
+      "rule_id": null,
+      "evidence": "全文无『不可抗力』或 force majeure 表述"
+    },
+    {
+      "contract_id": "C41",
+      "phenomenon": "合同未约定付款方式/付款节点（买方供料组装）",
+      "level": "yellow",
+      "rule_id": "R-PAY-002",
+      "evidence": "全文无付款/信用证表述"
+    },
+    {
+      "contract_id": "C41",
+      "phenomenon": "合同未约定不可抗力条款",
+      "level": "yellow",
+      "rule_id": null,
+      "evidence": "全文无『不可抗力』或 force majeure 表述"
+    },
+    {
+      "contract_id": "C41",
+      "phenomenon": "纯货物交付合同中未约定检验/验收条款，质量争议缺少约定依据",
+      "level": "yellow",
+      "rule_id": null,
+      "evidence": "全文无『检验』『验收』表述"
+    },
+    {
+      "contract_id": "C42",
+      "phenomenon": "合同未约定付款方式/付款节点（硬件+软件许可）",
+      "level": "yellow",
+      "rule_id": "R-PAY-002",
+      "evidence": "全文无付款/信用证表述"
+    },
+    {
+      "contract_id": "C42",
+      "phenomenon": "合同未约定不可抗力条款",
+      "level": "yellow",
+      "rule_id": null,
+      "evidence": "全文无『不可抗力』或 force majeure 表述"
+    },
+    {
+      "contract_id": "C42",
+      "phenomenon": "硬件交付部分未约定检验/验收条款",
+      "level": "yellow",
+      "rule_id": null,
+      "evidence": "全文无『检验』『验收』表述"
+    },
+    {
+      "contract_id": "C43",
+      "phenomenon": "合同未约定付款方式/付款节点（设备+调试服务）",
+      "level": "yellow",
+      "rule_id": "R-PAY-002",
+      "evidence": "全文无付款/信用证表述"
+    },
+    {
+      "contract_id": "C43",
+      "phenomenon": "合同未约定不可抗力条款",
+      "level": "yellow",
+      "rule_id": null,
+      "evidence": "全文无『不可抗力』或 force majeure 表述（仅有调试合格标准）"
+    },
+    {
+      "contract_id": "C03",
+      "phenomenon": "纯货物合同中未约定检验/验收条款，买方质量主张缺少约定依据",
+      "level": "yellow",
+      "rule_id": null,
+      "evidence": "仅有第5条质量保证期与第6条通知，无检验/验收安排"
+    },
+    {
+      "contract_id": "C13",
+      "phenomenon": "纯货物合同中未约定检验/验收条款（仅陈述通知事实）",
+      "level": "yellow",
+      "rule_id": null,
+      "evidence": "第5条为『通知事实』，全文无检验/验收安排"
+    },
+    {
+      "contract_id": "C14",
+      "phenomenon": "纯货物合同中未约定检验/验收条款（仅陈述卖方知情事实）",
+      "level": "yellow",
+      "rule_id": null,
+      "evidence": "第5条为『卖方知情与未披露』，全文无检验/验收安排"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-27T03:26:41.093041+00:00",
+  "generated_at": "2026-10-27T03:54:27.380861+00:00",
   "rule_engine_version": "0.1.0",
   "rule_count": 13,
   "contract_count": 50,
@@ -841,5 +841,315 @@
         "R-INP-001"
       ]
     }
-  ]
+  ],
+  "metrics": {
+    "gold_provenance": "silver：AI 初标（Trae AI 阅读 data/contracts/ 全文后标注），待人工复核；不是独立人工标注 gold",
+    "gold_version": 1,
+    "scored_rules": {
+      "R-TRD-001": "yellow",
+      "R-PAY-001": "red",
+      "R-PAY-002": "yellow",
+      "R-DIS-001": "red",
+      "R-DIS-002": "red",
+      "R-DIS-003": "red",
+      "R-DIS-004": "red",
+      "R-INS-001": "yellow",
+      "R-INC-001": "yellow",
+      "R-INC-002": "yellow",
+      "R-INP-002": "yellow"
+    },
+    "unscored_rules": {
+      "R-DLV-001": "依赖 LLM 抽取字段 delivery_date；评测不调用 LLM，运行时为 skipped，不参与判级指标",
+      "R-INP-001": "依赖 LLM 抽取字段 inspection_standard；同上"
+    },
+    "rule_level": {
+      "scored_rule_count": 11,
+      "micro": {
+        "tp": 11,
+        "fp": 0,
+        "fn": 0,
+        "tn": 539,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "level_agreement": 1.0
+      },
+      "per_rule": {
+        "R-TRD-001": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 50,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "level_agreement": null
+        },
+        "R-PAY-001": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 50,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "level_agreement": null
+        },
+        "R-PAY-002": {
+          "tp": 5,
+          "fp": 0,
+          "fn": 0,
+          "tn": 45,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-DIS-001": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 50,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "level_agreement": null
+        },
+        "R-DIS-002": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 50,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "level_agreement": null
+        },
+        "R-DIS-003": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 49,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-DIS-004": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 49,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-INS-001": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 49,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-INC-001": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 49,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-INC-002": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 49,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-INP-002": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 49,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        }
+      },
+      "false_positives": [],
+      "false_negatives": [],
+      "true_positives": [
+        {
+          "contract_id": "C39",
+          "rule_id": "R-PAY-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C40",
+          "rule_id": "R-PAY-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C41",
+          "rule_id": "R-PAY-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C42",
+          "rule_id": "R-PAY-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C43",
+          "rule_id": "R-PAY-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C47",
+          "rule_id": "R-DIS-003",
+          "gold_level": "red",
+          "predicted_level": "red"
+        },
+        {
+          "contract_id": "C48",
+          "rule_id": "R-DIS-004",
+          "gold_level": "red",
+          "predicted_level": "red"
+        },
+        {
+          "contract_id": "C04",
+          "rule_id": "R-INS-001",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C11",
+          "rule_id": "R-INC-001",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C23",
+          "rule_id": "R-INC-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C09",
+          "rule_id": "R-INP-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        }
+      ]
+    },
+    "contract_level": {
+      "tp": 11,
+      "fp": 0,
+      "fn": 3,
+      "tn": 36,
+      "precision": 1.0,
+      "recall": 0.7857,
+      "f1": 0.88,
+      "level_agreement": 1.0,
+      "false_positive_contracts": [],
+      "false_negative_contracts": [
+        "C03",
+        "C13",
+        "C14"
+      ]
+    },
+    "coverage": {
+      "phenomena_total": 21,
+      "phenomena_covered": 11,
+      "phenomena_uncovered": 10,
+      "coverage_rate": 0.5238,
+      "covered_by_rule": {
+        "R-DIS-003": 1,
+        "R-DIS-004": 1,
+        "R-INC-001": 1,
+        "R-INC-002": 1,
+        "R-INP-002": 1,
+        "R-INS-001": 1,
+        "R-PAY-002": 5
+      },
+      "uncovered": [
+        {
+          "contract_id": "C39",
+          "phenomenon": "合同未约定不可抗力条款",
+          "level": "yellow",
+          "evidence": "全文无『不可抗力』或 force majeure 表述"
+        },
+        {
+          "contract_id": "C40",
+          "phenomenon": "合同未约定不可抗力条款",
+          "level": "yellow",
+          "evidence": "全文无『不可抗力』或 force majeure 表述"
+        },
+        {
+          "contract_id": "C41",
+          "phenomenon": "合同未约定不可抗力条款",
+          "level": "yellow",
+          "evidence": "全文无『不可抗力』或 force majeure 表述"
+        },
+        {
+          "contract_id": "C41",
+          "phenomenon": "纯货物交付合同中未约定检验/验收条款，质量争议缺少约定依据",
+          "level": "yellow",
+          "evidence": "全文无『检验』『验收』表述"
+        },
+        {
+          "contract_id": "C42",
+          "phenomenon": "合同未约定不可抗力条款",
+          "level": "yellow",
+          "evidence": "全文无『不可抗力』或 force majeure 表述"
+        },
+        {
+          "contract_id": "C42",
+          "phenomenon": "硬件交付部分未约定检验/验收条款",
+          "level": "yellow",
+          "evidence": "全文无『检验』『验收』表述"
+        },
+        {
+          "contract_id": "C43",
+          "phenomenon": "合同未约定不可抗力条款",
+          "level": "yellow",
+          "evidence": "全文无『不可抗力』或 force majeure 表述（仅有调试合格标准）"
+        },
+        {
+          "contract_id": "C03",
+          "phenomenon": "纯货物合同中未约定检验/验收条款，买方质量主张缺少约定依据",
+          "level": "yellow",
+          "evidence": "仅有第5条质量保证期与第6条通知，无检验/验收安排"
+        },
+        {
+          "contract_id": "C13",
+          "phenomenon": "纯货物合同中未约定检验/验收条款（仅陈述通知事实）",
+          "level": "yellow",
+          "evidence": "第5条为『通知事实』，全文无检验/验收安排"
+        },
+        {
+          "contract_id": "C14",
+          "phenomenon": "纯货物合同中未约定检验/验收条款（仅陈述卖方知情事实）",
+          "level": "yellow",
+          "evidence": "第5条为『卖方知情与未披露』，全文无检验/验收安排"
+        }
+      ]
+    },
+    "note": "silver gold（AI 初标、待人工复核），规则与 gold 同源阅读，rule_level 指标主要用于回归守卫，不代表独立准确率；contract_level 与 coverage 用于暴露规则覆盖缺口。"
+  }
 }
