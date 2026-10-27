@@ -144,3 +144,14 @@
 
 - 不替代任何既有 ADR；属 ADR-009（API/UI）与 ADR-003（规则/LLM 边界）的补充；
 - 与 ADR-004 的关系：checkpoint 仍以 `review_id` 为 `thread_id`，账号维度只新增索引表，不改图持久化方式。
+
+
+## 第 3 轮补充（2026-10-27 界面轮 7）
+
+1. **Skill 仓库是页面不是弹窗**：`#skills-dialog` 删除，入口改为 `<a href="#/skills" data-nav="skills">`，`route()` 增加 `#/skills` 分支，`renderSkillsPage()` 在 `#view` 内渲染“推荐 Skill / 我的 Skill / 新建 Skill”两栏。理由：仓库是“管理 + 浏览”场景，弹窗会压住正在看的首屏，也不适合以后加搜索/分页。
+2. **Skill 下拉自绘**：`<select>` 无法统一字体/圆角，也不能在选项里放“推荐 / 我的 / 管理”这类辅助信息；改为胶囊触发器 + `ul[role="listbox"]`，保留 `aria-expanded` / `aria-selected`，支持 ↑↓、Esc、点外收起。末项固定“Skill 仓库…”但仍然只是入口，不改变 `skill_id`。
+3. **页脚属于画布宽度而不是阅读宽度**：`.sheet-foot` 的 `max-width: var(--content)` 是“政策链接没贴右”的直接原因；改为 `width:100%; max-width:none`，同时把 `padding-top` 收到 8px、字号/行高略微收紧，让免责与政策只占一行。`position:fixed` 会脱离白纸并在滚动时压内容，不采用。
+4. **首屏输入区 720px**：主区虽然铺满屏幕，但输入区过宽会削弱对话感；720px 在 1440 下仍居中，且窄屏 480 不溢出。
+5. **窄屏菜单对齐**：≤640px 时菜单改为 `left:0; right:auto`，否则右对齐会让 `menuLeft` 变负（CDP 实测 -104 → 修后 27）。
+
+**验证补充（本轮）**：`pytest` **297 passed**（`tests/test_web.py` 18 项，新增仓库独立页与输入区/页脚尺寸两项）；`ruff check .`、`node --check app/web/app.js` 通过；CDP 冒烟 20 项全过（输入区 720、页脚右边缘 1399/1432、页脚高 26px、下拉 8 项无滚动条、仓库页 0 个打开中的 dialog、480 菜单不越界）。

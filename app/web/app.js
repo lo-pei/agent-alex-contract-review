@@ -168,9 +168,9 @@
   /* ---------- 侧边栏 / 顶栏 ---------- */
 
   function setShell(name) {
-    const title = { upload: "上传合同", review: "风险点", empty: "当前审查" }[name] || "上传合同";
+    const title = { upload: "上传合同", review: "风险点", skills: "Skill 仓库", empty: "当前审查" }[name] || "上传合同";
     if (dom.crumbs) dom.crumbs.textContent = title;
-    const active = name === "upload" ? "upload" : "review";
+    const active = name === "empty" ? "review" : name;
     dom.navItems.forEach((item) => {
       if (item.dataset.nav === active) item.setAttribute("aria-current", "page");
       else item.removeAttribute("aria-current");
@@ -262,6 +262,11 @@
 
   function route() {
     const hash = location.hash || "#/";
+    if (hash === "#/skills" || hash === "#/skills/") {
+      setShell("skills");
+      renderSkillsPage();
+      return;
+    }
     const match = hash.match(/^#\/review\/([A-Za-z0-9_-]{1,64})$/);
     if (match) {
       setShell("review");
@@ -285,8 +290,7 @@
 
   function bindSidebarActions() {
     on("open-llm", "click", openLlmDialog);
-    // 需求：Skill 仓库是侧栏入口；输入区不再放“Skill 仓库”按钮
-    on("open-skills", "click", openSkills);
+    // Skill 仓库是独立页面（#/skills）；输入区只保留下拉选择
   }
 
   /* ---------- 账号 ---------- */
@@ -491,39 +495,90 @@
   }
 
   function renderSkillSelect() {
-    // select 只在聊天输入区里存在；结果页不需要（也不应重渲染整页）
-    const select = document.getElementById("skill-select");
-    if (!select) return;
-    // 默认就有几个内置 Skill 可选；最后一项固定为“Skill 仓库”（选中即打开仓库）
-    const options = state.skills.map(
-      (skill) =>
-        '<option value="' +
-        esc(skill.id) +
-        '">' +
-        esc(skill.name) +
-        (skill.builtin ? "" : "（我的）") +
-        "</option>",
-    );
-    options.push('<option value="' + SKILL_REPO_VALUE + '">Skill 仓库…</option>');
-    select.innerHTML = options.join("");
+    // 下拉只在聊天输入区里存在；结果页/仓库页不需要
     if (state.skillId && !skillById(state.skillId)) state.skillId = "";
+    // 默认就有几个内置 Skill 可选；最后一项固定为“Skill 仓库”（选中即打开仓库页）
     if (!state.skillId) state.skillId = defaultSkillId();
-    select.value = state.skillId;
+    const menu = document.getElementById("skill-menu");
+    if (menu) {
+      menu.innerHTML =
+        state.skills
+          .map(
+            (skill) =>
+              '<li role="none"><button class="skill-option" type="button" role="option" ' +
+              'data-skill="' +
+              esc(skill.id) +
+              '" aria-selected="' +
+              (skill.id === state.skillId ? "true" : "false") +
+              '">' +
+              '<span class="skill-option-name">' +
+              esc(skill.name) +
+              "</span>" +
+              '<span class="skill-option-tag">' +
+              (skill.builtin ? "推荐" : "我的") +
+              "</span></button></li>",
+          )
+          .join("") +
+        '<li class="skill-menu-sep" role="separator"></li>' +
+        '<li role="none"><button class="skill-option is-repo" type="button" role="option" ' +
+        'data-skill="' +
+        SKILL_REPO_VALUE +
+        '" aria-selected="false">' +
+        "<span>Skill 仓库…</span><span>管理</span></button></li>";
+    }
+    updateSkillTrigger();
   }
 
-  function onSkillSelectChange(select) {
-    if (select.value === SKILL_REPO_VALUE) {
-      // 仓库是“入口”不是“选项”：打开弹窗，下拉回到当前真实选择
-      select.value = state.skillId;
-      openSkills();
+  function updateSkillTrigger() {
+    const label = document.getElementById("skill-current");
+    if (label) {
+      const skill = skillById(state.skillId);
+      label.textContent = skill ? skill.name : "选择 Skill";
+      label.title = skill ? skill.name : "";
+    }
+    const menu = document.getElementById("skill-menu");
+    if (!menu) return;
+    menu.querySelectorAll("[data-skill]").forEach((option) => {
+      option.setAttribute(
+        "aria-selected",
+        option.dataset.skill === state.skillId ? "true" : "false",
+      );
+    });
+  }
+
+  function closeSkillMenu() {
+    const menu = document.getElementById("skill-menu");
+    const trigger = document.getElementById("skill-select");
+    if (menu) menu.hidden = true;
+    if (trigger) trigger.setAttribute("aria-expanded", "false");
+  }
+
+  function toggleSkillMenu() {
+    const menu = document.getElementById("skill-menu");
+    const trigger = document.getElementById("skill-select");
+    if (!menu || !trigger) return;
+    const open = menu.hidden;
+    menu.hidden = !open;
+    trigger.setAttribute("aria-expanded", String(open));
+    if (open) {
+      const selected = menu.querySelector('[aria-selected="true"]');
+      const target = selected || menu.querySelector("[data-skill]");
+      if (target) target.focus();
+    }
+  }
+
+  function onSkillSelectChange(value) {
+    if (value === SKILL_REPO_VALUE) {
+      // 仓库是入口不是选项：跳到独立页面，选择保持不变
+      closeSkillMenu();
+      location.hash = "#/skills";
       return;
     }
-    state.skillId = select.value;
-  }
-
-  function syncSkillSelectInView() {
-    const select = document.getElementById("skill-select");
-    if (select) select.value = state.skillId;
+    state.skillId = value;
+    updateSkillTrigger();
+    closeSkillMenu();
+    const trigger = document.getElementById("skill-select");
+    if (trigger) trigger.focus();
   }
 
   function skillRow(skill) {
@@ -572,18 +627,48 @@
     if (note) note.hidden = !!state.user;
   }
 
-  function openSkills() {
+  function renderSkillsPage() {
+    dom.view.innerHTML =
+      '<section class="skills-page">' +
+      '<header class="page-head">' +
+      '<h1 class="headline">Skill 仓库</h1>' +
+      '<p class="lead">' +
+      "推荐 Skill 开箱可用；也可以写自己的 Skill，把“这次要盯什么”固定下来。" +
+      "Skill 只改变解释的侧重与建议方向，风险等级仍由规则判定。" +
+      "</p>" +
+      "</header>" +
+      '<div class="skills-grid">' +
+      '<div class="skills-column">' +
+      '<h2 class="panel-title">推荐 Skill</h2>' +
+      '<ul class="skill-list" id="skill-builtin"></ul>' +
+      '<h2 class="panel-title">我的 Skill</h2>' +
+      '<ul class="skill-list" id="skill-own"></ul>' +
+      "</div>" +
+      '<form class="panel skill-form" id="skill-form">' +
+      '<h2 class="panel-title">新建 Skill</h2>' +
+      '<label class="field"><span>名称</span>' +
+      '<input id="skill-name" type="text" maxlength="40" required placeholder="例如：信用证付款" /></label>' +
+      '<label class="field"><span>一句话说明（可留空）</span>' +
+      '<input id="skill-desc" type="text" maxlength="160" placeholder="这个 Skill 主要看什么" /></label>' +
+      '<label class="field"><span>审查重点指令</span>' +
+      '<textarea id="skill-instruction" rows="5" maxlength="1000" required ' +
+      'placeholder="例如：重点核对信用证开立时间、议付单据与最迟装运期是否匹配"></textarea></label>' +
+      '<p class="alert" id="skill-error" role="alert" hidden></p>' +
+      '<p class="field-note" id="skill-login-note" hidden>登录后即可保存自己的 Skill。</p>' +
+      '<button class="btn btn-primary btn-block" type="submit" id="skill-submit">保存 Skill</button>' +
+      "</form>" +
+      "</div>" +
+      "</section>";
     renderSkillList();
-    openDialog("skills-dialog");
   }
 
   function bindSkills() {
-    on("skills-dialog", "click", async (event) => {
+    // 仓库是独立页面，列表会重渲染：使用 / 删除走事件委托
+    dom.view.addEventListener("click", async (event) => {
       const useButton = event.target.closest("[data-use-skill]");
       if (useButton) {
         state.skillId = useButton.dataset.useSkill;
-        syncSkillSelectInView();
-        closeDialog("skills-dialog");
+        location.hash = "#/";
         return;
       }
       const deleteButton = event.target.closest("[data-delete-skill]");
@@ -599,7 +684,16 @@
         deleteButton.disabled = false;
       }
     });
-    on("skill-form", "submit", submitSkill);
+    dom.view.addEventListener("submit", (event) => {
+      if (event.target && event.target.id === "skill-form") submitSkill(event);
+    });
+    // 下拉菜单：点空白处或按 Esc 收起（整个页面只绑一次）
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".skill-picker")) closeSkillMenu();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeSkillMenu();
+    });
   }
 
   async function submitSkill(event) {
@@ -1258,8 +1352,16 @@
       "<span>合同</span></button>" +
       '<span class="tool-file" id="attach-file">未添加文件</span>' +
       '<button class="tool-clear" type="button" id="clear-attach" aria-label="移除已选文件" hidden>×</button>' +
-      '<label class="sr-only" for="skill-select">选择 Skill</label>' +
-      '<select class="tool-select" id="skill-select"></select>' +
+      '<div class="skill-picker">' +
+      '<button class="tool-skill" type="button" id="skill-select" aria-haspopup="listbox" ' +
+      'aria-expanded="false" aria-controls="skill-menu">' +
+      '<span class="tool-skill-key">Skill</span>' +
+      '<span class="tool-skill-name" id="skill-current">全量体检</span>' +
+      '<svg class="tool-caret" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">' +
+      '<path d="m6 9 6 6 6-6"/></svg>' +
+      "</button>" +
+      '<ul class="skill-menu" id="skill-menu" role="listbox" aria-label="选择 Skill" hidden></ul>' +
+      "</div>" +
       '<button class="send" type="button" id="start" aria-label="开始审查" title="开始审查" disabled>' +
       '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">' +
       '<path d="M12 19V6m0 0-5 5m5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" ' +
@@ -1272,7 +1374,6 @@
     const input = dom.view.querySelector("#file-input");
     const drop = document.getElementById("drop");
     const focus = document.getElementById("focus-input");
-    const select = document.getElementById("skill-select");
 
     if (focus) {
       focus.addEventListener("input", () => {
@@ -1289,9 +1390,31 @@
       });
     }
 
-    if (select) {
-      select.value = state.skillId;
-      select.addEventListener("change", () => onSkillSelectChange(select));
+    renderSkillSelect();
+    const trigger = document.getElementById("skill-select");
+    const menu = document.getElementById("skill-menu");
+    if (trigger) trigger.addEventListener("click", toggleSkillMenu);
+    if (menu) {
+      menu.addEventListener("click", (event) => {
+        const option = event.target.closest("[data-skill]");
+        if (option) onSkillSelectChange(option.dataset.skill);
+      });
+      menu.addEventListener("keydown", (event) => {
+        const options = Array.from(menu.querySelectorAll("[data-skill]"));
+        const index = options.indexOf(document.activeElement);
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeSkillMenu();
+          if (trigger) trigger.focus();
+          return;
+        }
+        if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+        if (!options.length) return;
+        event.preventDefault();
+        const step = event.key === "ArrowDown" ? 1 : -1;
+        const next = options[(index + step + options.length) % options.length];
+        if (next) next.focus();
+      });
     }
 
     on("attach-button", "click", () => dom.view.querySelector("#file-input")?.click());

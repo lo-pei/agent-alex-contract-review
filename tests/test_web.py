@@ -178,6 +178,7 @@ def test_review_focus_lives_in_main_composer_not_sidebar() -> None:
 def test_skill_select_defaults_to_repo_last_and_no_empty_option() -> None:
     """Skill 下拉默认给几个内置 Skill，最后一项固定为 Skill 仓库。"""
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
     assert 'SKILL_REPO_VALUE = "__repo__"' in script
     assert "Skill 仓库…" in script
@@ -185,8 +186,48 @@ def test_skill_select_defaults_to_repo_last_and_no_empty_option() -> None:
     assert "不使用 Skill" not in script
     # 默认选中内置“全量体检”
     assert "builtin:full" in script
-    # 选中仓库项时不当作 Skill，而是打开侧栏仓库
+    # 选中仓库项时不当作 Skill，而是跳转仓库页
     assert "onSkillSelectChange" in script
+    assert 'location.hash = "#/skills"' in script
+    # 仓库项排在所有真实 Skill 之后（分隔线 → 仓库入口）
+    assert script.index("skill-menu-sep") < script.index("Skill 仓库…")
+    # 不再使用系统 select（外观难统一），改为自绘 listbox
+    assert 'class="tool-select"' not in script
+    assert 'id="skill-menu"' in script and 'role="listbox"' in script
+    assert "toggleSkillMenu" in script
+    assert ".tool-skill" in styles and ".skill-menu" in styles
+
+
+def test_skill_repo_is_standalone_page_not_dialog() -> None:
+    """Skill 仓库改成独立页面：侧栏入口是 #/skills，页面内不再有仓库弹窗。"""
+    page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    assert 'id="skills-dialog"' not in page
+    assert 'href="#/skills"' in page
+    assert 'renderSkillsPage' in script
+    assert 'hash === "#/skills"' in script
+    # 页面里有推荐 / 我的 / 新建三块，仍复用同一套 Skill API
+    assert 'id="skill-form"' in script
+    assert 'class="skill-list"' in script
+    assert '"/api/skills"' in script
+    assert ".skills-grid" in styles
+
+
+def test_composer_is_compact_and_footer_spans_full_width() -> None:
+    """对话框收窄一点；页脚铺满整行，政策链接贴住页面右侧且不占高度。"""
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    composer = styles.split(".composer-box {", 1)[1].split("}", 1)[0]
+    assert "max-width: 720px" in composer
+    assert "min-height: 44px" in styles.split(".composer-text {", 1)[1].split("}", 1)[0]
+
+    footer = styles.split(".sheet-foot {", 1)[1].split("}", 1)[0]
+    assert "width: 100%" in footer
+    assert "max-width: none" in footer
+    assert "padding-top: 8px" in footer
+    assert "margin: 0 0 0 auto" in styles.split(".foot-links {", 1)[1].split("}", 1)[0]
 
 
 def test_sidebar_has_skill_repo_and_history_submenu() -> None:
@@ -254,6 +295,8 @@ def test_footer_disclaimer_and_legal_dialogs() -> None:
     assert 'id="open-privacy"' in main
     assert 'id="open-terms"' in main
     assert 'class="sheet-foot"' in main
+    # 页脚只有一行：免责在左、政策在右（不再停在 820px 阅读宽度内）
+    assert 'class="foot-note"' in main and 'class="foot-links"' in main
 
     assert "LEGAL" in script
     assert "legal-no" in script
