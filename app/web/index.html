@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Agent Alex · 外贸合同智审助手</title>
+  <meta
+    name="description"
+    content="外贸合同智能审查：Python 规则判级、红色风险人工确认、可追溯报告。"
+  />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link
+    rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cpath d='M9 21.5 15 9l6 12.5M11.5 18h7' stroke='white' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
+  />
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="26" height="26">
+          <rect width="32" height="32" rx="8" fill="currentColor" />
+          <path
+            d="M9 21.5 15 9l6 12.5M11.5 18h7"
+            fill="none"
+            stroke="#fff"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </span>
+      <span class="brand-text">
+        <strong>Agent Alex</strong>
+        <span>外贸合同智审助手</span>
+      </span>
+    </div>
+
+    <div class="topbar-meta">
+      <span class="pill" id="api-status" data-state="pending">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="api-status-text">连接中…</span>
+      </span>
+      <a class="ghost-link" href="/docs" target="_blank" rel="noopener">接口文档</a>
+    </div>
+  </header>
+
+  <main id="main" class="shell">
+    <nav class="stepper" aria-label="审查进度">
+      <ol>
+        <li class="step" data-step="1"><span class="step-dot">1</span>上传合同</li>
+        <li class="step" data-step="2"><span class="step-dot">2</span>规则审查</li>
+        <li class="step" data-step="3"><span class="step-dot">3</span>人工确认</li>
+        <li class="step" data-step="4"><span class="step-dot">4</span>审查报告</li>
+      </ol>
+    </nav>
+
+    <div class="layout">
+      <aside class="side">
+        <section class="card" aria-labelledby="upload-title">
+          <h2 id="upload-title" class="card-title">上传合同</h2>
+
+          <div
+            id="dropzone"
+            class="dropzone"
+            role="button"
+            tabindex="0"
+            aria-describedby="upload-hint"
+          >
+            <svg class="dropzone-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <p class="dropzone-title">拖拽合同到这里，或点击选择</p>
+            <p class="dropzone-hint" id="upload-hint">
+              支持 TXT / MD / 文本型 PDF / DOCX，单文件不超过 15 MB
+            </p>
+            <input
+              id="file-input"
+              class="visually-hidden"
+              type="file"
+              accept=".txt,.md,.markdown,.pdf,.docx"
+            />
+          </div>
+
+          <div id="file-chip" class="file-chip" hidden>
+            <span class="file-chip-icon" aria-hidden="true">PDF</span>
+            <span class="file-chip-body">
+              <strong id="file-name"></strong>
+              <span id="file-size"></span>
+            </span>
+            <button id="clear-file" class="icon-button" type="button" aria-label="移除文件">
+              ✕
+            </button>
+          </div>
+
+          <button id="start-button" class="button primary block" type="button" disabled>
+            开始审查
+          </button>
+          <button id="reset-button" class="button subtle block" type="button" hidden>
+            新建一次审查
+          </button>
+
+          <p class="fineprint">
+            上传文件只用于本次审查，落盘在本地 <code>.data/uploads/</code>，不发送到第三方。
+          </p>
+        </section>
+
+        <section class="card" aria-labelledby="boundary-title">
+          <h2 id="boundary-title" class="card-title">边界说明</h2>
+          <ul class="boundary-list">
+            <li><strong>等级只由 Python 规则决定</strong>，模型只做抽取与解释，不得改级。</li>
+            <li><strong>红色风险必须人工确认</strong>，流程会真正暂停；超时标记为“未确认”，绝不自动通过。</li>
+            <li><strong>规则覆盖有限</strong>：未命中的条款不等于没有风险，报告会列出已知限制。</li>
+          </ul>
+        </section>
+      </aside>
+
+      <section class="stage" id="stage" aria-live="polite">
+        <section class="card state" id="state-empty">
+          <div class="hero">
+            <span class="hero-badge">规则 + HITL + 可追溯证据</span>
+            <h1>把一份外贸合同，审成一份可追溯的报告</h1>
+            <p class="hero-sub">
+              上传合同后，系统会解析条款、抽取关键要素、用 13 条规则判级；
+              遇到红色风险会暂停等待人工确认，确认后才生成带原文依据与知识引用的报告。
+            </p>
+          </div>
+
+          <div class="feature-grid">
+            <div class="feature">
+              <span class="feature-icon" aria-hidden="true">1</span>
+              <h3>规则判级</h3>
+              <p>确定性文本/字段规则，等级唯一来源，证据精确到原文片段。</p>
+            </div>
+            <div class="feature">
+              <span class="feature-icon" aria-hidden="true">2</span>
+              <h3>人工确认</h3>
+              <p>红色风险真暂停，批准 / 要求修改 / 拒绝都留痕，可下载报告。</p>
+            </div>
+            <div class="feature">
+              <span class="feature-icon" aria-hidden="true">3</span>
+              <h3>可追溯</h3>
+              <p>每条结论都带条款编号、原文引用与知识出处，不用“模型说了算”。</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="card state" id="state-working" hidden>
+          <div class="working">
+            <span class="spinner" aria-hidden="true"></span>
+            <div>
+              <h2>正在审查合同…</h2>
+              <p id="working-detail">解析文档 → 切分条款 → 抽取要素 → 规则判级</p>
+            </div>
+          </div>
+          <div class="skeleton" aria-hidden="true">
+            <span class="skeleton-line w-70"></span>
+            <span class="skeleton-line w-95"></span>
+            <span class="skeleton-line w-85"></span>
+            <span class="skeleton-line w-60"></span>
+          </div>
+        </section>
+
+        <section class="state" id="state-approval" hidden></section>
+        <section class="state" id="state-report" hidden></section>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>
+      规则引擎与等级判定在 Python 侧完成 · 未接入真实模型时解释回退为规则理由 ·
+      本工具不构成法律意见
+    </p>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

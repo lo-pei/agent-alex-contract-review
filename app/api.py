@@ -22,7 +22,8 @@ from typing import Annotated, Literal
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi import Path as ApiPath
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict
 
 from app.config import settings
@@ -40,7 +41,11 @@ from app.services.checkpointer import sqlite_checkpointer
 from app.services.pending_store import FilePendingStore
 
 API_TITLE = "Agent Alex · 外贸合同智审助手"
-API_VERSION = "0.6.0"
+API_VERSION = "0.7.0"
+
+#: 原生前端资源目录（无框架、无 CDN；见 ADR-009 第 2 轮补充）
+WEB_DIR = Path(__file__).resolve().parent / "web"
+INDEX_FILE = WEB_DIR / "index.html"
 
 #: 与 `app/nodes/ingest.py` 保持一致；`.doc` 明确拒绝并提示转换
 UPLOAD_SUFFIXES = frozenset({".txt", ".md", ".markdown", ".pdf", ".docx"})
@@ -137,6 +142,18 @@ def create_app(
     app = FastAPI(title=API_TITLE, version=API_VERSION, lifespan=lifespan)
     if service is not None:
         app.state.service = service
+
+    # 前端：原生 HTML/CSS/JS（无框架、无 CDN、无构建步骤），由 FastAPI 直接托管
+    app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
+
+    @app.get("/", include_in_schema=False)
+    def index() -> FileResponse:
+        """浏览器入口：单页应用（上传 → 审查 → 人工确认 → 报告）。"""
+        return FileResponse(
+            INDEX_FILE,
+            media_type="text/html; charset=utf-8",
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.exception_handler(ReviewStateError)
     def _review_state_handler(_request: Request, exc: ReviewStateError) -> JSONResponse:

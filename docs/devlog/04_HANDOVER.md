@@ -1,7 +1,7 @@
 # 开发交接文档（Handover）
 
-> 更新时间：2026-10-27（第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
-> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI + Streamlit 全部可用）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）；236 个测试通过**；检索评测与人工复核 gold 尚未完成
+> 更新时间：2026-10-27（界面轮：原生 Web 前端；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
+> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI）；界面轮完成（原生 Web 前端 `app/web/` 由 FastAPI 托管，Streamlit 降为备用）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）；241 个测试通过**；检索评测与人工复核 gold 尚未完成
 > 交接原则：任何新接手的人只读本文件 + `00_PROJECT_STATE.md` + `02_ARCHITECTURE_DECISIONS/README.md`，就能继续开发。
 
 ---
@@ -15,9 +15,9 @@
 - Python 规则引擎唯一决定 `red / yellow / pass`；
 - 红色风险触发 LangGraph `interrupt()`，人工确认后才出最终报告；
 - 报告每条风险都有 `rule_id + reason + 原文引用 + 文件:页码:字符偏移`；
-- 交付：Streamlit 演示 + 命令行 + FastAPI。
+- 交付：原生 Web 前端（FastAPI 托管）+ 命令行 + FastAPI 接口；Streamlit 备用。
 
-硬约束来自根目录 `开发提示词.md`：技术栈 Python / LangGraph / Streamlit / FastAPI / Pydantic；规则决定等级，LLM 只抽取与解释；HITL 必须暂停/恢复；全部代码要解释清、能测试、边界明确。**2026-10-27 用户明确放开 RAG 与多智能体（ADR-007）**：允许 RAG、专家节点与 Supervisor 路由，但判级仍只由 Python 规则产生、HITL 仍必须真中断、证据仍必须可追溯；RAG/多智能体默认关闭（`RAG_ENABLED=false`、`AGENTS_ENABLED=false`）。训练模型、Docker、前端框架仍禁止。
+硬约束来自根目录 `开发提示词.md`：技术栈 Python / LangGraph / Streamlit / FastAPI / Pydantic；规则决定等级，LLM 只抽取与解释；HITL 必须暂停/恢复；全部代码要解释清、能测试、边界明确。**2026-10-27 用户明确放开 RAG 与多智能体（ADR-007）**：允许 RAG、专家节点与 Supervisor 路由，但判级仍只由 Python 规则产生、HITL 仍必须真中断、证据仍必须可追溯；RAG/多智能体默认关闭（`RAG_ENABLED=false`、`AGENTS_ENABLED=false`）。训练模型、Docker、前端框架仍禁止——**原生 Web 前端用 HTML/CSS/JS 手写，未引入 React/Vue/npm/CDN**（ADR-009 第 2 轮补充）。
 
 ---
 
@@ -31,8 +31,9 @@
 | 业务代码（第 3 步） | ✅ 解析/切分/抽取/校验/规则可用 | `app/` |
 | HITL（第 4 步） | ✅ 条件边 + `interrupt()` + checkpointer | `app/nodes/hitl.py`、`app/review_service.py`、`app/services/checkpointer.py` |
 | 解释 / RAG（第 5 步） | ✅ 质量门 + BM25 + 真实语料 | `app/nodes/explain.py`、`app/services/rag.py`、`data/knowledge/` |
-| API / UI（第 6 步） | ✅ FastAPI + Streamlit + pending 落盘 | `app/api.py`、`app/ui.py`、`app/report_markdown.py`、`app/services/pending_store.py` |
-| 测试 | ✅ 236 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
+| API / UI（第 6 步） | ✅ FastAPI + pending 落盘 + Streamlit 备用 | `app/api.py`、`app/ui.py`、`app/report_markdown.py`、`app/services/pending_store.py` |
+| 原生 Web 前端（界面轮） | ✅ 单页四步 + FastAPI 托管 | `app/web/index.html`、`app/web/styles.css`、`app/web/app.js`；`GET /`、`GET /static/*`；`tests/test_web.py` |
+| 测试 | ✅ 241 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
 | 规则集 | ✅ 13 条 | `app/rules/definitions.yaml`（`version: 5`，三类措辞 + 保额邻近判定）；6 条新规则各有语料命中集合回归（ADR-010） |
 | 评测集 / 指标 | ⏳ 主集完成、四批留出完成、待复核 | `data/eval/gold_rules.json`（21 现象，silver）+ `gold_holdout{,2,3,4}.json`（7/9/7/9 现象）+ `eval/results/rules-*.json`；**silver gold 未经人工复核**，检索评测未做 |
 | Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`、`e41d235`、`c7f24a9`、`6eaff8c`、`5dc05bd`、`c540259`，以及后续每步提交 |
@@ -51,7 +52,7 @@
 | 006 环境 | Python 3.12 + LangGraph 1.2.17 等最新稳定依赖；OpenAI 兼容接口；无 Docker/Redis/Postgres | **已接受** |
 | 007 范围变更 | 允许 RAG/多智能体/Supervisor（仅路由）；判级/HITL/证据边界不变；默认开关关闭 | **已接受**（2026-10-27；RAG 已实现，多智能体仍未实现） |
 | 008 RAG/质量门 | 本地 BM25 + 中文二元组；`source_id#section` 白名单；Python 质量门拦截越权；无命中/配置错误降级 | **已接受**（第 5 步已实现） |
-| 009 API/UI | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘；上传校验；Markdown 纯渲染 | **已接受**（第 6 步已实现） |
+| 009 API/UI | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘；上传校验；Markdown 纯渲染；**第 2 轮补充：原生 Web 前端（`app/web/`，无框架/无 CDN/无构建，FastAPI 托管 `/` + `/static`），Streamlit 降为备用** | **已接受**（第 6 步已实现；第 2 轮补充已实现） |
 | 010 规则扩充/评测 | 规则 7 → 13 条；新规则准入四关；模拟合同拆入 `data/contracts/`；评测只报触发情况 | **已接受**（2026-10-27 第 1 轮已实现） |
 | 011 评测方法 | gold 三层（检索期望 / silver 规则 gold / 留出 gold）；三组指标；留出集发现漏报也不回改规则；**留出集一旦被用于定位缺陷即视为“已消耗”，只能作回归守卫**；报数纪律；第 4 轮补“保额邻近判定”与“测试钉住已知漏报” | **已接受**（2026-10-27 第 2–4 轮已实现） |
 
@@ -165,8 +166,12 @@ Agent_Alex外贸合同智审助手/
 │  ├─ graph.py                    # 8 节点 + 两条条件边 + 强制 checkpointer
 │  ├─ review_service.py           # start/get/resume（幂等 + 惰性超时 + pending 落盘 + review_id RLock）
 │  ├─ graph_demo.py               # CLI（SQLite 跨进程；--review-id/--decision）
-│  ├─ api.py                      # FastAPI（上传/查询/决定/下载；错误码 400/404/409/413/422）
-│  ├─ ui.py                       # Streamlit（上传 → 审批 → 报告 → 下载）
+│  ├─ api.py                      # FastAPI（上传/查询/决定/下载；错误码 400/404/409/413/422；托管 `/` 与 `/static`）
+│  ├─ web/
+│  │  ├─ index.html               # 原生 Web 前端：四步单页（上传 → 审查 → 人工确认 → 报告）
+│  │  ├─ styles.css               # 设计令牌/深浅色/响应式/打印（无框架、无 CDN）
+│  │  └─ app.js                   # 状态机/上传/轮询/审批表单/报告渲染/转义（不判级、不拼 Command）
+│  ├─ ui.py                       # Streamlit（备用：上传 → 审批 → 报告 → 下载）
 │  ├─ report_markdown.py          # ReviewReport → Markdown（纯渲染）
 │  ├─ nodes/
 │  │  ├─ ingest.py                # TXT/MD/PDF/DOCX → pages + canonical text + 全局偏移
@@ -200,6 +205,7 @@ Agent_Alex外贸合同智审助手/
 │  ├─ test_rag.py                 # BM25/manifest/DOCX/长段/缓存/真实语料（22 个）
 │  ├─ test_pending_store.py       # 落盘/跨进程超时/损坏文件/非法 ID（11 个）
 │  ├─ test_api.py                 # FastAPI 全流程与错误码（15 个）
+│  ├─ test_web.py                 # 原生前端：入口/静态资源/无外链/不判级（5 个）
 │  ├─ test_report_markdown.py     # Markdown 渲染（3 个）
 │  ├─ test_ui.py                  # Streamlit 冒烟（1 个）
 │  ├─ test_graph.py / test_graph_extraction.py
@@ -240,11 +246,12 @@ Agent_Alex外贸合同智审助手/
 | 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
 | 恢复人工决定 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision approve --reviewer zhangsan` | ✅ 可用（SQLite 跨进程） |
 | 超时语义 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision timeout` | ✅ 可用 → `unreviewed_red_risk` |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 236 个通过 |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 241 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行（统一入口） | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` | ✅ 可用（`/docs` 可试；默认 SQLite + 文件 pending） |
-| UI | `.\.venv\Scripts\python.exe -m streamlit run app/ui.py` | ✅ 可用（上传/审批/下载） |
+| **Web 前端（主界面）** | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` → 打开 `http://127.0.0.1:8000/` | ✅ 可用（上传 → 审查 → 人工确认 → 下载 JSON/Markdown） |
+| Streamlit（备用） | `.\.venv\Scripts\python.exe -m streamlit run app/ui.py` | ✅ 可用（上传/审批/下载） |
 | 拆合同 + gold | `.\.venv\Scripts\python.exe eval\prepare_contracts.py` | ✅ 可用（50 份合同 / 105 条映射） |
 | 主集评测 | `.\.venv\Scripts\python.exe eval\run_eval.py` | ✅ 可用（无需 Key；含三组指标） |
 | **对外报数（holdout4）** | `... eval\run_eval.py --contracts data\contracts_holdout4 --gold data\eval\gold_holdout4.json --gold-rules data\eval\gold_holdout4.json --tag holdout4` | ✅ 可用（唯一未消耗的盲测集；P=1.00 / R=0.889 / F1=0.941，漏报 H39） |
@@ -266,8 +273,8 @@ Agent_Alex外贸合同智审助手/
 7. **图结构**：确定性顺序主干；两个条件边只用于“是否有 red”“是否 approve”；不用并行/单体 ReAct；Supervisor 仅白名单路由（ADR-007）。
 8. **持久化**：运行用 SQLite checkpointer，测试用内存；`thread_id=review_id`；pending 时间戳落盘 `.data/pending/<review_id>.json`；报告由 state 派生。
 9. **RAG/多智能体默认关闭**：`RAG_ENABLED=false`、`AGENTS_ENABLED=false`；开启后也只用于解释/建议/条款比对；Supervisor 与专家不得判级。
-10. **入口分层**：CLI / FastAPI / Streamlit 全部只依赖 `ReviewService`；不拼 `Command(resume=...)`；API/UI 不判级（ADR-009）。
-11. **不引入**：Neo4j/GraphRAG、向量数据库、训练模型、Docker、React/Vue、Postgres/Redis、PyMuPDF 默认依赖、无许可证仓库代码。
+10. **入口分层**：CLI / FastAPI / 原生 Web 前端 / Streamlit 全部只依赖 `ReviewService`；不拼 `Command(resume=...)`；前端/API/UI 都不判级（ADR-009 + 第 2 轮补充）。
+11. **不引入**：Neo4j/GraphRAG、向量数据库、训练模型、Docker、React/Vue 及任何前端框架/npm 构建/CDN、Postgres/Redis、PyMuPDF 默认依赖、无许可证仓库代码。原生 Web 前端是手写 `HTML/CSS/JS`，由 FastAPI 托管。
 
 ---
 
@@ -352,6 +359,10 @@ Agent_Alex外贸合同智审助手/
 | 75 | `none_of` 里的“已写保额”若用全文级正则，合同任意 “40% of contract price” 都会压制 `R-INS-001` | 金额/比例必须与保险关键字**邻近**（同句、±60/40 字符）才算“已写保额”；窗口是启发式，改规则时先用 H29/H34/H36 三项正反样本回归 |
 | 76 | 已知漏报若顺手修掉，会悄悄把唯一的报数集变成回归集 | 用测试**钉住**已知漏报（`test_holdout4_hits_are_stable` 断言 H39 必须 pass），修好那天测试失败，强制同时更新期望、降级旧集、另写新集 |
 | 77 | 中文并列写法不止“或 / 或者”（还有“亦可 / 也可以 / 仍有权 / 可选择”） | 判决类规则必须先穷举连接词，再用“非该语义”的干净条款（仅可撤销裁决、仅可执行裁决）做反例回归 |
+| 78 | 想上 React/Vue + Vite 做前端，但项目禁止前端框架，且会引入 npm/构建/联网依赖 | 用 `app/web/` 的 `HTML/CSS/JS` 手写单页，FastAPI 用 `FileResponse` + `StaticFiles` 托管；`app.js` 不写死 host/端口 |
+| 79 | 前端若把后端文本直接塞进 `innerHTML`，合同里的 `<script>` 会被执行 | 所有字段先过 `esc()` 再拼模板；新增渲染点必须复用同一个转义函数（`tests/test_web.py` 会检查外链与判级，但 XSS 靠代码评审） |
+| 80 | 浏览器里“顺手”算等级或拼 `Command(resume=...)` 会绕过 HITL/判级边界 | 等级只来自 `ReviewSummary`；审批只 POST `/api/reviews/{id}/decisions`；测试用正则钉住不得给 `risk_level` / `overall_level` 赋值 |
+| 81 | Streamlit 提示“已运行”但浏览器打不开（8501 未监听/端口被占/`--server.address` 不对） | 显式 `--server.port 8501 --server.address 127.0.0.1 --server.headless true`，再用 `GET /_stcore/health` 验证；主界面已改为 FastAPI `/`（8000），Streamlit 仅备用 |
 
 ---
 
@@ -392,6 +403,7 @@ Agent_Alex外贸合同智审助手/
    - **第四阶段第 2 轮（已完成，2026-10-27）**：`data/eval/gold_rules.json`（21 现象，silver）+ `data/contracts_holdout/H01–H08` + `data/eval/gold_holdout.json`；`eval/metrics.py` 三组指标；`run_eval.py` 支持 `--tag`；**留出集 P=1.00 / R=0.714 / F1=0.833，暴露 2 个漏报**；220 个测试通过（ADR-011）。
    - **第四阶段第 3 轮（已完成，2026-10-27）**：规则 `version: 4` 补英文/同义改写（`R-DIS-003/004`、`R-INC-001`、`R-INS-001`、`R-INP-002`），并修掉“子串误命中（Pacific→CIF）”与“运费窗口截断”两处缺陷；新写 `holdout2`（H09–H20，12 份）与 `holdout3`（H21–H28，8 份）；**holdout3 盲测 P=1.00 / R=0.571 / F1=0.727**，暴露 3 个措辞漏报；228 个测试通过。
    - **第四阶段第 4 轮（已完成，2026-10-27）**：规则 `version: 5` 修三类措辞（“亦可”类并列、“卖方负责支付…运费”、英文数词 `thirty-six (36) hours`）+ `R-INS-001` 保额从全文级收窄为**保险语境邻近**；新写 `holdout4`（H29–H40，12 份）；**holdout4 盲测 P=1.00 / R=0.889 / F1=0.941**，仅剩 H39 漏报（modal 与动词间插时间状语，**故意不修**，测试已钉住）；holdout3 回归 7/0/0；236 个测试通过。
+   - **界面轮（已完成，2026-10-27）**：`app/web/`（`index.html` + `styles.css` + `app.js`）原生单页，FastAPI 托管 `GET /` 与 `/static`；四步（上传 → 审查 → 人工确认 → 报告）；无框架/无 CDN/无构建；`tests/test_web.py` 5 项；Streamlit 降为备用；241 个测试通过。
    - **下一步（第四阶段）**：
      - 修 H39（`R-DIS-004` modal 与动词之间放宽为 `[^.]{0,80}?`），**另写 holdout5（8–12 份）再报数**（ISSUE-021）；
      - 人工复核 21 个 silver 现象 + 32 个留出现象，silver 升 gold（ISSUE-020）；
@@ -409,6 +421,7 @@ Agent_Alex外贸合同智审助手/
 | 本地知识检索增强解释/建议（BM25、字符 n-gram） | 用 RAG 结果决定 `red / yellow / pass` |
 | 知识引用格式 `source_id#section` | 引用未登记/无授权的文档 |
 | 专家节点补充解释（付款/交付/争议） | 专家改级、新增 red/yellow、越权给法律结论 |
+| 前端展示后端返回的等级与解释 | 前端自行判级、前端拼 `Command(resume=...)`、前端调用 LLM |
 | Supervisor 白名单路由 | Supervisor 判级、自由规划、动态生成节点 |
 | 开关控制（默认关闭） | 默认开启、隐式联网调用 embedding 服务 |
 

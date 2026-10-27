@@ -1,0 +1,84 @@
+"""原生前端（HTML/CSS/JS）托管测试：入口、静态资源、离线可用性。
+
+约束（ADR-009 第 2 轮补充）：
+- 不引入前端框架/CDN，页面必须能完全离线加载；
+- 页面只调用 `/api/reviews` 系列接口，不在浏览器里判级。
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Iterator
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.api import WEB_DIR, create_app
+from app.review_service import ReviewService
+
+
+@pytest.fixture
+def client(tmp_path: Path) -> Iterator[TestClient]:
+    app = create_app(ReviewService.in_memory(), upload_dir=tmp_path / "uploads")
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+def test_index_serves_single_page_app(client: TestClient) -> None:
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert response.headers["cache-control"] == "no-store"
+    body = response.text
+    assert 'lang="zh-CN"' in body
+    assert "外贸合同智审助手" in body
+    assert "/static/styles.css" in body
+    assert "/static/app.js" in body
+
+
+def test_frontend_assets_are_served(client: TestClient) -> None:
+    styles = client.get("/static/styles.css")
+    assert styles.status_code == 200
+    assert styles.headers["content-type"].startswith("text/css")
+    assert ":root" in styles.text
+
+    script = client.get("/static/app.js")
+    assert script.status_code == 200
+    assert "javascript" in script.headers["content-type"]
+    assert "/api/reviews" in script.text
+
+
+def test_frontend_has_no_external_dependency(client: TestClient) -> None:
+    """离线约束：页面与脚本不得引用任何 http(s) 外链。
+
+    唯一允许出现的是 SVG 的 XML 命名空间（`http://www.w3.org/2000/svg`），
+    它是 data URI 内联图标的一部分，不会产生网络请求。
+    """
+    allowed = {"http://www.w3.org/2000/svg"}
+    for path in ("/", "/static/app.js", "/static/styles.css"):
+        body = client.get(path).text
+        found = set(re.findall(r"https?://[^\s\"'()<>]+", body))
+        assert found <= allowed, f"{path} 含外部引用：{sorted(found - allowed)}"
+        assert "cdn." not in body, f"{path} 含 CDN 引用"
+
+
+def test_frontend_never_judges_level_or_builds_command(client: TestClient) -> None:
+    """页面只渲染后端返回的等级，不出现本地判级/拼 Command 的痕迹。"""
+    script = client.get("/static/app.js").text
+    assert "Command(" not in script
+    # 不允许出现 `risk_level = ...` 这类赋值（`===` 比较不算）
+    assert re.search(r"risk_level\s*=(?!=)", script) is None
+    assert re.search(r"overall_level\s*=(?!=)", script) is None
+    # 决定必须走 ReviewService 的 decisions 接口
+    assert "/decisions" in script
+
+
+def test_frontend_assets_exist_on_disk() -> None:
+    for name in ("index.html", "styles.css", "app.js"):
+        path = WEB_DIR / name
+        assert path.is_file(), f"缺少前端资源 {name}"
+        assert path.stat().st_size > 500
+    # 资源里不写死端口/主机，部署到任意 host 都能用
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    assert re.search(r"localhost|127\.0\.0\.1", script) is None

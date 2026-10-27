@@ -96,3 +96,65 @@
   - `tests/test_report_markdown.py`：章节完整、等级只读、表格转义、真实审查渲染；
   - `tests/test_ui.py`：Streamlit 首屏无异常。
 - 全量：`pytest` 197 passed；`ruff check .` 通过。
+
+---
+
+## 第 2 轮补充（2026-10-27）：原生 Web 前端（无框架）取代 Streamlit 成为主界面
+
+### 背景
+
+第 6 步交付的“UI”是 Streamlit 脚本：功能完整，但它是**服务端脚本式界面**（页面结构由 Python 生成、每次交互整页重跑），与用户期望的“真正的前端”有差距。用户明确要求“我需要真正的前端”，浏览器端还出现过 Vite 的 `/@vite/client` 请求（404）。
+
+同时有两条不能破的约束：
+
+- **`开发提示词.md` 要求“Streamlit（极简前端）”，并禁止引入前端框架**（无 React/Vue/Svelte、无 npm 构建、无 CDN 依赖）；
+- 前端不得判级、不得拼 `Command`，一切人工决定必须经 `ReviewService.resume()`（ADR-002/本 ADR 决策 1）。
+
+### 选项
+
+| 方案 | 结论 | 原因 |
+|---|---|---|
+| A. Vite + React/Vue SPA | 否 | 违反“禁止前端框架”；引入 npm/构建链与联网依赖，与离线演示、依赖最小化冲突 |
+| B. 继续只用 Streamlit | 否 | 不能算“真正的前端”：无独立页面、无客户端交互状态、样式与布局受限 |
+| C. 原生 HTML/CSS/JS 单页，FastAPI 直接托管（采用） | 是 | 浏览器原生页面、无框架/无 CDN/无构建；与现有 REST 接口天然契合，测试可完全离线跑 |
+
+### 决策
+
+1. 新增 `app/web/`：`index.html`、`styles.css`、`app.js`（约 28 KB），**零第三方依赖**，图标用内联 SVG / data URI；
+2. `app/api.py` 增加：
+   - `GET /` → `FileResponse(index.html, Cache-Control: no-store)`（`include_in_schema=False`）；
+   - `app.mount("/static", StaticFiles(directory=WEB_DIR))`；
+   - `API_VERSION` 0.6.0 → 0.7.0；
+3. 页面是“上传 → 规则审查 → 人工确认 → 报告”的四步单页：
+   - 上传：拖拽/点选 + 前端类型/大小/空文件校验，`FormData` 提交 `POST /api/reviews`；
+   - 人工确认：逐条展示 `ApprovalPayload.findings`（理由、建议、条款、引用原文），三个结论 + “标记为超时”，提交 `POST /api/reviews/{id}/decisions`；
+   - 报告：渲染 `ReviewReport`（红/黄清单、解释来源与质量门、抽取要素、待核对、限制），下载 JSON / Markdown；
+   - 会话恢复：只在 `localStorage` 存 `review_id`，刷新后 `GET /api/reviews/{id}` 恢复；
+4. **安全与边界**：
+   - 所有后端文本经 `esc()` 转义后才进入 `innerHTML`（合同内容可能含 HTML）；
+   - 页面不定义任何本地判级逻辑，不出现 `Command`；测试用正则钉住“不得给 `risk_level` / `overall_level` 赋值”；
+   - 状态冲突（409）时重新拉取最新状态再渲染；网络错误时保留已填写的复核人与意见；
+5. **Streamlit 保留**（`app/ui.py`），作为备用/内网演示界面，二者共用同一套 `ReviewService`；
+6. **测试**：新增 `tests/test_web.py` 5 项——首页 200 + `no-store`、静态资源 200、无外链（仅允许 SVG 命名空间）、无本地判级/`Command`、资源存在且不写死 host/端口。
+
+### 后果
+
+**正面**
+
+- 有真正的浏览器前端：独立页面、客户端状态、响应式布局、深浅色适配、打印样式；
+- 无 npm、无构建、无 CDN：`git clone` 后启动 FastAPI 即可用，离线演示与比赛环境更稳；
+- 与 API 同源部署，没有跨域与额外代理配置。
+
+**代价 / 风险**
+
+- 手写 DOM 与状态管理，复杂度高于框架；后续若要做复杂表格/图表，需要评估是否引入库（仍需遵守无框架约束）；
+- 样式用到 `:has()`、`color-mix()`，需要较新的 Chrome/Edge/Safari（项目演示环境满足）；
+- 无前端单测框架：靠 `tests/test_web.py` 的静态断言 + 手工冒烟，交互级回归依赖人工；
+- 上传大小上限（15 MB）在前端与后端各写一份，改 `MAX_UPLOAD_MB` 时需同步 `app.js`（已在代码注释与 README 标注）。
+
+### 证据
+
+- 前端：`app/web/index.html`、`app/web/styles.css`、`app/web/app.js`
+- 后端托管：`app/api.py`（`WEB_DIR` / `INDEX_FILE` / `/` / `/static`）
+- 测试：`tests/test_web.py`（5 项）
+- 验证：`pytest` 241 passed；`ruff check .` 通过；`node --check app/web/app.js` 通过；HTTP 冒烟 `POST /api/reviews → 201（3 条红色）→ decisions 200 → markdown 200（3482 B）`
