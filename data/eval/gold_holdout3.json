@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "created_at": "2026-10-27",
+  "provenance": "holdout3：规则 version 4 修复精度后新写的 8 份合同（H21–H28），与前两批留出集及模拟合同均不重复；写完后只跑一次，未按结果改规则（ADR-011 留出纪律）；gold 为 AI 初标，待人工复核",
+  "annotation_protocol": [
+    "按业务事实标注“该合同是否存在该风险”，不参考规则能否命中",
+    "刻意使用与前两批不同的措辞：中文“亦可…起诉”“负责支付…运费”，英文中文数字“thirty-six (36) hours”、保额写成“110% of the CIF value”",
+    "等级口径与 gold_rules.json 一致：red=可能致重大损失或权利落空；yellow=条款缺失/口径矛盾"
+  ],
+  "scored_rules": {
+    "R-TRD-001": "yellow",
+    "R-PAY-001": "red",
+    "R-PAY-002": "yellow",
+    "R-DIS-001": "red",
+    "R-DIS-002": "red",
+    "R-DIS-003": "red",
+    "R-DIS-004": "red",
+    "R-INS-001": "yellow",
+    "R-INC-001": "yellow",
+    "R-INC-002": "yellow",
+    "R-INP-002": "yellow"
+  },
+  "unscored_rules": {
+    "R-DLV-001": "依赖 LLM 抽取字段，评测不调用 LLM",
+    "R-INP-001": "依赖 LLM 抽取字段，评测不调用 LLM"
+  },
+  "contract_ids": [
+    "H21",
+    "H22",
+    "H23",
+    "H24",
+    "H25",
+    "H26",
+    "H27",
+    "H28"
+  ],
+  "phenomena": [
+    {
+      "contract_id": "H21",
+      "phenomenon": "争议解决条款把“提交仲裁”与“向法院起诉”并列，未写明选择权归属与先后顺序（或裁或审）",
+      "level": "red",
+      "rule_id": "R-DIS-003",
+      "evidence": "第9.2条 双方可选择提交上海国际仲裁中心仲裁，亦可向有管辖权的人民法院起诉"
+    },
+    {
+      "contract_id": "H22",
+      "phenomenon": "FOB 术语下约定由卖方支付自宁波至釜山的主运费及订舱费用",
+      "level": "yellow",
+      "rule_id": "R-INC-001",
+      "evidence": "第5.1条 卖方负责支付自宁波至釜山的主运费及订舱费用"
+    },
+    {
+      "contract_id": "H23",
+      "phenomenon": "CIF 下只约定投保 ICC(C)，未写明保险金额或投保比例",
+      "level": "yellow",
+      "rule_id": "R-INS-001",
+      "evidence": "第5.1条 effect insurance covering Institute Cargo Clauses (C)（无 insured value/比例）"
+    },
+    {
+      "contract_id": "H24",
+      "phenomenon": "检验期限 36 小时，非易腐设备下难以执行",
+      "level": "yellow",
+      "rule_id": "R-INP-002",
+      "evidence": "第5.1条 examine the goods within thirty-six (36) hours after discharge"
+    },
+    {
+      "contract_id": "H25",
+      "phenomenon": "EXW 起草却用于整箱集装箱（FCL）运输，卖方无法控制承运人交接",
+      "level": "yellow",
+      "rule_id": "R-INC-002",
+      "evidence": "第3.2条 EXW Foshan Incoterms 2020，货物以整箱集装箱（FCL）方式运输"
+    },
+    {
+      "contract_id": "H26",
+      "phenomenon": "合同未约定付款方式或付款节点",
+      "level": "yellow",
+      "rule_id": "R-PAY-002",
+      "evidence": "全文无付款条款（仅交货、检验、不可抗力、法律适用与争议解决）"
+    },
+    {
+      "contract_id": "H26",
+      "phenomenon": "约定仲裁裁决作出后仍可向法院上诉，削弱仲裁终局性",
+      "level": "red",
+      "rule_id": "R-DIS-004",
+      "evidence": "第7.3条 The arbitral award shall be final, yet either party may appeal to the competent court"
+    }
+  ]
+}

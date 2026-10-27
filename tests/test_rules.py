@@ -444,6 +444,75 @@ def test_new_rule_matches_only_expected_wording(
     assert _evaluate_one_rule(rule_id, negative).risk_level == "pass"
 
 
+#: 英文 / 同义改写用例（ISSUE-021：上一轮留出集暴露英文条款漏报，规则 version 4 补齐）
+ENGLISH_RULE_CASES = [
+    pytest.param(
+        "R-DIS-003",
+        "9.2 The claimant may at its option either submit the dispute to arbitration, "
+        "or bring an action before the competent court at the defendant's place of business.",
+        # 裁决可在法院执行是正常条款，不应判为“或裁或审”
+        "9.2 Disputes shall be submitted to arbitration and the award may be enforced "
+        "in any court of competent jurisdiction.",
+        id="en-or-arbitration-or-court",
+    ),
+    pytest.param(
+        "R-DIS-004",
+        "9.2 If either party is dissatisfied with the award, it may bring an action "
+        "before the competent court within 30 days.",
+        # 终局 + 法定执行，不触发；撤销裁决（set aside）也不触发
+        "9.2 The award shall be final and binding, and may be enforced in any court. "
+        "Either party may apply to set aside the award on grounds of procedural error.",
+        id="en-award-then-court",
+    ),
+    pytest.param(
+        "R-INS-001",
+        "Trade term: CIF Genoa Incoterms 2020. Seller shall insure the goods against all risks "
+        "for the benefit of Buyer.",
+        "Trade term: CIF Genoa Incoterms 2020. Seller shall insure the goods against all risks "
+        "for 110% of the invoice value.",
+        id="en-cif-insurance-without-amount",
+    ),
+    pytest.param(
+        "R-INC-001",
+        "Trade term: FOB Ningbo Incoterms 2020. Ocean freight shall be prepaid by the seller "
+        "to the port of destination.",
+        "Trade term: FOB Ningbo Incoterms 2020. Freight and insurance shall be for the buyer's "
+        "account.",
+        id="en-fob-with-seller-freight",
+    ),
+    pytest.param(
+        "R-INC-001",
+        # 中文同义改写：费用名被夹在中间，语序与 C11 不同（上一轮 H03 漏报的写法）
+        "贸易术语：FOB Qingdao Incoterms 2020。海运费及舱位订舱费用由卖方承担并预付至目的港。",
+        # 出口报关费本就由卖方承担，不能算“运费由卖方”
+        "贸易术语：FOB Qingdao Incoterms 2020。出口报关费用由卖方承担，主运费由买方承担。",
+        id="zh-freight-cost-phrasing",
+    ),
+    pytest.param(
+        "R-INP-002",
+        "Buyer shall inspect the goods within 48 hours after discharge and give notice "
+        "of any defect within 12 hours.",
+        "Buyer shall inspect the goods within 14 days after discharge and give notice "
+        "of any defect within a reasonable time.",
+        id="en-inspection-within-hours",
+    ),
+]
+
+
+@pytest.mark.parametrize(("rule_id", "positive", "negative"), ENGLISH_RULE_CASES)
+def test_rules_match_english_and_paraphrased_wording(
+    rule_id: str, positive: str, negative: str
+) -> None:
+    triggered = _evaluate_one_rule(rule_id, positive)
+    assert triggered.risk_level != "pass"
+    assert triggered.evidence
+    for evidence in triggered.evidence:
+        assert evidence.grounded
+        assert positive[evidence.start : evidence.end] == evidence.quote
+
+    assert _evaluate_one_rule(rule_id, negative).risk_level == "pass"
+
+
 @pytest.mark.parametrize(
     "text",
     [
@@ -497,3 +566,80 @@ def test_new_rules_do_not_fire_on_samples(name: str) -> None:
         new_rules, state.clauses, state.raw_text, extraction_available=False
     )
     assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == []
+
+
+HOLDOUT_DIR = PROJECT_ROOT / "data" / "contracts_holdout"
+
+#: 上一轮独立留出集（H01–H08）在规则 version 4 下的命中集合。
+#: 注意：这批合同已被用来定位并修复漏报，**不再是留出集**，只是回归守卫（ADR-011）。
+EXPECTED_HOLDOUT_HITS: dict[str, set[str]] = {
+    "R-DIS-003": {"H01"},
+    "R-INS-001": {"H02"},
+    "R-INC-001": {"H03"},
+    "R-INP-002": {"H05"},
+    "R-DIS-004": {"H06"},
+    "R-INC-002": {"H07"},
+    "R-PAY-002": {"H08"},
+}
+
+
+def test_previous_holdout_hits_are_stable() -> None:
+    if not HOLDOUT_DIR.is_dir():
+        pytest.skip("缺少 data/contracts_holdout 目录")
+    rules = [rule for rule in load_rules() if rule.rule_id in EXPECTED_HOLDOUT_HITS]
+    hits = {rule_id: set() for rule_id in EXPECTED_HOLDOUT_HITS}
+    for path in sorted(HOLDOUT_DIR.glob("H*.md")):
+        state = _load_state(path)
+        for evaluation in evaluate_rules(
+            rules, state.clauses, state.raw_text, extraction_available=False
+        ):
+            if evaluation.risk_level != "pass":
+                hits[evaluation.rule_id].add(path.stem)
+    assert hits == EXPECTED_HOLDOUT_HITS
+
+    # H04 是干净对照：13 条规则里除字段规则（跳过）外必须全部 pass
+    clean = _load_state(HOLDOUT_DIR / "H04.md")
+    evaluations = evaluate_rules(
+        load_rules(), clean.clauses, clean.raw_text, extraction_available=False
+    )
+    assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == []
+
+
+HOLDOUT2_DIR = PROJECT_ROOT / "data" / "contracts_holdout2"
+
+#: holdout2（H09–H20，12 份）在规则 version 4 下的命中集合。
+#: 这批合同暴露过“子串误命中（Pacific→CIF）”与“运费窗口截断”两个缺陷，
+#: 修复后全对；它同样**不再是留出集**，只作回归守卫（对外报数用 holdout3）。
+EXPECTED_HOLDOUT2_HITS: dict[str, set[str]] = {
+    "R-DIS-003": {"H09"},
+    "R-DIS-004": {"H12"},
+    "R-INS-001": {"H14"},
+    "R-INC-001": {"H11", "H19"},
+    "R-INC-002": {"H16"},
+    "R-INP-002": {"H15"},
+    "R-PAY-001": {"H18"},
+    "R-PAY-002": {"H17"},
+}
+
+
+def test_holdout2_hits_are_stable() -> None:
+    if not HOLDOUT2_DIR.is_dir():
+        pytest.skip("缺少 data/contracts_holdout2 目录")
+    rules = [rule for rule in load_rules() if rule.rule_id in EXPECTED_HOLDOUT2_HITS]
+    hits = {rule_id: set() for rule_id in EXPECTED_HOLDOUT2_HITS}
+    for path in sorted(HOLDOUT2_DIR.glob("H*.md")):
+        state = _load_state(path)
+        for evaluation in evaluate_rules(
+            rules, state.clauses, state.raw_text, extraction_available=False
+        ):
+            if evaluation.risk_level != "pass":
+                hits[evaluation.rule_id].add(path.stem)
+    assert hits == EXPECTED_HOLDOUT2_HITS
+
+    # H10/H13/H20 是干净对照（含“出口报关费用由卖方承担，主运费由买方承担”这类近似句）
+    for name in ("H10", "H13", "H20"):
+        state = _load_state(HOLDOUT2_DIR / f"{name}.md")
+        evaluations = evaluate_rules(
+            load_rules(), state.clauses, state.raw_text, extraction_available=False
+        )
+        assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == [], name

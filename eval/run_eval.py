@@ -72,6 +72,11 @@ def _print_metrics(metrics: dict) -> None:
             gap=coverage["phenomena_uncovered"],
         )
     )
+    if coverage["phenomena_uncovered"] == 0:
+        print(
+            "  ↳ 覆盖率 1.0 只表示“每条现象都有对应规则”（留出集即如此），"
+            f"实际识别能力看规则级 recall={rule_level['recall']}。"
+        )
 
 
 def run(

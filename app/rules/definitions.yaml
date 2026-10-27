@@ -10,8 +10,12 @@
 #   均先在 data/contracts 的 50 份模拟合同上验证命中集合（每条只命中预期合同，
 #   两份样例合同零命中），验证方式与结果见 ADR-010 与 eval/results/。
 # - 继续扩充时：先写 fixture、再在语料上验证命中集合，最后并入规则集（ISSUE-009）。
+# - version 4（阶段 4 第 3 轮，ISSUE-021）：给 R-DIS-003/004、R-INS-001、R-INC-001、R-INP-002
+#   补英文与同义改写表达。改动依据是上一轮独立留出集暴露的 2 个真实漏报
+#   （H01 英文“或裁或审”、H03“费用由卖方承担并预付”）；验收改用新写的
+#   data/contracts_holdout2（H09–H20），避免用旧留出集调参（ADR-011 留出纪律）。
 
-version: 3
+version: 4
 
 rules:
   - rule_id: R-TRD-001
@@ -25,15 +29,17 @@ rules:
     condition:
       type: all_of
       conditions:
-        - type: contains_any
-          keywords: [FOB, CIF, CFR, EXW, DDP, DAP, FCA]
+        - type: regex_match
+          # 前后不能用英文字母，但允许紧跟中文（“FOB上海”也算术语）。
+          # 不能用 contains_any：会把 “specification / Pacific” 里的 cif 当成贸易术语。
+          pattern: "(?<![A-Za-z])(?:FOB|CIF|CFR|EXW|DDP|DAP|FCA)(?![A-Za-z])"
         - type: none_of
           conditions:
             # ICC 官方写法常带 ®（Incoterms® 2020），不能漏掉该符号
             - type: regex_match
               pattern: "Incoterms\\s*[®™]?\\s*(?:19|20)\\d{2}"
     source: 国际货物销售合同常见争议点：贸易术语版本歧义（业务规则）
-    version: "1.1"
+    version: "1.2"
 
   - rule_id: R-PAY-001
     title: 要求买方全额预付货款
@@ -152,11 +158,17 @@ rules:
       或改为明确阶梯条款（先仲裁，仅在对裁决不服时按法定情形申请救济）。
     requires_fields: []
     condition:
-      type: regex_match
-      # 命中的是“仲裁 … 或/或者 … 法院/诉讼”这一句内并列结构；[^。] 允许换行但拦截跨句。
-      pattern: "仲裁[^。]{0,60}(?:或|或者)[^。]{0,40}(?:人民法院|法院|诉讼)"
+      type: any_of
+      conditions:
+        - type: regex_match
+          # 中文：命中的是“仲裁 … 或/或者 … 法院/诉讼”这一句内并列结构；[^。] 允许换行但拦截跨句。
+          pattern: "仲裁[^。]{0,60}(?:或|或者)[^。]{0,40}(?:人民法院|法院|诉讼)"
+        - type: regex_match
+          # 英文：“arbitration … or … court/litigate”同一句内的并列结构。
+          # 用 \\s+or\\s+ 而不是裸 or，避免误吃 arbitrator / order / for 等词。
+          pattern: "arbitrat[a-z]*[^.]{0,120}?\\s+or\\s+[^.]{0,80}?(?:court|litigat[a-z]*)"
     source: 国际货物销售合同常见争议点：“或裁或审”条款效力（业务规则）
-    version: "1.0"
+    version: "1.1"
 
   - rule_id: R-DIS-004
     title: 约定仲裁裁决后仍可向法院起诉（“先裁后审”）
@@ -170,10 +182,17 @@ rules:
       不予执行裁决等法定情形，并写明依据的准据法。
     requires_fields: []
     condition:
-      type: regex_match
-      pattern: "仲裁裁决[^。]{0,30}后[^。]{0,60}(?:人民法院|法院|诉讼)"
+      type: any_of
+      conditions:
+        - type: regex_match
+          pattern: "仲裁裁决[^。]{0,30}后[^。]{0,60}(?:人民法院|法院|诉讼)"
+        - type: regex_match
+          # 英文：裁决之后仍可 bring/file/commence/appeal/litigate/submit … court。
+          # 刻意不收 “may be enforced in any court”（裁决的法定执行，属正常条款），
+          # 也不收 “may be set aside”（撤销裁决的法定救济）。
+          pattern: "award[^.]{0,140}?\\s+(?:may|shall|can|could)\\s+(?:bring\\s+(?:an\\s+)?(?:action|suit|proceedings?)|file\\s+(?:a\\s+)?(?:lawsuit|suit|claim)|commence\\s+(?:an\\s+)?(?:action|proceedings?|litigation)|appeal[a-z]*|sue\\b|litigat[a-z]*|submit[a-z]*[^.]{0,40}?\\s+to\\s+(?:the\\s+)?(?:competent\\s+)?court)"
     source: 国际货物销售合同常见争议点：仲裁终局性与后续诉讼（业务规则）
-    version: "1.0"
+    version: "1.1"
 
   - rule_id: R-INS-001
     title: CIF/CIP 约定投保但未写明保险金额或比例
@@ -190,19 +209,26 @@ rules:
     condition:
       type: all_of
       conditions:
+        - type: regex_match
+          # 词边界版本：避免 “Pacific / specification” 里的 cif 被当成 CIF 术语
+          pattern: "(?<![A-Za-z])(?:CIF|CIP)(?![A-Za-z])"
         - type: contains_any
-          keywords: [CIF, CIP]
-        - type: contains_any
-          keywords: [保险, 投保, 险别, insurance]
+          keywords: [保险, 投保, 险别, insurance, insure, insured]
         - type: none_of
           conditions:
             # 已写明金额/比例（无论中文或英文写法）时不触发
             - type: regex_match
-              pattern: "(?:保险金额|保额|投保金额|insured value|insurance amount)[^。]{0,20}(?:\\d{2,3}\\s*%|合同价|发票价|contract price|invoice value)"
+              pattern: "(?:保险金额|保额|投保金额|insured value|insurance amount|sum insured)[^。]{0,20}(?:\\d{2,3}\\s*%|合同价|发票价|contract price|invoice value)"
             - type: regex_match
               pattern: "\\d{2,3}\\s*%[^。]{0,20}(?:投保|保险|险别|保险金额)"
+            # 英文比例写法：110% of the contract/invoice value
+            - type: regex_match
+              pattern: "\\d{2,3}\\s*%[^.]{0,40}?of\\s+(?:the\\s+)?(?:contract|invoice|goods)\\s+(?:price|value)"
+            # 英文金额写法：insured value of USD 100,000
+            - type: regex_match
+              pattern: "(?:sum insured|insured\\s+(?:value|amount)|insurance\\s+(?:amount|value)|amount\\s+of\\s+insurance)[^.]{0,40}?(?:USD|EUR|CNY|RMB|\\d)"
     source: Incoterms® 2020 CIF/CIP 保险义务与合同约定不一致（业务规则）
-    version: "1.0"
+    version: "1.1"
 
   - rule_id: R-INC-001
     title: 贸易术语与运费承担约定相互矛盾
@@ -217,10 +243,15 @@ rules:
     requires_fields: []
     condition:
       type: regex_match
-      # [\s\S] 允许跨行/跨句（真实合同里术语与运费条款常分处两条），距离上限 160 字符。
-      pattern: "(?:FOB|EXW|FCA)[\\s\\S]{0,160}(?:运费由卖方(?:预付|承担)|freight[^.]{0,60}(?:prepaid|paid) by (?:the )?seller)"
+      # [\s\S] 允许跨行/跨句（真实合同里术语与运费条款常分处两条），距离上限 260 字符
+      # （H03 实测 134；H19 因“Freight and Charges”小标题插在中间，实测 210）。
+      # 术语前后排除英文字母（允许紧跟中文），避免 “specification / Pacific” 之类的子串误命中。
+      # 中文侧允许“海运费及舱位订舱费用由卖方承担 / 卖方承担至鹿特丹的主运费”两种语序；
+      # 只收运费类费用（运费/海运费/运输费用/订舱费），不收“报关费用”等本就应由卖方负担的费用；
+      # 倒装语序的间隔里排除中英文逗号/句号，避免把“卖方承担，主运费由买方承担”误读为卖方付运费。
+      pattern: "(?<![A-Za-z])(?:FOB|EXW|FCA)(?![A-Za-z])[\\s\\S]{0,260}(?:(?:海运费|运费|运输费用|订舱费用|订舱费)[^。]{0,20}?由(?:the )?卖方(?:承担|预付|支付)|卖方(?:承担|预付|支付)[^。，,]{0,12}?(?:海运费|运费|订舱费用|订舱费)|freight[^.]{0,60}?(?:prepaid|paid|borne) by (?:the )?seller)"
     source: Incoterms® 2020 术语与费用条款一致性（业务规则）
-    version: "1.0"
+    version: "1.2"
 
   - rule_id: R-INC-002
     title: FOB/EXW 用于整箱集装箱货物
@@ -235,9 +266,9 @@ rules:
     requires_fields: []
     condition:
       type: regex_match
-      pattern: "(?:FOB|EXW)[\\s\\S]{0,120}(?:集装箱|FCL|拼箱|LCL|堆场)"
+      pattern: "(?<![A-Za-z])(?:FOB|EXW)(?![A-Za-z])[\\s\\S]{0,120}(?:集装箱|FCL|拼箱|LCL|堆场)"
     source: Incoterms® 2020 术语与运输方式匹配（业务规则）
-    version: "1.0"
+    version: "1.1"
 
   - rule_id: R-INP-002
     title: 检验或通知期限以小时计（极短）
@@ -251,7 +282,12 @@ rules:
       写明检验方式、取样安排与通知渠道。
     requires_fields: []
     condition:
-      type: regex_match
-      pattern: "\\d{1,2}\\s*(?:小时|hours?)[^。]{0,30}(?:检验|通知|异议|inspection|notify)"
+      type: any_of
+      conditions:
+        - type: regex_match
+          pattern: "\\d{1,2}\\s*(?:小时|hours?)[^。]{0,30}(?:检验|通知|异议|inspection|notify)"
+        - type: regex_match
+          # 英文：“48 hours ... inspect / notice / claim”同句结构（H05 这类写法）
+          pattern: "\\d{1,2}\\s*hours?[^.]{0,30}?(?:inspect[a-z]*|examin[a-z]*|notif[a-z]*|notice|claim[a-z]*)"
     source: CISG 第 38/39 条检验与通知期限的可执行性（业务规则）
-    version: "1.0"
+    version: "1.1"

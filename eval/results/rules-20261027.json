@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-27T03:54:27.380861+00:00",
+  "generated_at": "2026-10-27T05:01:56.777047+00:00",
   "rule_engine_version": "0.1.0",
   "rule_count": 13,
   "contract_count": 50,
@@ -1087,6 +1087,7 @@
         "R-INS-001": 1,
         "R-PAY-002": 5
       },
+      "note": "覆盖率=有对应规则的现象数/现象总数；识别能力看 rule_level.recall，两者不能混读。",
       "uncovered": [
         {
           "contract_id": "C39",

@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "created_at": "2026-10-27",
+  "provenance": "holdout2：为验证“补英文/同义改写表达”另写的 12 份合同（H09–H20），与 H01–H08、data/contracts 均不重复；gold 为 AI 初标，待人工复核",
+  "annotation_protocol": [
+    "先在规则未改动时通读合同按业务事实标注风险，再跑规则对照；发现 FP/FN 后不在本文件里改标签（保持留出集原始口径）",
+    "等级口径与 gold_rules.json 一致：red=可能致重大损失或权利落空；yellow=条款缺失/口径矛盾",
+    "H10/H13/H20 是刻意写的干净对照（含“出口报关费用由卖方承担，主运费由买方承担”这类近似句），用于测误报"
+  ],
+  "scored_rules": {
+    "R-TRD-001": "yellow",
+    "R-PAY-001": "red",
+    "R-PAY-002": "yellow",
+    "R-DIS-001": "red",
+    "R-DIS-002": "red",
+    "R-DIS-003": "red",
+    "R-DIS-004": "red",
+    "R-INS-001": "yellow",
+    "R-INC-001": "yellow",
+    "R-INC-002": "yellow",
+    "R-INP-002": "yellow"
+  },
+  "unscored_rules": {
+    "R-DLV-001": "依赖 LLM 抽取字段，评测不调用 LLM",
+    "R-INP-001": "依赖 LLM 抽取字段，评测不调用 LLM"
+  },
+  "contract_ids": [
+    "H09",
+    "H10",
+    "H11",
+    "H12",
+    "H13",
+    "H14",
+    "H15",
+    "H16",
+    "H17",
+    "H18",
+    "H19",
+    "H20"
+  ],
+  "phenomena": [
+    {
+      "contract_id": "H09",
+      "phenomenon": "争议解决条款允许买方在“提交首尔仲裁”与“向韩国法院起诉”之间二选一（或裁或审）",
+      "level": "red",
+      "rule_id": "R-DIS-003",
+      "evidence": "第9.2条 may choose to refer the dispute to arbitration in Seoul, or to litigate before the courts"
+    },
+    {
+      "contract_id": "H11",
+      "phenomenon": "FOB 术语下约定主运费及订舱费用由卖方承担并预付至目的港",
+      "level": "yellow",
+      "rule_id": "R-INC-001",
+      "evidence": "第5.1条 自上海至汉堡的主运费及订舱费用由卖方承担并预付至目的港"
+    },
+    {
+      "contract_id": "H12",
+      "phenomenon": "约定仲裁裁决作出后败诉方仍可向法院起诉，削弱仲裁终局性",
+      "level": "red",
+      "rule_id": "R-DIS-004",
+      "evidence": "第8.3条 may file a lawsuit before the competent court within 60 days after the award is issued"
+    },
+    {
+      "contract_id": "H14",
+      "phenomenon": "CIP 下只写“投保一切险”，未写明保险金额/投保比例",
+      "level": "yellow",
+      "rule_id": "R-INS-001",
+      "evidence": "第5.1条 卖方负责办理货物运输保险，险别为一切险（无保险金额或比例）"
+    },
+    {
+      "contract_id": "H15",
+      "phenomenon": "检验期限 24 小时、通知期限 8 小时，非易腐设备下难以执行",
+      "level": "yellow",
+      "rule_id": "R-INP-002",
+      "evidence": "第5.1条 complete inspection within 24 hours … notify Seller of any defect within 8 hours"
+    },
+    {
+      "contract_id": "H16",
+      "phenomenon": "EXW 起草却用于集装箱整箱（FCL）运输，卖方无法控制承运人交接",
+      "level": "yellow",
+      "rule_id": "R-INC-002",
+      "evidence": "第3.2条 EXW Suzhou Incoterms 2020，货物以集装箱整箱（FCL）方式运输"
+    },
+    {
+      "contract_id": "H17",
+      "phenomenon": "合同未约定付款方式或付款节点",
+      "level": "yellow",
+      "rule_id": "R-PAY-002",
+      "evidence": "全文无付款条款（仅交货、检验、不可抗力、法律适用与争议解决）"
+    },
+    {
+      "contract_id": "H18",
+      "phenomenon": "要求买方发货前全额预付货款，买方承担卖方不履约的全部资金风险",
+      "level": "red",
+      "rule_id": "R-PAY-001",
+      "evidence": "第7.1条 买方应于发货前全额预付货款"
+    },
+    {
+      "contract_id": "H19",
+      "phenomenon": "FOB 术语下约定海运费与订舱费由卖方支付至目的港",
+      "level": "yellow",
+      "rule_id": "R-INC-001",
+      "evidence": "第5.1条 All ocean freight and booking charges shall be paid by the seller"
+    }
+  ]
+}

@@ -216,7 +216,12 @@ def score_contract_level(
 
 
 def score_coverage(gold: GoldSet) -> dict[str, Any]:
-    """覆盖率：gold 现象中多少映射到规则；未映射即规则缺口（下一轮规则待办）。"""
+    """覆盖率：gold 现象中多少映射到规则；未映射即规则缺口（下一轮规则待办）。
+
+    口径提醒：覆盖率只回答“有没有对应规则”，**不回答规则能不能识别某种写法**。
+    留出集的 gold 每条现象都标了 `rule_id`，因此覆盖率必然为 1.0，
+    此时必须同时看 rule_level.recall（例如 holdout3：coverage=1.0，recall=0.571）。
+    """
     covered = [item for item in gold.phenomena if item.rule_id]
     uncovered = [item for item in gold.phenomena if not item.rule_id]
     by_rule = Counter(item.rule_id for item in covered)
@@ -226,6 +231,7 @@ def score_coverage(gold: GoldSet) -> dict[str, Any]:
         "phenomena_uncovered": len(uncovered),
         "coverage_rate": _ratio(len(covered), len(gold.phenomena)),
         "covered_by_rule": dict(sorted(by_rule.items())),
+        "note": "覆盖率=有对应规则的现象数/现象总数；识别能力看 rule_level.recall，两者不能混读。",
         "uncovered": [
             {
                 "contract_id": item.contract_id,
