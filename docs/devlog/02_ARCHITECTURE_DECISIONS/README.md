@@ -1,8 +1,8 @@
 ﻿# 架构决策记录（ADR）索引
 
-> 更新时间：2026-10-27（第四阶段第 4 轮 + B 端审查工作台：规则 version 5、holdout4 盲测、ADR-009 第 3 轮补充）
+> 更新时间：2026-10-27（界面轮 3 + 文档类型闸门：规则 version 5、holdout4 盲测、ADR-009 第 3 轮补充、ADR-012）
 > 阶段：**第三阶段代码实现已打通 CLI + FastAPI + B 端审查工作台（Streamlit 备用）；第四阶段进行中（规则 13 条 + 三组评测指标 + 四批留出集）**
-> 说明：ADR-001 ~ ADR-011 全部为“已接受”。后续如需变更，写新 ADR 并在原 ADR 标注“已替代”，不直接改写历史结论。
+> 说明：ADR-001 ~ ADR-012 全部为“已接受”。后续如需变更，写新 ADR 并在原 ADR 标注“已替代”，不直接改写历史结论。
 
 ## 为什么需要 ADR
 
@@ -28,17 +28,20 @@
 | ADR-009 | API/UI 接入与 pending 持久化 | **已接受（已实现；第 2 轮补充：原生 Web 前端；第 3 轮补充：B 端工作台）** | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘 `.data/pending/`；上传后缀/大小/文件名校验；报告 Markdown 纯渲染；**第 2 轮**：`app/web/` 原生 HTML/CSS/JS 由 FastAPI 托管（无框架、无 CDN、无构建）；**第 3 轮**：按 taste-skill `app-screens` 规则重做成 B 端工作台（侧栏 + 面包屑 + sheet + 四个 hash 路由视图 + 本地 IBM Plex 字体），新增只读 `GET /api/rules`（白名单投影，不返回正则/DSL，`API_VERSION` 0.8.0），Streamlit 保留为备用 | [ADR-009-API与UI接入及待审批状态持久化.md](./ADR-009-API与UI接入及待审批状态持久化.md) |
 | ADR-010 | 规则扩充与合同级评测基线 | **已接受（已实现）** | 规则 7 → 13 条（新增 6 条确定性文本规则）；新规则准入四关（DSL 可判定 / 正反 fixture / 语料命中集合可复现 / 样例零误报）；模拟合同拆入 `data/contracts/`，评测结果落 `eval/results/` | [ADR-010-规则扩充与合同级评测基线.md](./ADR-010-规则扩充与合同级评测基线.md) |
 | ADR-011 | 评测方法、silver gold 与留出验证口径 | **已接受（已实现）** | gold 分三层（检索期望 / silver 规则 gold / 留出 gold）；三组指标（rule_level / contract_level / coverage）；留出集未参与规则设计，**发现漏报也不回改规则**；**留出集一旦用于定位缺陷即“已消耗”，只能作回归守卫，对外报数须换新样本**；报数纪律（样本+版本+命令+日期） | [ADR-011-评测方法silver-gold与留出验证.md](./ADR-011-评测方法silver-gold与留出验证.md) |
+| ADR-012 | 上传文档类型闸门 | **已接受（已实现）** | `ingest` 后新增 `precheck_document`：确定性规则判断“是不是合同”（抬头/编号/双方/条款结构/交易要素 + 论文与法规反向信号）；否 → 直接出 `not_contract` 报告，**不切条款、不抽取、不判级、不触发 HITL**；`API_VERSION` 0.9.0 | [ADR-012-上传文档类型闸门.md](./ADR-012-上传文档类型闸门.md) |
 
 ## 关键设计一句话
 
 ```text
-ingest → segment → extract(LLM) → validate → rules(Python)
+ingest → precheck(是不是合同?) ─否→ report(not_contract，不判级)
+   → 是 → segment → extract(LLM) → validate → rules(Python)
    → [有 red?] → human_review(interrupt) → approve → explain(LLM [+RAG]) → report
                  → 无 red → explain(LLM [+RAG]) → report
                  → reject / changes / timeout → report
 ```
 
 - 等级只来自 Python 规则；LLM 输出 schema（抽取/解释/专家候选）中没有 `risk_level`；
+- 上传对象先用**确定性规则**判断是不是合同（ADR-012），不是合同就不进入判级；
 - HITL 用 `interrupt()`，不是状态标记；超时只能变成 `unreviewed_red_risk`；
 - 证据可定位到 `文件:页码:字符偏移`；知识引用可定位到 `source_id#section`（已实现，BM25）；
 - LLM/解析/规则失败都有降级路径，不崩溃、不静默通过；

@@ -26,7 +26,26 @@ ReviewStatus = Literal[
     "completed",
     "unreviewed_red_risk",
     "failed",
+    #: 上传的文件没有被识别为合同（论文/法规/说明书等）：**不进入规则审查，也不产出风险结论**
+    "not_contract",
 ]
+
+
+class DocumentCheck(BaseModel):
+    """文档类型闸门的判定结果（确定性规则，可解释）。
+
+    `is_contract=False` 时图会在 `precheck_document` 处直接结束，
+    只产出“未执行审查”的报告，避免把论文当成合同去判风险。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    is_contract: bool
+    confidence: float = Field(ge=0, le=1)
+    #: 面向用户/审计的判定依据（已排序，可直接展示）
+    reasons: list[str] = Field(default_factory=list)
+    #: 判否时的下一步建议
+    hints: list[str] = Field(default_factory=list)
 
 
 class Page(BaseModel):
@@ -321,6 +340,8 @@ class ContractReviewState(BaseModel):
     raw_text: str = ""
     warnings: list[str] = Field(default_factory=list)
     clauses: list[Clause] = Field(default_factory=list)
+    #: 文档类型闸门结果（是不是合同）；None 表示尚未判定
+    document_check: DocumentCheck | None = None
 
     # LLM 抽取（`extract_fields`）+ Python 校验（`validate_extraction`）
     extraction_status: Literal["ok", "degraded", "skipped"] = "skipped"

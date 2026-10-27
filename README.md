@@ -1,16 +1,18 @@
-# Agent Alex · 外贸合同智审助手
+﻿# Agent Alex · 外贸合同智审助手
 
 面向**国际货物销售合同**的 AI 预审智能体：上传合同 → 条款切分 → LLM 抽取关键要素 → **Python 规则引擎判定红/黄/绿风险**（唯一等级来源）→ 红色风险经 **LangGraph `interrupt()` 真人工确认** → LLM 依据规则结果与原文生成解释 → 输出可追溯报告。
 
-> 当前处于**第四阶段（测试与评测）第 4 轮 + 界面轮 2**：第三阶段的 `ingest → segment → extract → validate → rules → [条件边] → human_review → explain_risks → report` 已全部打通，支持 **TXT / Markdown / 文本型 PDF / DOCX** 解析、标题式条款切分、LLM 17 字段要素抽取与 Python 引文校验，**13 条规则**（11 条文本 + 2 条字段，`version: 5` 已覆盖中文与主要英文写法，保额判定改为“保险语境邻近”），红色风险触发 **LangGraph `interrupt()` 真暂停**，经 `Command(resume=...)` 恢复后由 LLM 生成**带原文与知识引用**的解释。交付入口：**B 端审查工作台（FastAPI 托管）+ CLI + API；Streamlit 保留为备用界面**；未配置 `LLM_API_KEY` 时抽取降级、解释回退规则理由，字段规则标记跳过。评测：50 份模拟合同 + 21 个 silver gold 现象 + **四批留出集 40 份**；**当前唯一未被“消耗”的 holdout4 给出规则级 P=1.00 / R=0.889 / F1=0.941**（唯一漏报 H39，故意不修；silver gold 待人工复核）。详见 [`docs/devlog/00_PROJECT_STATE.md`](docs/devlog/00_PROJECT_STATE.md)。
+> 当前处于**第四阶段（测试与评测）第 4 轮 + 界面轮 3**：第三阶段的 `ingest → precheck → segment → extract → validate → rules → [条件边] → human_review → explain_risks → report` 已全部打通，支持 **TXT / Markdown / 文本型 PDF / DOCX** 解析、**先判断上传对象是不是合同**（论文/法规直接拒绝，不进入判级）、标题式条款切分、LLM 17 字段要素抽取与 Python 引文校验，**13 条规则**（11 条文本 + 2 条字段，`version: 5` 已覆盖中文与主要英文写法，保额判定改为“保险语境邻近”），红色风险触发 **LangGraph `interrupt()` 真暂停**，经 `Command(resume=...)` 恢复后由 LLM 生成**带原文与知识引用**的解释。交付入口：**B 端审查工作台（FastAPI 托管）+ CLI + API；Streamlit 保留为备用界面**；未配置 `LLM_API_KEY` 时抽取降级、解释回退规则理由，字段规则标记跳过。评测：50 份模拟合同 + 21 个 silver gold 现象 + **四批留出集 40 份**；**当前唯一未被“消耗”的 holdout4 给出规则级 P=1.00 / R=0.889 / F1=0.941**（唯一漏报 H39，故意不修；silver gold 待人工复核）。详见 [`docs/devlog/00_PROJECT_STATE.md`](docs/devlog/00_PROJECT_STATE.md)。
+
+> 上传先过“文档类型闸门”（ADR-012）：抬头 / 合同编号 / 买卖双方 / 条款结构 / 交易要素打分，叠加论文与法规的反向信号；判否时状态为 `not_contract`，只出“未执行审查”的报告，**不切条款、不抽取、不判级、不触发人工确认**。
 
 ## 当前完成度
 
 | 阶段 | 状态 | 说明 |
 |---|---|---|
 | 1. GitHub 调研 | ✅ | 8 个开源项目源码级分析，产出借鉴/不借鉴清单 |
-| 2. 架构设计 | ✅ | ADR-001 ~ ADR-011 全部已接受 |
-| 3. 代码实现 | ✅ 第 6 步完成 | 环境、8 节点图、规则引擎（13 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭，真实语料 14 篇）、FastAPI + B 端审查工作台 + Streamlit、243 个测试 |
+| 2. 架构设计 | ✅ | ADR-001 ~ ADR-012 全部已接受 |
+| 3. 代码实现 | ✅ 第 6 步完成 | 环境、9 节点图（含文档类型闸门）、规则引擎（13 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭，真实语料 14 篇）、FastAPI + B 端审查工作台 + Streamlit、256 个测试 |
 | 4. 测试与评测 | ⏳ 第 4 轮完成 | 50 份模拟合同 + 21 个 silver gold 现象 + 四批留出集 40 份；三组指标（rule/contract/coverage）；**holdout4（唯一未消耗）P=1.00 / R=0.889 / F1=0.941，silver gold 待人工复核**；检索评测未做 |
 | 5. 文档与交付 | ⏳ 进行中 | 开发日志、ADR、交接文档、评测结果与 RAG 资料清单已建立 |
 
@@ -63,7 +65,7 @@ py -3.12 -m venv .venv
 
 # 6) 测试与静态检查
 .\.venv\Scripts\python.exe -m pytest
-# 243 passed
+# 256 passed
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
@@ -129,20 +131,22 @@ RAG_MIN_SCORE=1.0
 
 | 视图 / 路由 | 内容 |
 |---|---|
-| 工作台 `#/workbench` | 上传（拖拽或点选 txt / md / 文本型 pdf / docx，前端先校验类型、空文件与 15 MB 上限）+ 五步流水线说明 + 右栏“本次会话 / 规则集预览 / 判级口径” |
+| 工作台 `#/workbench` | 上传（拖拽或点选 txt / md / 文本型 pdf / docx，前端先校验类型、空文件与 15 MB 上限）+ 六步流水线说明（含“判断类型”）+ 右栏“本次会话 / 规则集预览 / 判级口径” |
+| 不是合同 `#/review/{id}` | 文档类型闸门判否时：状态 + 判定置信度 + “判定依据 / 下一步”两栏，明确未切条款、未抽取、未判级；“重新选择文件”清空会话 |
 | 当前审查 `#/review/{id}` | 审批载荷：红色风险逐条（规则理由、原文引用、条款编号、解释来源）+ 复核要点三步 + 决策表单（批准 / 要求修改 / 拒绝 + 复核人 + 意见 + 标记超时）；超时绝不会变成通过 |
 | 复核报告 `#/report/{id}` | 结论块 + 4 个 KPI + 风险清单 + 抽取要素 + 待核对 + “复核记录与版本 / 已知限制”；可下载 JSON / Markdown |
 | 规则集 `#/rules` | 只读规则目录（编号 / 等级 / 主题 / 检查项与理由 / 处理建议）+ 评测口径 + 已知边界；窄屏自动改为堆叠条目，不横向滚动 |
 
-侧栏底部常驻**运行环境**：接口版本、规则集版本与条数（来自 `GET /api/rules`）、checkpoint 后端、RAG 开关，以及 `/docs` 外链；会话只把 `review_id` 存 `localStorage`。
+侧栏底部只保留 **`/docs` 接口文档**入口（运行环境类的接口版本 / checkpoint / RAG 开关属于实现细节，已在界面轮 3 移除）；会话只把 `review_id` 存 `localStorage`。
 
 约束落地（`app/web/` + `tests/test_web.py`）：
 
 - **不引入前端框架 / npm / CDN**：纯 `index.html` + `styles.css` + `app.js`，图标用内联 SVG / data URI；IBM Plex 字体（Sans 可变 + Mono 400/500）随包放在 `app/web/fonts/`，附 `OFL.txt`，离线可用；
 - **不在浏览器判级**：等级全部来自后端 `ReviewSummary` / `ReviewReport`，页面只渲染；规则目录走只读 `GET /api/rules`（白名单字段，不返回正则 / DSL）；人工决定只 POST `/api/reviews/{id}/decisions`（由 `ReviewService` 统一 `resume`），不拼 `Command`；
+- **上传先判类型**：`document_check.is_contract=false` 时只渲染“不是合同”页（判定依据 + 下一步），不显示任何风险结论；
 - **所有后端文本先转义再插入 DOM**，避免合同内容里的 HTML 被执行；
 - **可访问性**：跳转链接、`aria-current` / `aria-expanded`、窄屏抽屉收起时 `visibility: hidden`（不能 Tab 到屏幕外）、打印时展开全部折叠条目；
-- **测试**：入口与静态资源 200、本地字体（`font/*` + OFL）、无外链、无本地判级 / `Command`、资源文件存在；`GET /api/rules` 与 `definitions.yaml` 一致且不泄露正则。
+- **测试**：入口与静态资源 200、本地字体（`font/*` + OFL）、无外链、无本地判级 / `Command`、资源文件存在、界面不含运行环境细节；`GET /api/rules` 与 `definitions.yaml` 一致且不泄露正则。
 
 > 工作台是“hash 路由 + 服务端契约渲染”的轻量后台；Streamlit（`app/ui.py`，端口 8501）保留为备用界面，与工作台共用同一套 `ReviewService`。
 
@@ -152,7 +156,7 @@ RAG_MIN_SCORE=1.0
 app/
   config.py              # 环境变量与上限（唯一读取 .env 的地方）
   schemas.py             # Pydantic：State / Clause / Evidence / 抽取 schema / 解释 / Report / ApprovalPayload
-  graph.py               # LangGraph 组装（8 节点 + 两条条件边 + 强制 checkpointer）
+  graph.py               # LangGraph 组装（9 节点 + 三条条件边 + 强制 checkpointer）
   review_service.py      # start / get / resume（幂等 + 惰性超时 + pending 落盘 + review_id 锁）
   graph_demo.py          # 命令行演示（SQLite 跨进程；--review-id / --decision）
   api.py                 # FastAPI：上传 / 查询 / 人工决定 / 下载 JSON+Markdown / 只读规则目录 + 托管前端
@@ -161,6 +165,7 @@ app/
   report_markdown.py     # ReviewReport → Markdown（纯渲染，不重算等级）
   nodes/
     ingest.py            # TXT/Markdown/PDF/DOCX → canonical text + 页偏移 + sha256
+    precheck.py          # 文档类型闸门：不是合同 → 直接出“未执行审查”报告（ADR-012）
     segment.py           # 标题切分 + 小条款合并 + 超长拆分（无标题时段落 fallback）
     extract.py           # LLM 17 字段抽取（唯一 LLM 抽取节点，按条款串行）
     validate.py          # 引文定位校验 + 数值归一 + 一致性 → facts / to_verify
@@ -171,6 +176,7 @@ app/
   services/
     llm.py               # 结构化输出 + 1 次修复重试 + 未配置/输出错误类型
     evidence.py          # locate_quote：精确匹配 → NFC/空白规范化
+    document_type.py     # “是不是合同”的确定性判定（抬头/编号/双方/条款结构 + 论文与法规反向信号）
     checkpointer.py      # memory / sqlite 工厂 + Pydantic 类型登记
     rag.py               # 本地 BM25 + 中文二元组 + MD/DOCX 切分 + manifest 校验 + 缓存
   rules/
@@ -190,7 +196,7 @@ data/contracts_holdout3/ # 8 份留出合同（H21–H28）→ 第 4 轮已消�
 data/contracts_holdout4/ # 12 份留出合同（H29–H40）→ 唯一未消耗，对外报数用这一批
 data/eval/               # gold_contracts.json（105 条检索期望）/ gold_rules.json（21 个 silver 现象）/ gold_holdout{,2,3,4}.json
 data/knowledge/          # 真实语料 14 篇 + manifest（RAG 默认关闭）；模拟合同1..6.md 为评测来源，不进 manifest
-tests/                   # 243 个测试（API 16 / 前端 6 / pending 11 / RAG 22 / 解释 13 / HITL 17 / 指标 11 / 规则含四批留出回归，无需 Key）
+tests/                   # 256 个测试（API 17 / 前端 7 / 文档类型 11 / pending 11 / RAG 22 / 解释 13 / HITL 17 / 指标 11 / 规则含四批留出回归，无需 Key）
 tests/fakes.py           # Fake LLM（实现 StructuredLLM 协议）
 docs/devlog/             # 项目状态、调研、ADR、开发日志、交接、待决事项、RAG 资料清单
 ```
@@ -204,11 +210,13 @@ docs/devlog/             # 项目状态、调研、ADR、开发日志、交接�
 5. **失败显式降级**：输入/解析/规则异常都有明确路径，不崩溃、不静默 pass；规则执行异常 → 系统 red 并进入人工确认；RAG 无命中 → 退化纯规则解释。
 6. **证据可追溯**：每条风险引用格式 `文件名:p页:start-end`，可在原文精确定位；LLM 引文只允许空白/Unicode 规范化，不允许模糊匹配；知识引用格式 `source_id#section`，且只能引用本条风险实际检索到的片段。
 7. **解释可拦截**：LLM 解释必须通过 Python 质量门（rule_id / clause_id / 引文定位 / 越权表述黑名单）；不通过就丢弃，改用规则理由，绝不把模型结论直接写进报告。
-8. **RAG 与多智能体默认关闭**（ADR-007/008）：`RAG_ENABLED=false`、`AGENTS_ENABLED=false`；Supervisor 仅路由，不判级。
+8. **RAG 与多智能体默认关闭**（ADR-007/008）：`RAG_ENABLED=false`、`AGENTS_ENABLED=false`；Supervisor 仅路由，不判级。RAG 只给“解释”补充知识片段（检索不到就退回规则理由），**不参与判级**，所以默认关闭不是故障——开启用 `RAG_ENABLED=true`，状态可在 `/health` 查看。
+9. **先判断是不是合同**（ADR-012）：`ingest` 后由 `precheck_document` 用确定性规则打分（抬头/编号/买卖双方/条款结构/交易要素，叠加论文与法规反向信号）；判否即 `not_contract`，**不切条款、不抽取、不判级、不触发人工确认**，报告明确写“未执行审查”。
 
 ## 已知限制（当前步骤）
 
 - 支持 TXT / Markdown / 文本型 PDF / DOCX；**扫描件与加密 PDF 明确报错**，不做 OCR。
+- **文档类型闸门是召回优先**：中文/英文之外（日文、德文等）的合同可能被误拒；扫描件无文本时按“正文过短”拒绝并提示 OCR；“看起来很像合同”的论文仍可能进入审查（会在报告里体现抽取与判级过程）。阈值与词表见 `app/services/document_type.py` 顶部（ADR-012）。
 - PDF 表格/多栏可能打乱列顺序，只在 `warnings` 提示人工核对；DOCX 无真实页码，统一 `p1`。
 - 条款切分依赖标题格式（`第X条` / `ARTICLE N` / `1.` 等）；无标题合同走段落 fallback，可能切得不理想。
 - 13 条规则（11 文本 + 2 字段），50 份模拟合同中 39 份未命中任何规则；**未覆盖**责任上限、质保期、所有权保留、合规条款等，覆盖率仅 52.4%（21 个 gold 现象中 10 个无规则）。

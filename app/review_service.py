@@ -36,7 +36,15 @@ from app.services.pending_store import MemoryPendingStore, PendingStore, validat
 
 #: 图已结束的终态；再次 resume 视为幂等请求
 FINAL_STATUSES = frozenset(
-    {"approved", "rejected", "changes_requested", "unreviewed_red_risk", "completed", "failed"}
+    {
+        "approved",
+        "rejected",
+        "changes_requested",
+        "unreviewed_red_risk",
+        "completed",
+        "failed",
+        "not_contract",
+    }
 )
 
 TIMEOUT_DECISION = HitlDecision(

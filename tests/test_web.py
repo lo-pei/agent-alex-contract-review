@@ -99,3 +99,18 @@ def test_frontend_assets_exist_on_disk() -> None:
     # 资源里不写死端口/主机，部署到任意 host 都能用
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     assert re.search(r"localhost|127\.0\.0\.1", script) is None
+
+
+def test_runtime_internals_stay_out_of_the_ui() -> None:
+    """面向业务用户：侧栏不再展示接口版本 / checkpoint / RAG 开关等运行环境信息。"""
+    page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    for needle in ("运行环境", "rt-api", "rt-rules", "rt-checkpoint", "rt-rag"):
+        assert needle not in page, f"index.html 仍包含内部信息：{needle}"
+        assert needle not in script, f"app.js 仍包含内部信息：{needle}"
+    assert ".runtime" not in styles
+    # 保留的是对业务有用的入口，而不是调试信息
+    assert "接口文档" in page
+

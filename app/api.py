@@ -34,6 +34,7 @@ from app.review_service import ReviewRun, ReviewService, ReviewStateError
 from app.rules.engine import RULE_ENGINE_VERSION, load_rule_set
 from app.schemas import (
     ApprovalPayload,
+    DocumentCheck,
     HitlDecision,
     OverallLevel,
     ReviewReport,
@@ -43,7 +44,7 @@ from app.services.checkpointer import sqlite_checkpointer
 from app.services.pending_store import FilePendingStore
 
 API_TITLE = "Agent Alex · 外贸合同智审助手"
-API_VERSION = "0.8.0"
+API_VERSION = "0.9.0"
 
 #: 原生前端资源目录（无框架、无 CDN；见 ADR-009 第 2 轮补充）
 WEB_DIR = Path(__file__).resolve().parent / "web"
@@ -76,6 +77,8 @@ class ReviewSummary(BaseModel):
     errors: list[str] = []
     extraction_status: Literal["ok", "degraded", "skipped"] = "skipped"
     explanation_status: Literal["ok", "fallback", "skipped"] = "skipped"
+    #: 文档类型闸门：`is_contract=False` 时前端直接展示“不是合同”，不展示风险结论
+    document_check: DocumentCheck | None = None
 
 
 class RuleSummary(BaseModel):
@@ -121,6 +124,7 @@ def _summary_of(run: ReviewRun) -> ReviewSummary:
         errors=list(state.errors),
         extraction_status=state.extraction_status,
         explanation_status=state.explanation_status,
+        document_check=state.document_check,
     )
 
 

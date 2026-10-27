@@ -44,6 +44,10 @@ REJECTED_LIMITATION = "复核人已拒绝本版本合同：需修改后重新提
 CHANGES_REQUESTED_LIMITATION = (
     "复核人要求修改：本报告只反映当前版本的问题清单，修改后必须重新审查。"
 )
+NOT_CONTRACT_LIMITATION = (
+    "上传文件没有被识别为合同：未执行条款切分、要素抽取与规则判级，"
+    "本报告不含任何风险结论；如确认是合同，请上传正文完整的版本后重新审查。"
+)
 EXPLANATION_FALLBACK_LIMITATION = (
     "部分或全部风险解释未通过质量门/模型不可用，已回退为规则理由；解释仅供参考，"
     "不得作为法律结论。"
@@ -110,6 +114,10 @@ def _summary(state: ContractReviewState, findings: list[ReportFinding]) -> str:
     if state.status == "failed":
         details = "；".join(state.errors) if state.errors else "未知错误"
         return f"审查未完成：{details}"
+    if state.status == "not_contract":
+        reasons = state.document_check.reasons if state.document_check else []
+        detail = "；".join(reasons) if reasons else "未通过文档类型校验"
+        return f"未执行合同审查：这份文件不是国际货物销售合同。{detail}"
     reds = sum(1 for f in findings if f.risk_level == "red")
     yellows = sum(1 for f in findings if f.risk_level == "yellow")
     skipped = sum(1 for e in state.rule_evaluations if e.skipped)
@@ -126,6 +134,8 @@ def _limitations(state: ContractReviewState) -> list[str]:
     limitations = list(LIMITATIONS)
     if state.status == "failed":
         return limitations
+    if state.status == "not_contract":
+        return [*limitations, NOT_CONTRACT_LIMITATION]
     if state.extraction_status == "degraded":
         limitations.append(EXTRACTION_DEGRADED_LIMITATION)
     elif state.extraction_status == "skipped":
@@ -148,6 +158,8 @@ def _limitations(state: ContractReviewState) -> list[str]:
 def _report_status(state: ContractReviewState) -> ReviewStatus:
     if state.status == "failed":
         return "failed"
+    if state.status == "not_contract":
+        return "not_contract"
     if state.status in HUMAN_FINAL_STATUSES:
         return state.status  # type: ignore[return-value]
     return "completed"

@@ -1,7 +1,7 @@
 ﻿# 开发交接文档（Handover）
 
-> 更新时间：2026-10-27（界面轮 2：B 端审查工作台重设计；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
-> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI）；界面轮 2 完成（B 端审查工作台 `app/web/` 由 FastAPI 托管：侧栏 + 面包屑 + 四个 hash 路由视图 + 本地字体 + 只读 `GET /api/rules`，Streamlit 降为备用）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）；243 个测试通过**；检索评测与人工复核 gold 尚未完成
+> 更新时间：2026-10-27（界面轮 3：非合同闸门 + 收掉运行环境；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
+> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI）；界面轮 3 完成（B 端审查工作台 + **上传先判断是不是合同**：不是合同即 `not_contract`，不切条款/不抽取/不判级；侧栏不再展示运行环境；Streamlit 降为备用）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）；256 个测试通过**；检索评测与人工复核 gold 尚未完成
 > 交接原则：任何新接手的人只读本文件 + `00_PROJECT_STATE.md` + `02_ARCHITECTURE_DECISIONS/README.md`，就能继续开发。
 
 ---
@@ -26,21 +26,22 @@
 | 项 | 状态 | 证据 |
 |---|---|---|
 | GitHub 调研 | ✅ 完成 | `01_RESEARCH_LOG.md`，8 个仓库源码级分析 |
-| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~010` |
+| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~012` |
 | 环境与依赖 | ✅ 完成 | `.venv`（Python 3.12.10）+ `requirements*.txt`；实际版本见 ADR-006 §6 |
 | 业务代码（第 3 步） | ✅ 解析/切分/抽取/校验/规则可用 | `app/` |
 | HITL（第 4 步） | ✅ 条件边 + `interrupt()` + checkpointer | `app/nodes/hitl.py`、`app/review_service.py`、`app/services/checkpointer.py` |
 | 解释 / RAG（第 5 步） | ✅ 质量门 + BM25 + 真实语料 | `app/nodes/explain.py`、`app/services/rag.py`、`data/knowledge/` |
 | API / UI（第 6 步） | ✅ FastAPI + pending 落盘 + Streamlit 备用 | `app/api.py`、`app/ui.py`、`app/report_markdown.py`、`app/services/pending_store.py` |
 | B 端审查工作台（界面轮 2） | ✅ 四视图 + 本地字体 + 只读规则目录 | `app/web/index.html`、`app/web/styles.css`、`app/web/app.js`、`app/web/fonts/`；`GET /`、`GET /static/*`、`GET /api/rules`；`tests/test_web.py`（6 项）、`tests/test_api.py::test_rule_catalog_matches_definitions` |
-| 测试 | ✅ 243 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
+| 文档类型闸门（界面轮 3） | ✅ 先判断是不是合同，不是就停 | `app/services/document_type.py`、`app/nodes/precheck.py`、`app/graph.py`（`ingest → precheck → segment | report`）；`status=not_contract`；`tests/test_document_type.py`（11 项）、`tests/test_api.py::test_non_contract_upload_is_not_reviewed`、`tests/test_web.py::test_runtime_internals_stay_out_of_the_ui` |
+| 测试 | ✅ 256 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
 | 规则集 | ✅ 13 条 | `app/rules/definitions.yaml`（`version: 5`，三类措辞 + 保额邻近判定）；6 条新规则各有语料命中集合回归（ADR-010） |
 | 评测集 / 指标 | ⏳ 主集完成、四批留出完成、待复核 | `data/eval/gold_rules.json`（21 现象，silver）+ `gold_holdout{,2,3,4}.json`（7/9/7/9 现象）+ `eval/results/rules-*.json`；**silver gold 未经人工复核**，检索评测未做 |
 | Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`、`e41d235`、`c7f24a9`、`6eaff8c`、`5dc05bd`、`c540259`，以及后续每步提交 |
 
 > 报数纪律（ADR-011）：对外只引用**当前未被消耗**的留出集（holdout4，12 份，P=1.00 / R=0.889 / F1=0.941），并注明“silver gold 待复核、样本 12 份、唯一漏报 H39”。主集（50 份）P/R=1.0 是**同分布**产物；holdout、holdout2、holdout3 三批已被用于定位缺陷（“已消耗”），修复后即使 1.0 也只能当回归守卫。覆盖率 52.4%（主集 gold）与 H39 漏报才是当前真实短板；留出集的 `coverage=1.0` 是平凡结果，不能与 recall 混读。
 
-### 2.1 架构决策速览（ADR-001~011）
+### 2.1 架构决策速览（ADR-001~012）
 
 | ADR | 结论 | 状态 |
 |---|---|---|
@@ -52,7 +53,7 @@
 | 006 环境 | Python 3.12 + LangGraph 1.2.17 等最新稳定依赖；OpenAI 兼容接口；无 Docker/Redis/Postgres | **已接受** |
 | 007 范围变更 | 允许 RAG/多智能体/Supervisor（仅路由）；判级/HITL/证据边界不变；默认开关关闭 | **已接受**（2026-10-27；RAG 已实现，多智能体仍未实现） |
 | 008 RAG/质量门 | 本地 BM25 + 中文二元组；`source_id#section` 白名单；Python 质量门拦截越权；无命中/配置错误降级 | **已接受**（第 5 步已实现） |
-| 009 API/UI | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘；上传校验；Markdown 纯渲染；**第 2 轮补充：原生 Web 前端；第 3 轮补充：B 端工作台（framed-sheet + hash 路由四视图 + 本地 IBM Plex 字体 + 只读 `GET /api/rules`，`API_VERSION` 0.8.0）**，Streamlit 降为备用 | **已接受**（第 6 步已实现；第 2、3 轮补充均已实现） |
+| 009 API/UI | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘；上传校验；Markdown 纯渲染；**第 2 轮补充：原生 Web 前端；第 3 轮补充：B 端工作台（framed-sheet + hash 路由四视图 + 本地 IBM Plex 字体 + 只读 `GET /api/rules`）；第 4 轮补充：移除侧栏“运行环境”块 + 非合同页，`API_VERSION` 0.9.0**，Streamlit 降为备用 | **已接受**（第 6 步已实现；第 2、3、4 轮补充均已实现） |
 | 010 规则扩充/评测 | 规则 7 → 13 条；新规则准入四关；模拟合同拆入 `data/contracts/`；评测只报触发情况 | **已接受**（2026-10-27 第 1 轮已实现） |
 | 011 评测方法 | gold 三层（检索期望 / silver 规则 gold / 留出 gold）；三组指标；留出集发现漏报也不回改规则；**留出集一旦被用于定位缺陷即视为“已消耗”，只能作回归守卫**；报数纪律；第 4 轮补“保额邻近判定”与“测试钉住已知漏报” | **已接受**（2026-10-27 第 2–4 轮已实现） |
 
@@ -246,7 +247,7 @@ Agent_Alex外贸合同智审助手/
 | 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
 | 恢复人工决定 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision approve --reviewer zhangsan` | ✅ 可用（SQLite 跨进程） |
 | 超时语义 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision timeout` | ✅ 可用 → `unreviewed_red_risk` |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 243 个通过 |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 256 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行（统一入口） | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` | ✅ 可用（`/docs` 可试；默认 SQLite + 文件 pending） |
@@ -369,6 +370,13 @@ Agent_Alex外贸合同智审助手/
 | 85 | `@font-face` 少了 `font-display` / 权重范围写错，会让离线环境回落到系统字体且“看不出错” | 可变字体显式写 `font-weight: 100 700`；`font-display: swap`；`tests/test_web.py` 断言 CSS 里存在 `/static/fonts/` 与 `@font-face`，防止有人误改回 CDN |
 | 86 | 窄屏抽屉只用 `transform: translateX(-102%)` 收起时，链接仍在可访问树里，键盘能 Tab 到屏幕外 | 收起态同时 `visibility: hidden`，`[data-open="true"]` 再 `visible`；这个真实缺陷是被 taste-skill 的 `ragged-row` 告警“顺带”暴露出来的（它把屏幕外侧栏当成了同排卡片） |
 | 87 | 规则目录表在 390px 五列并排会挤成一字一换行 | `@media (max-width: 900px)` 把 `.rules-table` 改成堆叠条目（`display: block` + 首行三元信息 + “处理建议”小标题），不做横向滚动；“窄屏堆叠 + 宽屏表格”要用同一个 DOM，别复制两份 |
+| 88 | 任意文本都能命中规则关键词，于是论文/法规也被“审查”出风险 | 入口先过 `precheck_document`（`classify_document`），不是合同 → `not_contract` 直接出“未执行审查”报告；判否时 `clauses=[]`、不抽取、不判级、不触发 HITL（ADR-012） |
+| 89 | 闸门的抬头正则若在全文中搜，会把正文“货物符合合同约定”当成标题 | `_extract_title()` 只看开头 12 个非空行，行长 ≤48，且排除标点句与 `本合同/符合合同/根据合同` 等正文用语；改词表时先跑 90 份合同语料回归 |
+| 90 | 合同编号正则若在“去空白文本”上匹配，`合同编号：C47` 会取不到值 | 在原文上匹配并捕获**第二组（值）**；`合同编号/合同号/订单号/协议编号` 与 `Contract No./P.O. No.` 两套写法都要覆盖 |
+| 91 | `not_contract` 是新终态，忘了登记会导致人工决定把图再跑一遍 | 必须同时加入 `ReviewStatus` Literal、`ReviewService.FINAL_STATUSES`、`report_markdown.STATUS_LABELS`、`ui.py` 状态映射与前端 `STATUSES`；漏一处就会出现“已停止但还能提交决定” |
+| 92 | 界面里展示接口版本 / 规则集 / checkpoint / RAG 开关，业务用户看不懂也解决不了问题 | 侧栏只留 `/docs`；`test_runtime_internals_stay_out_of_the_ui` 钉住 `运行环境`/`rt-*`/`.runtime` 不得回到页面；需要排查时看 `/health`，不占业务界面 |
+| 93 | 内容少的页面（“不是合同”页）会让 sheet 只占半屏、浮在中间 | `.app` 用 `grid-template-rows: auto minmax(min-content, 1fr)` + `align-items: stretch`，让 `main` 撑满剩余高度；不要用 `min-height` 硬编码 |
+| 94 | PowerShell 里用 `-replace` / `Replace()` 改中文与多行 Markdown，容易产生字面 `\n` 或引号解析错误 | 改文档优先用 Edit 工具做**精确整行替换**；改完用 `Select-String` 复核目标行，避免出现 `\n   -` 这类脏字符 |
 
 ---
 
@@ -411,6 +419,7 @@ Agent_Alex外贸合同智审助手/
    - **第四阶段第 4 轮（已完成，2026-10-27）**：规则 `version: 5` 修三类措辞（“亦可”类并列、“卖方负责支付…运费”、英文数词 `thirty-six (36) hours`）+ `R-INS-001` 保额从全文级收窄为**保险语境邻近**；新写 `holdout4`（H29–H40，12 份）；**holdout4 盲测 P=1.00 / R=0.889 / F1=0.941**，仅剩 H39 漏报（modal 与动词间插时间状语，**故意不修**，测试已钉住）；holdout3 回归 7/0/0；236 个测试通过。
    - **界面轮 1（已完成，2026-10-27）**：`app/web/`（`index.html` + `styles.css` + `app.js`）原生单页，FastAPI 托管 `GET /` 与 `/static`；四步（上传 → 审查 → 人工确认 → 报告）；无框架/无 CDN/无构建；241 个测试通过。
    - **界面轮 2（已完成，2026-10-27）**：按外部方法论 `Leonxlnx/taste-skill`（`references/app-screens.md`）重做成 **B 端审查工作台**——`aside.sidebar`（工作台 / 当前审查 / 复核报告 / 规则集 + 运行环境块）+ `header.topbar`（面包屑 + 服务在线）+ `main.sheet`（framed-sheet 画布）；hash 路由四视图；本地 IBM Plex 字体（`app/web/fonts/`，含 `OFL.txt`，零 CDN）；新增只读 `GET /api/rules`（`API_VERSION` 0.7.0 → 0.8.0，`RuleSummary/RuleCatalog` 白名单投影，不返回正则/DSL）；`tests/test_web.py` 6 项 + `tests/test_api.py::test_rule_catalog_matches_definitions`；真实浏览器 1440/768/390 四页 **0 FAIL / 0 WARN**；243 个测试通过。
+   - **界面轮 3（已完成，2026-10-27）**：用户上传论文被当成合同跑完整审查 → 新增**文档类型闸门**（ADR-012）：`ingest_document` 后插 `precheck_document`，`classify_document` 用“抬头 / 合同编号 / 买卖双方 / 编号条款 / 交易要素 / 签署语”打分（阈值 4），叠加论文与法规反向信号；不是合同 → `status=not_contract` → 直接 `build_report`，**不切条款、不抽取、不判级、不触发 HITL**。契约侧 `DocumentCheck{is_contract, confidence, reasons, hints}` + `ReviewSummary.document_check` + `API_VERSION` 0.9.0 + `ReviewService.FINAL_STATUSES` 纳入 `not_contract`；前端新增“不是合同”页（判定依据 / 下一步 / 重新选择文件），工作台流水线 5 → 6 步。同时按用户要求**移除侧栏“运行环境”块**（接口版本 / 规则集 / checkpoint / RAG 开关），只留 `/docs` 入口。实测：论文 PDF 判否（0.98、0 findings）；5 个语料目录 90 份合同 0 误杀；256 个测试通过。
    - **下一步（第四阶段）**：
      - 修 H39（`R-DIS-004` modal 与动词之间放宽为 `[^.]{0,80}?`），**另写 holdout5（8–12 份）再报数**（ISSUE-021）；
      - 人工复核 21 个 silver 现象 + 32 个留出现象，silver 升 gold（ISSUE-020）；
@@ -433,3 +442,5 @@ Agent_Alex外贸合同智审助手/
 | 开关控制（默认关闭） | 默认开启、隐式联网调用 embedding 服务 |
 
 默认行为：`RAG_ENABLED=false` 时 `explain` 只用规则 `reason` + 合同原文；RAG 无命中时必须退化为纯规则解释，并在 `limitations` 说明“未使用知识库”。
+
+**为什么默认关闭**（用户界面轮 3 问过）：RAG 只增强**解释**、不参与判级；知识库没就绪时开启，会让“检索不到”被误读成“没有风险”。开启方式：`.env` 里 `RAG_ENABLED=true`；查当前值：`GET /health` 的 `rag_enabled`。界面轮 3 已按用户要求把该开关从侧栏移除，业务界面不再展示实现细节。

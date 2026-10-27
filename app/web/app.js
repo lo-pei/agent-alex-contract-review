@@ -28,6 +28,7 @@
     rejected: "已拒绝",
     changes_requested: "要求修改",
     unreviewed_red_risk: "未确认（超时）",
+    not_contract: "未执行（不是合同）",
   };
   const STATUS_TONE = {
     approved: "pass",
@@ -252,17 +253,6 @@
     }
   }
 
-  function updateRuntime() {
-    if (!dom.rtApi) return;
-    const health = state.health;
-    dom.rtApi.textContent = health ? `v${health.version}` : "—";
-    dom.rtRules.textContent = state.rules
-      ? `v${state.rules.ruleset_version} · ${state.rules.count} 条`
-      : "—";
-    dom.rtCheckpoint.textContent = health ? health.checkpoint_backend : "—";
-    dom.rtRag.textContent = health ? (health.rag_enabled ? "开启" : "关闭") : "—";
-  }
-
   function setApiState(online) {
     dom.apiStatus.dataset.state = online ? "online" : "offline";
     dom.apiStatusText.textContent = online ? "服务在线" : "服务离线";
@@ -275,7 +265,6 @@
     } catch {
       setApiState(false);
     }
-    updateRuntime();
   }
 
   async function loadRules() {
@@ -286,7 +275,6 @@
       state.rules = null;
       state.rulesError = error.message;
     }
-    updateRuntime();
     updateBadges();
     if (route().name === "rules" || route().name === "workbench") render();
   }
@@ -311,6 +299,10 @@
       renderNoSession(current.name);
       return;
     }
+    if (state.review.status === "not_contract") {
+      renderNotContract(state.review);
+      return;
+    }
     if (current.name === "review") {
       if (state.review.report && !state.review.awaiting_human) {
         navigate("report", state.review.review_id);
@@ -330,6 +322,11 @@
   function renderWorkbench() {
     const review = state.review;
     const rules = state.rules;
+    const reviewLevel = review
+      ? review.status === "not_contract"
+        ? statusPill(review.status)
+        : levelPill(review.overall_level)
+      : "";
     const fileRow = state.file
       ? `<div class="file-row">
            <span class="file-name">${esc(state.file.name)}</span>
@@ -342,7 +339,7 @@
       ? `<div class="session">
            <div class="file-row">
              <span class="file-name">${esc(review.source_filename)}</span>
-             ${levelPill(review.overall_level)}
+             ${reviewLevel}
            </div>
            <dl class="kv">
              <dt>状态</dt><dd>${esc(STATUSES[review.status] || review.status)}</dd>
@@ -350,7 +347,9 @@
              <dt>抽取</dt><dd>${esc(EXTRACTION[review.extraction_status] || review.extraction_status)}</dd>
            </dl>
            <div class="form-actions">
-             <a class="btn small" href="#/review/${esc(review.review_id)}">查看审查</a>
+             <a class="btn small" href="#/review/${esc(review.review_id)}">${
+               review.status === "not_contract" ? "查看未执行原因" : "查看审查"
+             }</a>
              ${review.report ? `<a class="btn small" href="#/report/${esc(review.review_id)}">查看报告</a>` : ""}
            </div>
          </div>`
@@ -383,12 +382,18 @@
           <p class="subline">上传合同 → 规则判级 → 人工确认红色风险 → 生成可追溯报告。等级只由 Python 规则决定，模型只做抽取与解释。</p>
         </div>
         <div class="title-actions">
-          ${review ? `<a class="btn" href="#/review/${esc(review.review_id)}">继续上次审查</a>` : ""}
+          ${
+            review
+              ? `<a class="btn" href="#/review/${esc(review.review_id)}">${
+                  review.status === "not_contract" ? "查看上次结果" : "继续上次审查"
+                }</a>`
+              : ""
+          }
           <button class="btn primary" type="button" id="pick-file">选择合同</button>
         </div>
       </header>
 
-      <div class="notice">${ICON_INFO}<span>规则覆盖 13 类常见条款；未命中的条款不等于没有风险，报告会列出已知限制。所有文件只保存在本机。</span></div>
+      <div class="notice">${ICON_INFO}<span>上传后会先判断这是不是国际货物销售合同：论文、法规、说明书等材料会被直接拒绝，不进入判级。等级只由 Python 规则决定，模型只做抽取与解释。</span></div>
 
       <div class="grid-main">
         <section class="panel">
@@ -413,10 +418,11 @@
 
             <ol class="pipeline">
               <li><span class="pipeline-index">1</span><span class="pipeline-label">解析文档</span><span class="pipeline-note">页码与字符偏移</span></li>
-              <li><span class="pipeline-index">2</span><span class="pipeline-label">切分条款</span><span class="pipeline-note">标题优先，段落兜底</span></li>
-              <li><span class="pipeline-index">3</span><span class="pipeline-label">抽取要素</span><span class="pipeline-note">17 个字段，可降级</span></li>
-              <li><span class="pipeline-index">4</span><span class="pipeline-label">规则判级</span><span class="pipeline-note">13 条规则，唯一等级来源</span></li>
-              <li><span class="pipeline-index">5</span><span class="pipeline-label">人工确认</span><span class="pipeline-note">仅红色风险触发</span></li>
+              <li><span class="pipeline-index">2</span><span class="pipeline-label">判断类型</span><span class="pipeline-note">不是合同直接停止</span></li>
+              <li><span class="pipeline-index">3</span><span class="pipeline-label">切分条款</span><span class="pipeline-note">标题优先，段落兜底</span></li>
+              <li><span class="pipeline-index">4</span><span class="pipeline-label">抽取要素</span><span class="pipeline-note">17 个字段，可降级</span></li>
+              <li><span class="pipeline-index">5</span><span class="pipeline-label">规则判级</span><span class="pipeline-note">13 条规则，唯一等级来源</span></li>
+              <li><span class="pipeline-index">6</span><span class="pipeline-label">人工确认</span><span class="pipeline-note">仅红色风险触发</span></li>
             </ol>
           </div>
         </section>
@@ -531,7 +537,11 @@
       state.draft = null;
       state.file = null;
       remember(review.review_id);
-      toast("审查已提交");
+      if (review.status === "not_contract") {
+        toast("这份文件不是合同，已停止审查", "error");
+      } else {
+        toast("审查已提交");
+      }
       navigate("review", review.review_id);
     } catch (error) {
       toast(error.message || "提交失败", "error");
@@ -545,6 +555,10 @@
   // ------------------------------------------------------------------ 审查 / 审批
   function renderReview() {
     const review = state.review;
+    if (review.status === "not_contract") {
+      renderNotContract(review);
+      return;
+    }
     if (review.status === "failed") {
       renderFailure(review);
       return;
@@ -1000,6 +1014,10 @@
   function renderReport() {
     const review = state.review;
     const report = review && review.report;
+    if (review && review.status === "not_contract") {
+      renderNotContract(review);
+      return;
+    }
     if (!report) {
       renderNoSession("report");
       return;
@@ -1275,6 +1293,60 @@
     on("reload-rules", "click", loadRules);
   }
 
+  // ------------------------------------------------------------------ 非合同
+  function renderNotContract(review) {
+    const check = review.document_check || {};
+    const reasons = check.reasons || [];
+    const hints = check.hints || [];
+    const confidence =
+      typeof check.confidence === "number"
+        ? `判定置信度 ${Math.round(check.confidence * 100)}%`
+        : "未给出判别置信度";
+    const list = (items, fallback) =>
+      items.length
+        ? `<ul class="bullet-list">${items.map((item) => `<li><span>${esc(item)}</span></li>`).join("")}</ul>`
+        : `<div class="empty-line">${esc(fallback)}</div>`;
+
+    dom.view.innerHTML = `
+      ${reviewHeader(
+        review,
+        "上传的文件不是合同",
+        `<span class="status-line">${statusPill(
+          "not_contract",
+        )} <span class="meta">${esc(confidence)} · 未执行任何规则判级</span></span>`,
+        `<button class="btn primary" type="button" id="restart">重新选择文件</button>
+         <a class="btn ghost" href="#/rules">看看规则覆盖范围</a>`,
+      )}
+
+      <div class="notice is-error">${ICON_INFO}<div class="notice-body">
+        <p class="notice-title">已停止审查</p>
+        <p>这里只审查国际货物销售合同。这份文件没有通过文档类型校验，因此没有切分条款、没有抽取要素、也没有执行风险判级。</p>
+      </div></div>
+
+      <div class="grid-2">
+        <section class="panel">
+          <header class="panel-head"><h2>判定依据</h2><span class="meta">确定性规则 · 可复现</span></header>
+          <div class="panel-body">${list(reasons, "服务端未返回具体依据。")}</div>
+        </section>
+        <section class="panel">
+          <header class="panel-head"><h2>下一步</h2><span class="meta">换一份文件即可</span></header>
+          <div class="panel-body">${list(hints, "请上传国际货物销售合同后重试。")}</div>
+        </section>
+      </div>
+
+      <p class="fineprint">本次没有生成风险报告：文件只用于判断类型，未被当作合同审查。如果确认这是合同，请上传包含正文条款的完整版本。</p>`;
+
+    on("restart", "click", () => {
+      remember(null);
+      stopPolling();
+      state.review = null;
+      state.reviewId = null;
+      state.file = null;
+      state.draft = null;
+      navigate("workbench");
+    });
+  }
+
   // ------------------------------------------------------------------ 空态 / 失败
   function renderNoSession(name) {
     const isReport = name === "report";
@@ -1406,10 +1478,6 @@
     dom.navItems = Array.from(document.querySelectorAll(".nav-item[data-nav]"));
     dom.reviewBadge = document.getElementById("nav-review-badge");
     dom.rulesBadge = document.getElementById("nav-rules-badge");
-    dom.rtApi = document.getElementById("rt-api");
-    dom.rtRules = document.getElementById("rt-rules");
-    dom.rtCheckpoint = document.getElementById("rt-checkpoint");
-    dom.rtRag = document.getElementById("rt-rag");
 
     bindChrome();
     checkHealth();

@@ -33,6 +33,14 @@ DECISION_LABELS = {
 }
 
 
+REJECTED_STATUSES = frozenset({"failed", "not_contract"})
+
+
+def _exit_code(status: str) -> int:
+    """失败与非合同都返回非零，便于脚本判断“没有完成合同审查”。"""
+    return 0 if status not in REJECTED_STATUSES else 1
+
+
 def run_review(
     path: Path | str,
     *,
@@ -186,14 +194,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.json:
         print(json.dumps(run.model_dump(mode="json"), ensure_ascii=False, indent=2))
-        return 0 if run.status != "failed" else 1
+        return _exit_code(run.status)
 
     if run.state is not None:
         _print_state(run.state)
     if run.awaiting_human:
         _print_approval(run)
         return 0
-    return 0 if run.status != "failed" else 1
+    return _exit_code(run.status)
 
 
 if __name__ == "__main__":

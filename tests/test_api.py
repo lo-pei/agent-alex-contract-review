@@ -92,6 +92,33 @@ def test_approve_then_download_report(client: TestClient) -> None:
     assert again.json()["status"] == "approved"
 
 
+def test_non_contract_upload_is_not_reviewed(client: TestClient) -> None:
+    """论文/法规等材料：返回可解释的未执行结果，而不是当作合同判级。"""
+    paper = (
+        "全球比较下的我国人工智能立法\n\n摘要：本文认为，人工智能立法应当兼顾创新与安全。\n"
+        "关键词：人工智能；立法；比较法\n\n一、问题的提出\n"
+        "本研究采用比较法的方法，梳理欧盟、美国与我国的立法经验。本文提出三层治理框架。\n"
+        "参考文献\n[1] 丁晓东. 人工智能与法学研究[J]. 法学研究, 2022.\n"
+    ).encode()
+    response = _upload(client, "paper.md", paper)
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "not_contract"
+    assert body["awaiting_human"] is False
+    assert body["approval"] is None
+    assert body["document_check"]["is_contract"] is False
+    assert body["document_check"]["reasons"]
+    assert body["document_check"]["hints"]
+    assert body["report"]["status"] == "not_contract"
+    assert body["report"]["findings"] == []
+
+    # 报告可以下载，但内容明确写“未执行审查”
+    markdown = client.get(f"/api/reviews/{body['review_id']}/report?format=markdown")
+    assert markdown.status_code == 200
+    assert "未执行审查" in markdown.text
+
+
 def test_report_before_decision_is_conflict(client: TestClient) -> None:
     review_id = _upload(client).json()["review_id"]
     response = client.get(f"/api/reviews/{review_id}/report?format=json")

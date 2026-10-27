@@ -1,35 +1,56 @@
-# 项目状态快照
+﻿# 项目状态快照
 
-> 更新时间：2026-10-27（界面轮 2：B 端审查工作台重设计；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
-> 当前阶段：**交付形态补齐：B 端审查工作台（`app/web/` 原生 HTML/CSS/JS + hash 路由 + 只读规则目录接口 `GET /api/rules`，FastAPI 托管 `/`，无框架/无 CDN/无构建/本地字体；Streamlit 保留备用）；第四阶段（测试与评测）进行中：规则 13 条（`version: 5`）；silver gold 21 个现象；四批留出集 40 份；当前唯一可对外报的数来自 holdout4（12 份）：P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）**
+> 更新时间：2026-10-27（界面轮 3：非合同闸门 + 收掉内部信息；界面轮 2：B 端工作台；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
+> 当前阶段：**交付形态补齐：B 端审查工作台（`app/web/` 原生 HTML/CSS/JS + hash 路由 + 只读规则目录接口 `GET /api/rules`，FastAPI 托管 `/`，无框架/无 CDN/无构建/本地字体；Streamlit 保留备用）；上传先做**文档类型闸门**（论文/法规不进入判级）；第四阶段（测试与评测）进行中：规则 13 条（`version: 5`）；silver gold 21 个现象；四批留出集 40 份；当前唯一可对外报的数来自 holdout4（12 份）：P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）**
 > 项目目录：`d:\A项目\Agent_Alex外贸合同智审助手`
-> Git：`cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`（第 3 步）、`e41d235`（第 4 步）、`c7f24a9`（第 6 步）、`6eaff8c`（第 4 阶段第 1 轮）、`5dc05bd`（第 2 轮）、`c540259`（第 3 轮）、`eba67c0`（界面轮 1：原生 Web 前端），本轮提交见 `git log`
-> 范围变更：2026-10-27 用户明确「可以做 rag 和多 agent」→ **ADR-007**；第 5 步按 **ADR-008** 落地 RAG MVP；第 6 步按 **ADR-009** 落地 API/UI 与 pending 持久化（第 2 轮补充：原生 Web 前端；第 3 轮补充：B 端工作台重设计 + `/api/rules` + 本地字体）；第 1 轮按 **ADR-010** 扩充规则并建立合同级评测基线；第 2–4 轮按 **ADR-011** 建立 silver gold、指标口径、留出验证、“留出集消耗”规则与保额邻近判定（RAG/多智能体仍默认关闭，只增强解释、不判级）
+> Git：`cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`（第 3 步）、`e41d235`（第 4 步）、`c7f24a9`（第 6 步）、`6eaff8c`（第 4 阶段第 1 轮）、`5dc05bd`（第 2 轮）、`c540259`（第 3 轮）、`eba67c0`（界面轮 1）、`892ddf2`（界面轮 2），本轮提交见 `git log`
+> 范围变更：2026-10-27 用户明确「可以做 rag 和多 agent」→ **ADR-007**；第 5 步按 **ADR-008** 落地 RAG MVP；第 6 步按 **ADR-009** 落地 API/UI 与 pending 持久化（第 2 轮：原生 Web 前端；第 3 轮：B 端工作台 + `/api/rules` + 本地字体；第 4 轮：移除运行环境块 + 非合同页）；第 1 轮按 **ADR-010** 扩充规则并建立合同级评测基线；第 2–4 轮按 **ADR-011** 建立 silver gold、指标口径、留出验证与保额邻近判定；界面轮 3 按 **ADR-012** 增加“是不是合同”的类型闸门（RAG/多智能体仍默认关闭，只增强解释、不判级）
 
 ## 一句话了解项目
 
-面向“国际货物销售合同”的 AI 预审智能体：上传 PDF/DOCX/TXT → 条款切分 → LLM 抽取关键要素 → **Python 规则引擎判定红/黄/绿风险**（唯一等级来源）→ 红色风险经 **LangGraph `interrupt()` 真人工确认** → LLM 依据规则结果、合同原文与知识片段生成解释 → Python 质量门校验后输出可追溯报告。交付：**B 端审查工作台（`app/web/`，FastAPI 托管）** + 命令行 + API（Streamlit 备用），10 天完成。
+面向“国际货物销售合同”的 AI 预审智能体：上传 PDF/DOCX/TXT → **判断是不是合同（不是就停）** → 条款切分 → LLM 抽取关键要素 → **Python 规则引擎判定红/黄/绿风险**（唯一等级来源）→ 红色风险经 **LangGraph `interrupt()` 真人工确认** → LLM 依据规则结果、合同原文与知识片段生成解释 → Python 质量门校验后输出可追溯报告。交付：**B 端审查工作台（`app/web/`，FastAPI 托管）** + 命令行 + API（Streamlit 备用），10 天完成。
 
 ## 当前完成度
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | 第一阶段：GitHub 调研 | ✅ 100% | 8 个仓库源码级分析；用户已确认 |
-| 第二阶段：架构设计 | ✅ 100% | ADR-001 ~ ADR-011 全部**已接受**（ADR-007 范围变更、ADR-008 RAG、ADR-009 API/UI、ADR-010 规则扩充、ADR-011 评测方法与 gold 口径） |
+| 第二阶段：架构设计 | ✅ 100% | ADR-001 ~ ADR-012 全部**已接受**（ADR-007 范围变更、ADR-008 RAG、ADR-009 API/UI、ADR-010 规则扩充、ADR-011 评测方法与 gold 口径、ADR-012 上传文档类型闸门） |
 | 第三阶段第 1 步：环境 + 最小图 | ✅ 100% | `.venv`/依赖/最小图/规则引擎/测试/git |
 | 第三阶段第 2 步：解析 + 切分 | ✅ 100% | TXT/MD/文本型 PDF/DOCX；标题切分/合并/超长拆分/上限 |
 | 第三阶段第 3 步：LLM 抽取 + 校验 | ✅ 100% | 17 字段抽取/引文核验/降级/字段规则 skipped；Fake LLM 测试 |
 | 第三阶段第 4 步：HITL 真中断 | ✅ 100% | 条件边/`interrupt()`/审批载荷/checkpointer/幂等/惰性超时；15 个 HITL 测试 |
 | 第三阶段第 5 步：解释 + 质量门 + RAG MVP | ✅ 100% | `explain_risks` 节点/越权拦截/引用定位/BM25 检索/引用白名单；28 个新测试 |
 | 第三阶段第 6 步：FastAPI + Streamlit | ✅ 100% | 上传/审查/人工决定/下载 JSON+Markdown；pending 落盘；37 个新测试 |
+| 界面轮 3：非合同闸门 + 收掉内部信息 | ✅ 100% | 新增 `precheck_document`（`app/services/document_type.py`，纯规则）；`status=not_contract` 直接出“未执行审查”报告，不切条款/不抽取/不判级/不触发 HITL；`ReviewSummary.document_check`；前端新增“不是合同”页并移除侧栏“运行环境”；API 0.9.0；11 个闸门测试 + 1 个 API 测试 + 1 个前端测试 |
 | 界面轮 2：B 端审查工作台 | ✅ 100% | `app/web/` 重写为工作台（侧栏 + 面包屑 + sheet 画布 + hash 路由四视图）；本地 IBM Plex 字体（无 CDN）；新增只读 `GET /api/rules`；6 个前端测试 + 1 个规则目录测试 |
 | 第四阶段：测试与评测 | ⏳ 85% | 规则 13 条（`version: 5`：三类措辞 + 保额邻近判定）；50 份合同 + 21 个 silver gold 现象 + 四批留出集 40 份；**当前唯一未消耗的 holdout4：P=1.00 / R=0.889 / F1=0.941**（漏报 H39，故意不修）；检索评测（ISSUE-018）与人工复核 gold 仍未做 |
 | 第五阶段：文档与交付 | ⏳ 45% | README/状态/交接/ADR/资料清单/开发日志已同步；答辩材料未做 |
 
-## 最新产出（2026-10-27 界面轮 2：B 端审查工作台重设计）
+## 最新产出（2026-10-27 界面轮 3：先判断是不是合同 + 收掉运行环境）
+
+- **起因**：用户上传一篇法学论文测试，系统却按合同跑完了切分/抽取/判级。根因是缺少“对象是否正确”的准入判断——规则面对任意文本都能命中关键词。
+- **闸门**（ADR-012）：`ingest_document` 之后新增 `precheck_document`（`app/nodes/precheck.py`），调用 `app/services/document_type.py::classify_document`：
+  - 身份信号：合同抬头（销售/买卖/采购/供货…合同、Sales Contract）、合同编号（`合同编号：C47`）、买卖双方（卖方/买方、甲方/乙方、Seller/Buyer）；
+  - 反向信号：学术论文（摘要/关键词/参考文献/本文认为/this paper）与法规条文（本法/民法典/总则/Civil Code）；
+  - 契约度评分：抬头 3 / 编号 2 / 双方 2 / 编号条款 2 / 交易要素 1 / 签署语 1，总分 < 4 判否；正文去空白 < 120 字判否；
+  - 用户可见：`reasons`（为什么拒绝）+ `hints`（下一步怎么办），置信度一并返回。
+- **图的路由**：`ingest → precheck ─不是合同→ build_report`；**不切条款、不抽取、不判级、不触发 HITL**；新增 `ReviewStatus = not_contract`，报告 `status=not_contract`、`findings=[]`、`overall_level=unknown`，摘要写“未执行合同审查”，限制里写明“不含任何风险结论”。
+- **契约**：`DocumentCheck{is_contract, confidence, reasons, hints}`（`extra="forbid"`）；`ContractReviewState.document_check`；`ReviewSummary.document_check`；`API_VERSION` 0.8.0 → **0.9.0**；`ReviewService.FINAL_STATUSES` 纳入 `not_contract`（终态后提交决定是幂等空操作）。
+- **前端**：
+  - 新增“不是合同”页（`renderNotContract`）：状态 + 判定置信度 + “判定依据 / 下一步”两栏 + “重新选择文件”（清空本地会话）；
+  - 工作台流水线 5 步 → 6 步（新增“判断类型 / 不是合同直接停止”），顶部提示明确“论文、法规、说明书会被直接拒绝”；
+  - **删除侧栏“运行环境”块**（接口版本 / 规则集版本 / checkpoint / RAG 开关），只保留“接口文档”入口；`updateRuntime()` 与 `.runtime*` 样式一并移除；
+  - `.app` 改为 `grid-template-rows: auto minmax(min-content, 1fr)`，内容少时 sheet 铺到底、不再浮在中间。
+- **关于“RAG 为什么是关闭的”**：这是产品默认值，不是故障——RAG 只用于给**解释**补充知识片段，不能参与判级；ADR-008 规定默认关闭，避免知识库未就绪时把“检索不到”当成“没有风险”。要开启可设置 `AGENT_ALEX_RAG_ENABLED=true`；本轮按要求把该状态从界面移除，需要时在 `.env` 打开、或在 `/docs` 查看 `/health` 的 `rag_enabled`。
+- **测试**：`tests/test_document_type.py`（11 项：论文/法规/过短/90 份合同语料 0 误杀/两个样例/图集成 2 项）、`tests/test_api.py::test_non_contract_upload_is_not_reviewed`、`tests/test_web.py::test_runtime_internals_stay_out_of_the_ui`；全量 **256 passed**，`ruff check .` 与 `node --check` 通过。
+- **真实文件验证**：论文 PDF `全球比较下的我国人工智能立法_丁晓东.pdf` → `not_contract`、置信度 0.98、0 条 findings、报告可下载且写“未执行审查”；C47 → `is_contract=true`、契约度 11/11 → 正常进入人工确认。
+- **已知边界**：闸门是召回优先（宁可放过不误杀）；中文/英文词表之外的合同（日文、德文等）可能被误拒；扫描件无文本时按“过短”拒绝并提示 OCR。
+
+## 上一轮产出（2026-10-27 界面轮 2：B 端审查工作台重设计）
 
 - **为什么做**：界面轮 1 的原生页面虽能跑通全流程，但形态是“单页 + 四步向导”——没有导航、没有面包屑、没有运行环境，规则只以文案出现。用户要求按外部设计方法论 `github.com/Leonxlnx/taste-skill` 重做，并改成 **B 端（企业后台/工作台）** 形态。约束不变：禁止前端框架、npm 构建、CDN。
-- **信息架构**（`app/web/index.html` 重写）：`aside.sidebar`（品牌块 + 工作台/当前审查/复核报告/规则集四个导航 + 底部“运行环境”四行：接口版本 / 规则集版本与条数 / checkpoint / RAG）+ `header.topbar`（抽屉按钮 + 面包屑 + 服务在线 pill）+ `main.sheet` 画布 + `#scrim` + `#toast`；≤900px 侧栏收为抽屉。
+- **信息架构**（`app/web/index.html` 重写）：`aside.sidebar`（品牌块 + 工作台/当前审查/复核报告/规则集四个导航 + 底部“接口文档”入口；运行环境块已在界面轮 3 移除）+ `header.topbar`（抽屉按钮 + 面包屑 + 服务在线 pill）+ `main.sheet` 画布 + `#scrim` + `#toast`；≤900px 侧栏收为抽屉。
 - **路由**：hash 路由 `#/workbench`、`#/review/{id}`、`#/report/{id}`、`#/rules`；`review` / `rules` 带徽章；`localStorage` 只存 `review_id`。
 - **视觉系统**（`styles.css` 重写，framed-sheet）：石色工作区 `#f3f3f1` + 白色 sheet（16px 圆角、1px border）、228px 侧栏、48px topbar、24px 间距；border 只作“耳语”；标题 18–32px、正文 13–14px、数字 `tabular-nums`；统一 panel / kpi / table / ledger / notice / empty 组件；含 `prefers-reduced-motion` 与打印样式。
 - **四个视图**：
@@ -47,7 +68,7 @@
 - **测试与验证**：
   - `tests/test_web.py` 5 → **6 项**（新增本地字体：`@font-face` + `/static/fonts/` + `content-type: font/*` + `OFL.txt`）；
   - `tests/test_api.py` 新增 `test_rule_catalog_matches_definitions`（13 条、5 红 / 8 黄、rule_id 集合一致、不返回 `condition` / `source`）；
-  - `pytest` **243 passed**、`ruff check .` 通过、`node --check app/web/app.js` 通过；
+  - `pytest` **243 passed**（界面轮 2 时）、`ruff check .` 通过、`node --check app/web/app.js` 通过；
   - 真实浏览器测量（taste-skill `inspect.mjs --app`，1440 / 768 / 390）：工作台、当前审查、复核报告、规则集四页均 **0 FAIL / 0 WARN**；自建 CDP 脚本确认 390 / 768 无横向溢出；
   - HTTP 冒烟：`/health` v0.8.0、`/api/rules` 13 条（5 红 / 8 黄）、上传 `data/contracts/C47.md` → 201（awaiting_human）→ decisions 200 → 报告页可渲染、`/docs` 200。
 - **已知取舍**：`app.js` 约 28 KB → 约 60 KB，手写路由与视图复杂度上升；`RuleSummary` 是规则定义的**白名单投影**（新增展示字段要同步改模型与前端，不能把 YAML 直接给浏览器）；本地字体增加约 200 KB 二进制，合规依赖保留 `OFL.txt`；设计测量工具在 768 会误把“屏幕外抽屉里的块”当成同排卡片（已用 CDP 截图与 `scrollWidth` 复核，并借该告警发现并修掉了抽屉的可访问性问题）。
@@ -264,10 +285,11 @@
 - `app/nodes/report.py`：填 `extracted_fields / prompt_version / model_id`；抽取降级/跳过时追加 limitation，摘要写明跳过条数。
 - 测试：新增 `tests/fakes.py` 与 5 个测试文件（evidence/llm/extract/validate/图端到端），总数 **115 个全部通过**。
 
-## 核心设计（ADR-001~010，已接受）
+## 核心设计（ADR-001~012，已接受）
 
 ```text
-START → ingest → segment → extract(LLM) → validate → rules(Python)
+START → ingest → precheck(是不是合同?) ─否→ report(not_contract)
+   → 是 → segment → extract(LLM) → validate → rules(Python)
    → [有 red?] → human_review(interrupt)
    │                ├─ approve → explain(LLM [+RAG]) → report → END
    │                └─ reject / request_changes / timeout → report → END
@@ -290,7 +312,7 @@ START → ingest → segment → extract(LLM) → validate → rules(Python)
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
-# 236 + 6 个前端测试 + 1 个规则目录测试 = 243 个用例
+# 236 + 6 个前端测试 + 1 个规则目录测试 + 11 个文档类型闸门 + 1 个 API + 1 个前端 = 256 个用例
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
@@ -379,6 +401,7 @@ API/UI（`tests/test_api.py` 16 个 + `tests/test_web.py` 6 个 + `tests/test_pe
    - UI/API 均不拼 `Command(resume=...)`，一律走 `ReviewService`。
    - ~~界面轮 1：原生 Web 前端~~ ✅ 已完成（2026-10-27，241 个测试）：`app/web/` 单页由 FastAPI 托管 `/` 与 `/static`，无框架/无 CDN/无构建；Streamlit 降为备用。
    - ~~界面轮 2：B 端审查工作台重设计（taste-skill）~~ ✅ 已完成（2026-10-27，243 个测试）：侧栏 + 面包屑 + sheet 画布 + hash 路由四视图；本地 IBM Plex 字体；新增只读 `GET /api/rules`；四页在 1440/768/390 均 0 FAIL / 0 WARN。
+   - ~~界面轮 3：非合同闸门 + 收掉内部信息~~ ✅ 已完成（2026-10-27，256 个测试）：`precheck_document` 先判断是不是合同；`not_contract` 直接出“未执行审查”报告；前端新增“不是合同”页并移除侧栏运行环境；`API_VERSION 0.9.0`。
 6. **第四阶段（进行中）**：
    - ~~第 1 轮：规则 7 → 13 条（ISSUE-009）~~ ✅ 每条新规则都有语料命中集合回归；
    - ~~第 2 轮：silver gold（21 现象）+ 指标（rule/contract/coverage）+ 独立留出集（8 份）~~ ✅ 留出集 P=1.00 / R=0.71 / F1=0.83，暴露 2 个英文/同义改写漏报（ISSUE-021）；
@@ -404,10 +427,10 @@ API/UI（`tests/test_api.py` 16 个 + `tests/test_web.py` 6 个 + `tests/test_pe
 ## 3 分钟了解项目（给新接手的人）
 
 1. 读根目录 `README.md` 的“设计底线 / 已知限制 / 快速开始”。
-2. 读 `02_ARCHITECTURE_DECISIONS/README.md` 的“关键设计一句话”，再按需读 ADR-001~011。
+2. 读 `02_ARCHITECTURE_DECISIONS/README.md` 的“关键设计一句话”，再按需读 ADR-001~012。
 3. 代码入口：`app/graph.py`（图组装）→ `app/review_service.py`（启动/查询/恢复）→ `app/graph_demo.py` / `app/api.py`（+ `app/web/` 前端）/ `app/ui.py` → `app/nodes/explain.py`（解释与质量门）；规则在 `app/rules/definitions.yaml`（13 条），评测在 `eval/`。
 4. 当前已实现 ingest/segment/extract/validate/rules/human_review/explain/report、RAG 检索、FastAPI + B 端审查工作台（Streamlit 备用）；未配置 Key 时抽取降级、解释回退规则理由。
-5. 未解决事项看 `05_OPEN_ISSUES.md`（ISSUE-009 规则覆盖、ISSUE-020 silver gold 待复核、ISSUE-021 英文/措辞漏报与 H39、ISSUE-015/018 检索评测/授权、ISSUE-019 单进程假设）；RAG/多智能体资料要求看 `06_RAG与多智能体资料清单.md`；RAG 设计看 `ADR-008`，API/UI 与 pending 落盘看 `ADR-009`，规则扩充看 `ADR-010`，评测方法、gold 口径与留出集消耗规则看 `ADR-011`。
+5. 未解决事项看 `05_OPEN_ISSUES.md`（ISSUE-009 规则覆盖、ISSUE-020 silver gold 待复核、ISSUE-021 英文/措辞漏报与 H39、ISSUE-022 前端交互冒烟、ISSUE-023 类型闸门边界、ISSUE-015/018 检索评测/授权、ISSUE-019 单进程假设）；RAG/多智能体资料要求看 `06_RAG与多智能体资料清单.md`；RAG 设计看 `ADR-008`，API/UI 与 pending 落盘看 `ADR-009`，规则扩充看 `ADR-010`，评测方法、gold 口径与留出集消耗规则看 `ADR-011`，上传类型闸门看 `ADR-012`。
 
 ## 文件地图
 
@@ -420,17 +443,18 @@ pyproject.toml                         # ruff / pytest 配置
 app/
   config.py                            # 环境变量与上限（MAX_* / CHECKPOINT_* / HITL_TIMEOUT_MINUTES / PENDING_DIR / UPLOAD_DIR / RAG_*）
   schemas.py                           # Pydantic 契约（抽取 schema / RuleEvaluation / Report / ApprovalPayload / Explanation）
-  graph.py                             # LangGraph 组装（8 节点 + 两条条件边 + 强制 checkpointer）
+  graph.py                             # LangGraph 组装（9 节点 + 三条条件边 + 强制 checkpointer）
   review_service.py                    # start/get/resume（幂等 + 惰性超时 + pending 持久化 + review_id 锁）
   graph_demo.py                        # CLI 演示（SQLite 跨进程；--decision 恢复）
-  api.py                               # FastAPI（上传/查询/决定/下载/只读规则目录；错误码 400/404/409/413/422；托管 `/` 与 `/static`）
-  web/index.html                       # B 端工作台壳层：侧栏 + topbar（面包屑）+ sheet 画布 + toast
+  api.py                               # FastAPI（上传/查询/决定/下载/只读规则目录；错误码 400/404/409/413/422；托管 `/` 与 `/static`；API_VERSION 0.9.0）
+  web/index.html                       # B 端工作台壳层：侧栏 + topbar（面包屑）+ sheet 画布 + toast（不含运行环境细节）
   web/styles.css                       # framed-sheet 设计系统 / 本地字体 @font-face / 响应式 / 打印（无框架、无 CDN）
-  web/app.js                           # hash 路由 + 四视图渲染 + 上传/轮询/审批表单/转义（不判级、不拼 Command）
+  web/app.js                           # hash 路由 + 五视图渲染（含“不是合同”）+ 上传/轮询/审批表单/转义（不判级、不拼 Command）
   web/fonts/                           # IBM Plex Sans 可变字体 + Mono 400/500 + OFL.txt（离线随包）
   ui.py                                # Streamlit 中文界面（备用：上传/审批/报告/下载）
   report_markdown.py                   # ReviewReport → Markdown（纯渲染，不重算等级）
   nodes/ingest.py                      # TXT/MD/PDF/DOCX → canonical text + 页偏移
+  nodes/precheck.py                    # 文档类型闸门（不是合同 → 直接出“未执行审查”报告）
   nodes/segment.py                     # 标题切分/合并/超长拆分/段落 fallback
   nodes/extract.py                     # LLM 17 字段抽取（唯一 LLM 抽取节点）
   nodes/validate.py                    # 引文核验/数值归一/一致性 → facts + to_verify
@@ -439,6 +463,7 @@ app/
   nodes/report.py                      # 报告汇总（跟随人工终态 + limitation）
   services/llm.py                      # 结构化输出 + 1 次修复重试 + 异常类型
   services/evidence.py                 # locate_quote（精确 → NFC/空白规范化）
+  services/document_type.py            # “是不是合同”的确定性判定（抬头/编号/双方/条款结构/论文与法规反向信号）
   services/checkpointer.py             # memory/sqlite 工厂 + JsonPlusSerializer 类型登记
   services/pending_store.py            # pending 时间戳落盘（原子写 + review_id 白名单）
   services/rag.py                      # 本地 BM25 + 中文二元组 + MD/DOCX 切分 + manifest 校验 + 缓存
@@ -463,15 +488,15 @@ data/eval/gold_holdout2.json           # 留出 gold：9 个现象（H10/H13/H20
 data/eval/gold_holdout3.json           # 留出 gold：7 个现象（H27/H28 为干净对照）
 data/eval/gold_holdout4.json           # 留出 gold：9 个现象（H32/H34/H36 为干净对照）
 data/knowledge/                        # 真实语料 14 篇 + manifest；模拟合同1..6.md 为评测来源，不进 manifest
-tests/                                 # 243 个测试（API 16 / 前端 6 / pending 11 / RAG 22 / 解释 13 / HITL 17 / 规则含四批留出回归 / 指标 11）
+tests/                                 # 256 个测试（API 17 / 前端 7 / 文档类型 11 / pending 11 / RAG 22 / 解释 13 / HITL 17 / 规则含四批留出回归 / 指标 11）
 tests/fakes.py                         # Fake LLM（无需 Key）
 tests/fixtures/pdf_builder.py          # 纯标准库构造最小 PDF（测试用）
 docs/devlog/
   00_PROJECT_STATE.md                  # 本文件
   01_RESEARCH_LOG.md                   # 第一阶段调研
-  02_ARCHITECTURE_DECISIONS/           # ADR-001~011（均已接受）
+  02_ARCHITECTURE_DECISIONS/           # ADR-001~012（均已接受）
   03_DEV_LOGS/2026-10-26.md            # 调研 + ADR + 第 1/2/3/4/5/6 步日志
-  03_DEV_LOGS/2026-10-27.md            # 第四阶段第 1/2/3/4 轮：规则扩充、评测基线、silver gold、留出验证、英文补强、三类措辞与保额邻近判定；界面轮 1/2：原生前端与 B 端工作台
+  03_DEV_LOGS/2026-10-27.md            # 第四阶段第 1/2/3/4 轮：规则扩充、评测基线、silver gold、留出验证、英文补强、三类措辞与保额邻近判定；界面轮 1/2/3：原生前端、B 端工作台、非合同闸门
   04_HANDOVER.md                       # 交接说明
   05_OPEN_ISSUES.md                    # 待决事项
   06_RAG与多智能体资料清单.md          # RAG/多智能体需要准备的资料与目录格式

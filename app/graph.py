@@ -1,9 +1,12 @@
-"""LangGraph 图组装（ADR-001、ADR-002、ADR-003）。
+"""LangGraph 图组装（ADR-001、ADR-002、ADR-003、ADR-012）。
 
 角色：确定性主干
-`ingest → segment → extract → validate → rules → (human_review)? → explain_risks → report`。
+`ingest → precheck（是不是合同）→ segment → extract → validate → rules
+ → (human_review)? → explain_risks → report`。
 依赖：`app/nodes/*`、`app/schemas.py`。
 约束：
+- `precheck_document` 用确定性规则判断上传对象是不是合同；不是合同就**不进入判级**，
+  直接生成“未执行审查”的报告（论文/法规不会被当成合同审查）；
 - `extract`/`explain` 是“可降级站”：未配置 LLM 时抽取降级、解释回退规则理由，图不中断；
 - `human_review` 用 `interrupt()` 真暂停，因此**编译时必须注入 checkpointer**（缺失直接报错，
   不允许静默退化成伪 HITL）；
@@ -23,6 +26,7 @@ from app.nodes.explain import explain_risks
 from app.nodes.extract import extract_fields
 from app.nodes.hitl import human_review, route_after_human_review, route_by_risk
 from app.nodes.ingest import ingest_document
+from app.nodes.precheck import precheck_document, route_after_precheck
 from app.nodes.report import build_report
 from app.nodes.rules import evaluate_rules_node
 from app.nodes.segment import segment_clauses
@@ -41,6 +45,7 @@ def build_graph(checkpointer: object | None = None):
     builder = StateGraph(ContractReviewState)
 
     builder.add_node("ingest_document", ingest_document)
+    builder.add_node("precheck_document", precheck_document)
     builder.add_node("segment_clauses", segment_clauses)
     builder.add_node("extract_fields", extract_fields)
     builder.add_node("validate_extraction", validate_extraction)
@@ -50,7 +55,12 @@ def build_graph(checkpointer: object | None = None):
     builder.add_node("build_report", build_report)
 
     builder.add_edge(START, "ingest_document")
-    builder.add_edge("ingest_document", "segment_clauses")
+    builder.add_edge("ingest_document", "precheck_document")
+    builder.add_conditional_edges(
+        "precheck_document",
+        route_after_precheck,
+        {"segment_clauses": "segment_clauses", "build_report": "build_report"},
+    )
     builder.add_edge("segment_clauses", "extract_fields")
     builder.add_edge("extract_fields", "validate_extraction")
     builder.add_edge("validate_extraction", "evaluate_rules")

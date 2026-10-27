@@ -26,6 +26,7 @@ STATUS_LABELS = {
     "unreviewed_red_risk": "未获人工确认（超时/无效决策）",
     "completed": "审查完成",
     "failed": "审查失败",
+    "not_contract": "未执行审查（不是合同）",
     "running": "审查中（等待人工确认）",
 }
 

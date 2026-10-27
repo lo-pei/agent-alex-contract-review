@@ -217,3 +217,14 @@
 - 后端：`app/api.py`（`API_VERSION 0.8.0`、`RuleSummary` / `RuleCatalog`、`GET /api/rules`、woff2 MIME）、`app/rules/engine.py`（`load_rule_set()`）
 - 测试：`tests/test_web.py` 6 项（新增本地字体与 `font/` content-type）、`tests/test_api.py::test_rule_catalog_matches_definitions`（13 条、5 红 / 8 黄、不返回 `condition` / `source`）
 - 验证：`pytest` 243 passed；`ruff check .` 通过；`node --check app/web/app.js` 通过；真实浏览器 1440/768/390 逐页测量 0 FAIL / 0 WARN；HTTP 冒烟 `/health` v0.8.0、`/api/rules` 13 条、上传 C47 → 201 → decisions 200 → 报告可渲染
+
+---
+
+## 第 4 轮补充（2026-10-27）：面向业务用户收掉内部信息 + 非合同页
+
+- **移除侧栏“运行环境”块**：接口版本 / 规则集版本 / checkpoint 后端 / RAG 开关属于运维与调试信息，审查人员不需要看到；侧栏底部只留“接口文档”入口。`app/web/index.html` 删除 `runtime` 结构，`app.js` 删除 `updateRuntime()` 与四个 DOM 引用，`styles.css` 删除 `.runtime*` 样式；`tests/test_web.py::test_runtime_internals_stay_out_of_the_ui` 钉住不再回退。
+- **新增“不是合同”页**：`renderNotContract(review)` 展示状态、判定置信度、判定依据与下一步建议，明确“未切条款、未抽取、未判级”；“重新选择文件”会清空本地会话回到工作台。状态与报告由 ADR-012 的 `precheck_document` 产出（`status=not_contract`）。
+- **工作台可发现性**：流水线由 5 步改为 6 步（新增“判断类型 / 不是合同直接停止”），顶部提示明确“论文、法规、说明书会被直接拒绝，不进入判级”。
+- **布局修正**：`.app` 改为 `grid-template-rows: auto minmax(min-content, 1fr)` + `align-items: stretch`，内容少时 sheet 不再浮在页面中间、白板铺到底。
+- **契约**：`API_VERSION` 0.8.0 → **0.9.0**（`ReviewSummary.document_check`、`ReviewStatus` 增加 `not_contract`）。
+- 验证：`pytest` 256 passed；`ruff check .`、`node --check` 通过；论文 PDF 实测被拒（0.98 / 0 findings），C47 正常进入人工确认。
