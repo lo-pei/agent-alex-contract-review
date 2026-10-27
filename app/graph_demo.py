@@ -59,6 +59,13 @@ def _print_state(state: ContractReviewState) -> None:
         print(f"（模型 {state.extraction_model}，prompt {state.prompt_version}）")
     else:
         print()
+    print(f"风险解释：{state.explanation_status}", end="")
+    if state.explanation_model:
+        print(
+            f"（模型 {state.explanation_model}，prompt {state.explanation_prompt_version}）"
+        )
+    else:
+        print()
     if state.facts:
         print("抽取字段：")
         for field, value in state.facts.items():
@@ -97,9 +104,17 @@ def _print_state(state: ContractReviewState) -> None:
                 print(f"  [{finding.risk_level}][{tag}] {finding.rule_id} {finding.reason}")
                 for citation in finding.citations:
                     print(f"      依据：{citation}")
+                if finding.explanation_summary:
+                    source = "模型" if finding.explanation_source == "llm" else "规则"
+                    print(f"      解释（{source}）：{finding.explanation_summary}")
+                    if finding.explanation_citation:
+                        print(f"      解释依据：{finding.explanation_citation}")
+                for citation in finding.knowledge_citations:
+                    print(f"      知识：{citation}")
                 if finding.suggestion:
                     print(f"      建议：{finding.suggestion}")
         print("规则版本：" + report.rule_engine_version)
+        print(f"解释版本：{report.explanation_prompt_version}（{report.explanation_status}）")
     print(f"耗时(ms)：{state.timings}")
 
 

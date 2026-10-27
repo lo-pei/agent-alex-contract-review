@@ -4,3 +4,5 @@
 pytest==9.1.1
 pytest-asyncio==1.4.1
 ruff==0.17.2
+# FastAPI TestClient 需要（运行依赖不包含）
+httpx==0.28.1

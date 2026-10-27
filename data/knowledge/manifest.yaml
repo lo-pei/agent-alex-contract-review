@@ -1,0 +1,148 @@
+version: 1
+
+# 真实语料索引（用户于 2026-10-27 提供）。
+# 说明：
+# - effective_date 取文件标题/文件名标注的通过或发布日期；对外引用前需按官方文本复核。
+# - license 是当前已知的使用条件标注，不构成授权结论；商用/再分发前请确认。
+# - 未列入本文件的文件不会被检索：`100问题.md`（检索评测问题集，非知识语料）、
+#   旧版 `.doc`（python-docx 不支持，请转换为 .docx 或 .md）。
+documents:
+  - source_id: CISG-ZH
+    title: 联合国国际货物销售合同公约（中文版）
+    publisher: 联合国国际贸易法委员会（UNCITRAL）
+    version: "1980"
+    jurisdiction: 国际
+    effective_date: "1988-01-01"
+    language: zh-CN
+    file: 联合国国际货物销售合同公约（中文版）.md
+    license: UNCITRAL-official-text
+
+  - source_id: CISG-EN
+    title: United Nations Convention on Contracts for the International Sale of Goods (Authentic English Text)
+    publisher: 联合国国际贸易法委员会（UNCITRAL）
+    version: "1980"
+    jurisdiction: 国际
+    effective_date: "1988-01-01"
+    language: en
+    file: CISG（英文原文）.md
+    license: UNCITRAL-official-text
+
+  - source_id: CISG-KEY
+    title: CISG 中英重点条款（用户提供整理稿）
+    publisher: 用户提供（整理稿）
+    version: "2026-10-27"
+    jurisdiction: 国际
+    effective_date: "1988-01-01"
+    language: zh-CN+en
+    file: CISG 中英重点条款.md
+    license: internal-summary-verify-reuse
+
+  - source_id: INCOTERMS-2020
+    title: Incoterms 2020 十一种术语细节全表与逐项标注
+    publisher: 国际商会（ICC）规则文本（用户提供整理稿）
+    version: "2020"
+    jurisdiction: 国际
+    effective_date: "2020-01-01"
+    language: zh-CN
+    file: Incoterms 2020 全部 11 种术语的细节全表与逐项标注.md
+    license: ICC-copyright-internal-use-only
+
+  - source_id: CN-CIVIL-CODE
+    title: 中华人民共和国民法典
+    publisher: 全国人民代表大会
+    version: "2020-05-28"
+    jurisdiction: 中国
+    effective_date: "2021-01-01"
+    language: zh-CN
+    file: 中华人民共和国民法典_20200528.docx
+    license: official-text-verify-reuse
+
+  - source_id: CN-LAW-APPLICATION
+    title: 中华人民共和国涉外民事关系法律适用法
+    publisher: 全国人民代表大会常务委员会
+    version: "2010-10-28"
+    jurisdiction: 中国
+    effective_date: "2011-04-01"
+    language: zh-CN
+    file: 中华人民共和国涉外民事关系法律适用法_20101028.docx
+    license: official-text-verify-reuse
+
+  - source_id: SPC-TREATY-2023
+    title: 最高人民法院关于审理涉外民商事案件适用国际条约和国际惯例若干问题的解释
+    publisher: 最高人民法院
+    version: "2023-12-28"
+    jurisdiction: 中国
+    effective_date: "2024-01-01"
+    language: zh-CN
+    file: 最高人民法院关于审理涉外民商事案件适用国际条约和国际惯例若干问题的解释_20231228.docx
+    license: official-text-verify-reuse
+
+  - source_id: SPC-JURISDICTION-2022
+    title: 最高人民法院关于涉外民商事案件管辖若干问题的规定
+    publisher: 最高人民法院
+    version: "2022-11-14"
+    jurisdiction: 中国
+    effective_date: "2023-01-01"
+    language: zh-CN
+    file: 最高人民法院关于涉外民商事案件管辖若干问题的规定_20221114.docx
+    license: official-text-verify-reuse
+
+  - source_id: SPC-INSURANCE-2009
+    title: 最高人民法院关于适用《中华人民共和国保险法》若干问题的解释（一）
+    publisher: 最高人民法院
+    version: "2009-09-21"
+    jurisdiction: 中国
+    effective_date: "2009-10-01"
+    language: zh-CN
+    file: 最高人民法院关于适用《中华人民共和国保险法》若干问题的解释（一）_20090921.docx
+    license: official-text-verify-reuse
+
+  - source_id: SPC-CONTRACT-2023
+    title: 最高人民法院关于适用《中华人民共和国民法典》合同编通则若干问题的解释
+    publisher: 最高人民法院
+    version: "2023-12-04"
+    jurisdiction: 中国
+    effective_date: "2023-12-05"
+    language: zh-CN
+    file: 最高人民法院关于适用《中华人民共和国民法典》合同编通则若干问题的解释_20231204.docx
+    license: official-text-verify-reuse
+
+  - source_id: SPC-GENERAL-2022
+    title: 最高人民法院关于适用《中华人民共和国民法典》总则编若干问题的解释
+    publisher: 最高人民法院
+    version: "2022-02-24"
+    jurisdiction: 中国
+    effective_date: "2022-03-01"
+    language: zh-CN
+    file: 最高人民法院关于适用《中华人民共和国民法典》总则编若干问题的解释_20220224.docx
+    license: official-text-verify-reuse
+
+  - source_id: SPC-LAW-APPLICATION-2023
+    title: 最高人民法院关于适用《中华人民共和国涉外民事关系法律适用法》若干问题的解释（二）
+    publisher: 最高人民法院
+    version: "2023-11-30"
+    jurisdiction: 中国
+    effective_date: "2024-01-01"
+    language: zh-CN
+    file: 最高人民法院关于适用《中华人民共和国涉外民事关系法律适用法》若干问题的解释（二）_20231130.docx
+    license: official-text-verify-reuse
+
+  - source_id: UCP600-ARB
+    title: UCP600 与三大仲裁规则要点（用户提供整理稿）
+    publisher: 用户提供（整理稿）
+    version: "2026-10-27"
+    jurisdiction: 国际
+    effective_date: "2007-07-01"
+    language: zh-CN
+    file: 语料.md
+    license: internal-summary-verify-reuse
+
+  - source_id: RISK-REDLINE
+    title: 跨境货物买卖合同内部风险红线清单
+    publisher: 内部（用户提供）
+    version: "2026-10-27"
+    jurisdiction: 中国
+    effective_date: "2026-10-27"
+    language: zh-CN
+    file: 跨境货物买卖合同内部风险红线清单.md
+    license: internal-confidential

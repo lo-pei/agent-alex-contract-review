@@ -1,8 +1,8 @@
 # 架构决策记录（ADR）索引
 
-> 更新时间：2026-10-27（第三阶段第 4 步完成；范围变更 ADR-007 已接受）
-> 阶段：**第三阶段代码实现进行中（HITL 已可用；RAG/多智能体获准，尚未实现）**
-> 说明：ADR-001 ~ ADR-007 全部为“已接受”。后续如需变更，写新 ADR 并在原 ADR 标注“已替代”，不直接改写历史结论。
+> 更新时间：2026-10-27（第三阶段第 6 步完成；ADR-009 API/UI 已实现）
+> 阶段：**第三阶段代码实现已打通 CLI + FastAPI + Streamlit**
+> 说明：ADR-001 ~ ADR-009 全部为“已接受”。后续如需变更，写新 ADR 并在原 ADR 标注“已替代”，不直接改写历史结论。
 
 ## 为什么需要 ADR
 
@@ -24,20 +24,24 @@
 | ADR-005 | 文档解析与证据模型 | **已接受** | pypdf + python-docx + TXT；canonical text + 页/全局偏移；`文件名:p页:start-end`；精确/空白规范化定位 | [ADR-005-文档解析与证据模型.md](./ADR-005-文档解析与证据模型.md) |
 | ADR-006 | 运行环境与依赖策略 | **已接受** | Python 3.12；LangGraph 1.2.17 等最新稳定依赖；OpenAI 兼容接口；无 Docker/Redis/Postgres | [ADR-006-运行环境与依赖策略.md](./ADR-006-运行环境与依赖策略.md) |
 | ADR-007 | 范围变更：RAG 与多智能体 | **已接受** | 允许 RAG/多智能体/Supervisor（仅路由）；判级、HITL、证据边界不变；默认开关关闭 | [ADR-007-范围变更-RAG与多智能体.md](./ADR-007-范围变更-RAG与多智能体.md) |
+| ADR-008 | RAG MVP 与解释质量门 | **已接受（已实现）** | 本地 BM25 + 中文二元组；`source_id#section` 引用白名单；Python 质量门拦截越权表述；无命中/配置错误降级为规则解释 | [ADR-008-RAG检索与解释质量门.md](./ADR-008-RAG检索与解释质量门.md) |
+| ADR-009 | API/UI 接入与 pending 持久化 | **已接受（已实现）** | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘 `.data/pending/`；上传后缀/大小/文件名校验；报告 Markdown 纯渲染 | [ADR-009-API与UI接入及待审批状态持久化.md](./ADR-009-API与UI接入及待审批状态持久化.md) |
 
 ## 关键设计一句话
 
 ```text
 ingest → segment → extract(LLM) → validate → rules(Python)
    → [有 red?] → human_review(interrupt) → approve → explain(LLM [+RAG]) → report
-                 → 无 red / 非 approve → report
+                 → 无 red → explain(LLM [+RAG]) → report
+                 → reject / changes / timeout → report
 ```
 
 - 等级只来自 Python 规则；LLM 输出 schema（抽取/解释/专家候选）中没有 `risk_level`；
 - HITL 用 `interrupt()`，不是状态标记；超时只能变成 `unreviewed_red_risk`；
-- 证据可定位到 `文件:页码:字符偏移`；知识引用可定位到 `source_id#section`（规划）；
+- 证据可定位到 `文件:页码:字符偏移`；知识引用可定位到 `source_id#section`（已实现，BM25）；
 - LLM/解析/规则失败都有降级路径，不崩溃、不静默通过；
-- RAG 与多智能体默认关闭，只做解释/建议增强，不参与判级（ADR-007）。
+- RAG 与多智能体默认关闭，只做解释/建议增强，不参与判级（ADR-007/008）；
+- 交付形态：CLI（`app/graph_demo.py`）+ FastAPI（`app/api.py`）+ Streamlit（`app/ui.py`），全部只依赖 `ReviewService`（ADR-009）。
 
 ## 建议的 ADR 模板
 

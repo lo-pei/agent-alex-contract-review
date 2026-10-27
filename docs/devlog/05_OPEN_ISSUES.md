@@ -1,9 +1,9 @@
 # 待解决问题 / 风险登记
 
-> 更新时间：2026-10-27（第三阶段第 4 步完成后）
+> 更新时间：2026-10-27（第三阶段第 6 步完成后）
 > 状态标记：`[OPEN]` 待处理 / `[CLOSED]` 已解决 / `[DEFERRED]` 本阶段不处理
 > 规则：未决事项不写进代码；影响架构的必须先拍板，再进第二阶段。
-> 本轮变化：完成 HITL 真中断/恢复（131 个测试通过）；新增 ISSUE-015（RAG 知识库资料与授权）、ISSUE-016（多智能体角色与编排）、ISSUE-017（pending 时间戳持久化）；ISSUE-009/012/013/014 保持 OPEN。
+> 本轮变化：完成 FastAPI + Streamlit 与 pending 落盘（197 个测试通过）；ISSUE-017 关闭；ISSUE-015 因用户已提供真实语料而降级为“授权与评测待确认”；新增 ISSUE-018（检索评测映射）、ISSUE-019（进程内锁与上传清理）。ISSUE-009/012/013/014 保持 OPEN。
 > 阅读提示：已关闭条目仍保留“决策前”的问题/选项/建议，最终以 **状态** 与 **决策** 段落为准。
 
 ---
@@ -26,9 +26,11 @@
 | ISSUE-012 | OPEN | P2 | 中文/复杂版式 PDF 未验证 | 补 CJK 字体 PDF fixture；用真实中文合同手测并记录 |
 | ISSUE-013 | OPEN | P1 | 真实 LLM 未联调 | 待用户提供 Key/模型名；先用 Fake LLM 覆盖降级路径 |
 | ISSUE-014 | OPEN | P2 | 长合同抽取覆盖不足（>40 条款跳过字段规则） | 先保守跳过；后续评估分块/提高上限并补评测 |
-| ISSUE-015 | OPEN | P1 | RAG 知识库语料、元数据与授权未提供 | 按 `06_RAG与多智能体资料清单.md` 最小 6 项准备；先用内置示例语料跑通链路，`RAG_ENABLED=false` |
+| ISSUE-015 | OPEN | P1 | RAG 知识库授权与检索评测未确认 | 真实语料已入库（14 篇，含 DOCX 条文切分）；下一步确认对外引用授权并做检索评测 |
 | ISSUE-016 | OPEN | P2 | 多智能体专家角色与编排范围未定 | 阶段 B 再做；只做专家节点 + 路由，Supervisor 不得判级 |
-| ISSUE-017 | OPEN | P2 | HITL pending 时间戳只在进程内存 | 第 6 步随 FastAPI 落盘 `.data/pending/<review_id>.json`；当前重启后惰性超时失效 |
+| ISSUE-017 | CLOSED | P2 | HITL pending 时间戳只在进程内存 | 已落盘 `.data/pending/<review_id>.json`，跨进程超时判定有测试 |
+| ISSUE-018 | OPEN | P1 | 检索评测问题集的 source_id 与 manifest 不一致 | 建立 `100问题.md` → manifest `source_id#section` 映射后再报召回率 |
+| ISSUE-019 | OPEN | P2 | 并发锁仅进程内、上传/报告文件无清理策略 | 单机演示可接受；多进程部署前需换文件锁/数据库并加保留期 |
 
 ---
 
@@ -271,18 +273,21 @@
 
 ---
 
-## ISSUE-015 · RAG 知识库语料、元数据与授权未提供
+## ISSUE-015 · RAG 知识库授权与检索评测未确认
 
-- **状态**：OPEN
-- **优先级**：P1（影响第 5 步 RAG MVP 的真实效果与合规表述）
-- **背景**：2026-10-27 用户放开 RAG（ADR-007）。代码可以先用内置极小示例语料跑通检索链路，但要做“可对外展示的知识引用”，必须有真实、可授权、有版本的知识文档。
-- **需要用户/业务方提供**（详见 `06_RAG与多智能体资料清单.md`）：
-  1. **P0 知识文本**：Incoterms 2020 关键术语摘要、CISG 中英重点条款、中国民法典合同编 + 涉外民事关系法律适用法摘录、公司内部风险红线清单；
-  2. **元数据**：每个文件必须有 `source_id / title / publisher / version / jurisdiction / effective_date / language / file / license`；
-  3. **检索评测**：10 条起（建议 50 条）真实业务问法，带 `expected_source_ids / expected_sections`；
-  4. **合规授权**：能否入库、能否展示原文、能否在演示/答辩中引用、许可是否允许再分发。
-- **最小可开工集（6 项）**：Incoterms 2020 摘要、CISG 中英重点条款、民法典合同编 + 法律适用法摘录、内部风险红线清单、10 条检索问题、5 份起脱敏合同。
-- **未提供时的默认**：`RAG_ENABLED=false`；`explain` 只用规则 `reason` + 合同原文；知识引用功能不对外宣称可用。
+- **状态**：OPEN（2026-10-27 语料已提供，链路已跑通；授权与评测待确认）
+- **优先级**：P1（影响“知识引用能否对外展示”与检索质量结论）
+- **已解决**：
+  - 用户已将真实语料放入 `data/knowledge/`（CISG 中英、Incoterms 2020、民法典、涉外民事关系法律适用法、6 份最高法司法解释、UCP600/仲裁要点、内部红线清单）；
+  - `manifest.yaml` 已登记 14 篇，含 `source_id/title/publisher/version/jurisdiction/effective_date/language/file/license`；
+  - `app/services/rag.py` 已支持 `.docx` 按“第X条”切分（民法典 1260 条 → 1261 段）、英文 CISG `***Article N***` 标题、超长片段二次切分，并显式拒绝旧版 `.doc`；
+  - 实测加载 14 篇 / 1834 段，最长 1599 字符；`根本违约`、`FOB 风险转移`、`仲裁 管辖`、`不可抗力` 均能命中合理引用。
+- **仍未解决**：
+  1. **授权边界**：`license` 字段只是当前标注（如 `ICC-copyright-internal-use-only`、`official-text-verify-reuse`），是否允许在演示/答辩中展示原文、是否允许再分发，仍需业务/法务确认；
+  2. **effective_date 复核**：日期取文件标题/文件名标注，对外引用前需按官方文本核对；
+  3. **旧版 `.doc`**（`最高人民法院关于涉外民商事案件诉讼管辖若干问题的规定_20201229.doc`）未入库，需转换为 `.docx` 或 `.md`；
+  4. **检索评测**：尚未跑 `100问题.md` 的 100 条 query，且其 `source_id` 命名与 manifest 不一致（ISSUE-018）。
+- **默认**：`RAG_ENABLED=false`；开启后只增强解释，不参与判级；知识引用必须能在 `source_id#section` 定位。
 - **禁止**：把无授权文本、抓取的付费标准全文、或模型记忆当成知识库引用。
 
 ---
@@ -306,15 +311,47 @@
 
 ## ISSUE-017 · HITL pending 时间戳只在进程内存
 
-- **状态**：OPEN
+- **状态**：CLOSED（2026-10-27 第 6 步）
 - **优先级**：P2（影响重启后的超时判定）
-- **现象**：`ReviewService._requested_at` 是进程内 `dict[review_id, datetime]`；进程重启后该表为空，`get()` 无法判断是否已超过 `HITL_TIMEOUT_MINUTES`，惰性超时失效（review 会一直 pending）。
-- **影响**：单进程演示无影响；FastAPI 多进程/重启场景会出现“超时永不触发”。
+- **原现象**：`ReviewService._requested_at` 是进程内 `dict[review_id, datetime]`；进程重启后该表为空，`get()` 无法判断是否已超过 `HITL_TIMEOUT_MINUTES`，惰性超时失效。
+- **解决方式**：
+  1. 新增 `app/services/pending_store.py`：`FilePendingStore` 落盘 `.data/pending/<review_id>.json`（临时文件 + `os.replace` 原子写），`MemoryPendingStore` 供测试；
+  2. `ReviewService` 注入 `PendingStore`：首次观察到暂停写时间戳（不覆盖已有值），恢复/超时后清理；
+  3. `review_id` 用正则白名单校验，防路径穿越；损坏文件按“未记录”处理，**绝不据此判超时**；
+  4. 同一 `review_id` 的 `get` / `resume` 加 `threading.RLock`（可重入），防止并发恢复把图跑两次。
+- **证据**：`tests/test_pending_store.py`
+  - `test_lazy_timeout_survives_service_restart`：换新 service + 新 store 实例后仍触发 `unreviewed_red_risk`；
+  - `test_pending_removed_after_decision`、`test_file_store_ignores_corrupted_file`、非法 ID 参数化测试。
+- **残余风险**：锁只在单进程内有效（ISSUE-019）。
+
+---
+
+## ISSUE-018 · 检索评测问题集的 source_id 与 manifest 不一致
+
+- **状态**：OPEN
+- **优先级**：P1（影响 RAG 检索评测与任何“召回率”数字）
+- **现象**：`data/knowledge/100问题.md` 的 100 条 query 使用 `CISG-25`、`CISG-39(2)`、`INC`、`LAW`、`CC`、`JI`、`RISK` 等命名，而 manifest 的 `source_id` 是 `CISG-ZH / CISG-EN / CISG-KEY / INCOTERMS-2020 / CN-CIVIL-CODE / CN-LAW-APPLICATION / SPC-* / RISK-REDLINE`；section 也是自然语言描述而非 `sN` / `第X条`。
+- **影响**：直接跑评测会把“正确命中”误判为“未命中”，无法给出可信召回率。
 - **建议方向**：
-  1. 第 6 步随 FastAPI 落盘 `.data/pending/<review_id>.json`（`requested_at / reviewer / payload_digest`）；
-  2. `get()` 优先读落盘时间；文件缺失时用 checkpoint `updated_at` 兜底；
-  3. 补测试：重建 service 实例后仍能触发超时；并发 resume 仍幂等。
-- **不可接受**：为了“能超时”把 `requested_at` 当成 `None` 直接判超时（会误伤刚开始的审批）。
+  1. 建立映射表（query # → `expected_source_ids` + `expected_sections`），人工确认 20–30 条高置信样本先跑；
+  2. 检索结果允许“多命中”，评测按 `source_id` 与条文号（docx）或章节语义（md）匹配；
+  3. 评测结果写入 `eval/results/*.json`，含 `RAG_TOP_K` / `RAG_MIN_SCORE` / 语料版本。
+- **禁止**：在映射完成前宣称“RAG 召回率 X%”。
+
+---
+
+## ISSUE-019 · 并发锁仅进程内、上传/报告文件无清理策略
+
+- **状态**：OPEN
+- **优先级**：P2（单机演示可接受）
+- **现象**：
+  - `ReviewService` 的锁是进程内 `threading.RLock`；多 worker（多进程 uvicorn）部署时仍可能并发 resume；
+  - `.data/uploads/<review_id>/` 与 `.data/pending/<review_id>.json` 没有保留期/清理任务；
+  - SQLite checkpointer 的 `check_same_thread=False` 只解决线程问题，不解决多进程写冲突。
+- **建议方向**：
+  1. 多进程前先改用文件锁（`filelock`）/SQLite 事务锁，或限制单 worker 部署并在 README 写明；
+  2. 增加启动时清理 N 天前的 uploads/pending（先做脚本，不引入调度组件）；
+  3. 评测/演示环境保留现状即可，但必须在文档中说明“单进程假设”。
 
 ---
 

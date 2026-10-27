@@ -1,7 +1,7 @@
 # 开发交接文档（Handover）
 
-> 更新时间：2026-10-27（第三阶段第 4 步完成后）
-> 当前状态：**第三阶段第 4 步完成：条件边 + HITL `interrupt()` 真暂停/恢复 + SQLite checkpointer 已可用（`ingest → segment → extract → validate → rules → [条件边] → human_review → report`）；131 个测试通过；解释/RAG/API/UI 仍未实现**
+> 更新时间：2026-10-27（第三阶段第 6 步完成后）
+> 当前状态：**第三阶段第 6 步完成：解释 + 质量门 + RAG（真实语料 14 篇）+ FastAPI + Streamlit 全部可用；197 个测试通过**；第四阶段（规则扩充 + gold 评测）未开始
 > 交接原则：任何新接手的人只读本文件 + `00_PROJECT_STATE.md` + `02_ARCHITECTURE_DECISIONS/README.md`，就能继续开发。
 
 ---
@@ -26,28 +26,31 @@
 | 项 | 状态 | 证据 |
 |---|---|---|
 | GitHub 调研 | ✅ 完成 | `01_RESEARCH_LOG.md`，8 个仓库源码级分析 |
-| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~007` |
+| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~009` |
 | 环境与依赖 | ✅ 完成 | `.venv`（Python 3.12.10）+ `requirements*.txt`；实际版本见 ADR-006 §6 |
 | 业务代码（第 3 步） | ✅ 解析/切分/抽取/校验/规则可用 | `app/` |
 | HITL（第 4 步） | ✅ 条件边 + `interrupt()` + checkpointer | `app/nodes/hitl.py`、`app/review_service.py`、`app/services/checkpointer.py` |
-| 解释 / RAG / API / UI | ⏳ 未实现 | 第 5、6 步 |
-| 测试 | 🚧 131 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
+| 解释 / RAG（第 5 步） | ✅ 质量门 + BM25 + 真实语料 | `app/nodes/explain.py`、`app/services/rag.py`、`data/knowledge/` |
+| API / UI（第 6 步） | ✅ FastAPI + Streamlit + pending 落盘 | `app/api.py`、`app/ui.py`、`app/report_markdown.py`、`app/services/pending_store.py` |
+| 测试 | ✅ 197 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
 | 评测集 | ⏳ 未开始 | 无 `data/eval/`、无 `eval/results/`；**没有任何准确率数据** |
-| Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`，以及第 4 步提交 |
+| Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`，以及后续每步提交 |
 
-> 不要在汇报里说“已有解释节点/RAG/API/UI”或“已通过评测”或“抽取准确率 X%”；当前只有解析、切分、抽取（Fake LLM 已验证）、校验、规则、HITL 与报告。
+> 不要在汇报里说“已通过评测”或“抽取准确率 X%”；当前有解析、切分、抽取（Fake LLM 已验证）、校验、规则、HITL、解释/质量门、RAG 检索、API/UI 与报告，但**没有评测结果**。
 
-### 2.1 架构决策速览（ADR-001~007）
+### 2.1 架构决策速览（ADR-001~009）
 
 | ADR | 结论 | 状态 |
 |---|---|---|
-| 001 图结构 | 确定性顺序主干 + 两个条件边（是否有 red / 是否 approve）+ 单一 HITL 门；不用 Supervisor/并行/单体 ReAct | **已接受**（当前只实现“是否有 red”；“是否 approve”随第 5 步 `explain` 加入） |
+| 001 图结构 | 确定性顺序主干 + 两个条件边（是否有 red / 是否 approve）+ 单一 HITL 门；不用 Supervisor/并行/单体 ReAct | **已接受**（两条条件边均已实现：`route_by_risk`、`route_after_human_review`） |
 | 002 HITL | 节点内 `interrupt()` + checkpointer + `Command(resume=HitlDecision)`；审批前零业务写入；超时 → `unreviewed_red_risk`，绝不自动通过 | **已接受**（第 4 步已实现，回填见 ADR-002 §7） |
 | 003 规则/LLM | 规则唯一判级；LLM 只抽 17 字段与解释；schema 禁止 `risk_level`；引文核验、越权表述拦截、失败兜底 | **已接受** |
 | 004 持久化 | 运行用 `SqliteSaver`（同步，当前实现）/测试用 `InMemorySaver`；`thread_id=review_id`；pending/报告/审计分离；惰性超时 | **已接受**（ADR-004 原写 `AsyncSqliteSaver`，第 4 步实际用同步 `SqliteSaver`，见 ADR-002 §7） |
 | 005 解析/证据 | pypdf + python-docx + TXT；canonical text + 页/全局偏移；`文件名:p页:start-end`；精确/空白规范化定位 | **已接受** |
 | 006 环境 | Python 3.12 + LangGraph 1.2.17 等最新稳定依赖；OpenAI 兼容接口；无 Docker/Redis/Postgres | **已接受** |
-| 007 范围变更 | 允许 RAG/多智能体/Supervisor（仅路由）；判级/HITL/证据边界不变；默认开关关闭 | **已接受**（2026-10-27，尚未实现） |
+| 007 范围变更 | 允许 RAG/多智能体/Supervisor（仅路由）；判级/HITL/证据边界不变；默认开关关闭 | **已接受**（2026-10-27；RAG 已实现，多智能体仍未实现） |
+| 008 RAG/质量门 | 本地 BM25 + 中文二元组；`source_id#section` 白名单；Python 质量门拦截越权；无命中/配置错误降级 | **已接受**（第 5 步已实现） |
+| 009 API/UI | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘；上传校验；Markdown 纯渲染 | **已接受**（第 6 步已实现） |
 
 ---
 
@@ -124,6 +127,14 @@ MAX_EXTRACT_CLAUSES=40
 CHECKPOINT_BACKEND=sqlite
 CHECKPOINT_SQLITE_PATH=.data/checkpoints.sqlite
 HITL_TIMEOUT_MINUTES=30
+PENDING_DIR=.data/pending
+UPLOAD_DIR=.data/uploads
+
+# RAG（默认关闭）
+RAG_ENABLED=false
+RAG_KNOWLEDGE_DIR=data/knowledge
+RAG_TOP_K=3
+RAG_MIN_SCORE=1.0
 
 MAX_UPLOAD_MB=15
 MAX_CONTRACT_CHARS=200000
@@ -134,7 +145,7 @@ MAX_PAGES=200
 
 ---
 
-## 4. 目录现状（第 4 步已创建的部分）
+## 4. 目录现状（第 6 步已创建的部分）
 
 ```text
 Agent_Alex外贸合同智审助手/
@@ -146,20 +157,23 @@ Agent_Alex外贸合同智审助手/
 ├─ README.md
 ├─ app/
 │  ├─ __init__.py
-│  ├─ config.py                   # 环境变量、路径、上限（CHECKPOINT_* / HITL_TIMEOUT_MINUTES / MAX_EXTRACT_CLAUSES）
-│  ├─ schemas.py                  # State/Clause/Evidence/FieldValue/ExtractedFieldSet/RuleEvaluation/Report/ApprovalPayload
-│  ├─ graph.py                    # 7 节点 + 条件边 + 强制 checkpointer
-│  ├─ review_service.py           # start/get/resume（幂等 + 惰性超时）
+│  ├─ config.py                   # 环境变量、路径、上限（CHECKPOINT_* / HITL_TIMEOUT_MINUTES / PENDING_DIR / UPLOAD_DIR / RAG_*）
+│  ├─ schemas.py                  # State/Clause/Evidence/ExtractedFieldSet/RuleEvaluation/Explanation/Report/ApprovalPayload
+│  ├─ graph.py                    # 8 节点 + 两条条件边 + 强制 checkpointer
+│  ├─ review_service.py           # start/get/resume（幂等 + 惰性超时 + pending 落盘 + review_id RLock）
 │  ├─ graph_demo.py               # CLI（SQLite 跨进程；--review-id/--decision）
+│  ├─ api.py                      # FastAPI（上传/查询/决定/下载；错误码 400/404/409/413/422）
+│  ├─ ui.py                       # Streamlit（上传 → 审批 → 报告 → 下载）
+│  ├─ report_markdown.py          # ReviewReport → Markdown（纯渲染）
 │  ├─ nodes/
 │  │  ├─ ingest.py                # TXT/MD/PDF/DOCX → pages + canonical text + 全局偏移
 │  │  ├─ segment.py               # 标题切分 + 合并 + 超长拆分 + 段落 fallback
 │  │  ├─ extract.py               # LLM 17 字段抽取（唯一 LLM 抽取节点）
 │  │  ├─ validate.py              # 引文核验 + 数值归一 + 一致性 → facts / to_verify
 │  │  ├─ rules.py                 # 规则节点（唯一等级来源）
-│  │  ├─ hitl.py                  # 审批载荷 + interrupt() + 决策校验 + route_by_risk
-│  │  ├─ report.py                # 报告汇总（跟随人工终态 + limitation）
-│  │  └─ explain.py               # 计划（第 5 步，未创建）
+│  │  ├─ hitl.py                  # 审批载荷 + interrupt() + 决策校验 + 两条条件边
+│  │  ├─ explain.py               # LLM 解释 + Python 质量门 + RAG 引用白名单 + 规则兜底
+│  │  └─ report.py                # 报告汇总（跟随人工终态 + limitation）
 │  ├─ rules/
 │  │  ├─ definitions.yaml         # 7 条规则（5 文本 + 2 字段，version 2）
 │  │  ├─ dsl.py                   # 白名单条件 DSL
@@ -168,29 +182,26 @@ Agent_Alex外贸合同智审助手/
 │  │  ├─ llm.py                   # 结构化输出 + 1 次修复 + 异常类型 + get_llm()
 │  │  ├─ evidence.py              # locate_quote（精确 → NFC/空白规范化）
 │  │  ├─ checkpointer.py          # memory/sqlite 工厂 + JsonPlusSerializer 类型登记
-│  │  └─ rag.py                   # 计划（第 5 步，未创建）
-│  ├─ api.py                      # 计划（第 6 步，未创建）
-│  ├─ ui.py                       # 计划（第 6 步，未创建）
+│  │  ├─ pending_store.py         # pending 时间戳原子落盘 + review_id 白名单
+│  │  └─ rag.py                   # BM25 + 中文二元组 + MD/DOCX 切分 + manifest 校验 + 缓存
 │  └─ __main__.py                 # 计划（未创建）
 ├─ tests/
 │  ├─ conftest.py
 │  ├─ fakes.py                    # Fake LLM（无需 Key）
-│  ├─ test_ingest.py              # TXT/编码/上限
-│  ├─ test_ingest_formats.py      # PDF/DOCX/扫描件/加密/页数/文件头/表格顺序
-│  ├─ test_segment.py             # 标题/合并/拆分/上限/页面映射
-│  ├─ test_evidence.py            # 引文定位（精确/空白/NFC/失败）
-│  ├─ test_llm_service.py         # 修复重试/异常/未配置
-│  ├─ test_extract.py             # Fake LLM 成功/失败隔离/降级/上限/注入防护
-│  ├─ test_validate.py            # 定位/丢弃/数值/冲突/一致性
-│  ├─ test_rules.py               # 文本规则 + 字段规则 skipped/触发
-│  ├─ test_hitl.py                # HITL 暂停/恢复/幂等/超时/载荷/非法决策（14 个）
-│  ├─ test_graph.py               # 无 Key 全链路（风险样例显式批准）
-│  ├─ test_graph_extraction.py    # Fake LLM 全链路
-│  └─ fixtures/
-│     └─ pdf_builder.py           # 纯标准库构造最小 PDF
+│  ├─ test_ingest.py / test_ingest_formats.py / test_segment.py
+│  ├─ test_evidence.py / test_llm_service.py / test_extract.py / test_validate.py / test_rules.py
+│  ├─ test_hitl.py                # HITL 暂停/恢复/幂等/超时/载荷/非法决策（17 个）
+│  ├─ test_explain.py             # 解释与质量门（13 个）
+│  ├─ test_rag.py                 # BM25/manifest/DOCX/长段/缓存/真实语料（22 个）
+│  ├─ test_pending_store.py       # 落盘/跨进程超时/损坏文件/非法 ID（11 个）
+│  ├─ test_api.py                 # FastAPI 全流程与错误码（15 个）
+│  ├─ test_report_markdown.py     # Markdown 渲染（3 个）
+│  ├─ test_ui.py                  # Streamlit 冒烟（1 个）
+│  ├─ test_graph.py / test_graph_extraction.py
+│  └─ fixtures/pdf_builder.py     # 纯标准库构造最小 PDF
 ├─ data/
 │  ├─ samples/                    # 2 份自拟脱敏合同（TXT）
-│  └─ knowledge/                  # 计划（RAG 语料，见 06_RAG与多智能体资料清单.md）
+│  └─ knowledge/                  # 真实语料 14 篇 + manifest；examples/ 为测试专用自拟语料
 ├─ eval/                          # 计划（未创建）
 └─ docs/
    └─ devlog/                     # 本目录
@@ -209,15 +220,15 @@ Agent_Alex外贸合同智审助手/
 | 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
 | 恢复人工决定 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision approve --reviewer zhangsan` | ✅ 可用（SQLite 跨进程） |
 | 超时语义 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision timeout` | ✅ 可用 → `unreviewed_red_risk` |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 131 个通过 |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 197 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行（统一入口） | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
-| API | `uvicorn app.api:app --reload` | ⏳ 计划（`api.py` 未创建） |
-| UI | `streamlit run app/ui.py` | ⏳ 计划（`ui.py` 未创建） |
+| API | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` | ✅ 可用（`/docs` 可试；默认 SQLite + 文件 pending） |
+| UI | `.\.venv\Scripts\python.exe -m streamlit run app/ui.py` | ✅ 可用（上传/审批/下载） |
 | 规则评测 | `python eval/run_eval.py --mode rules` | ⏳ 计划（`eval/` 未创建） |
 | 全链路评测 | `python eval/run_eval.py --mode full` | ⏳ 计划（需要 LLM Key） |
 
-> 标 ✅ 的命令已实际执行验证；标 ⏳ 的尚不可用。`--decision` 支持 `approve / reject / changes(request_changes) / timeout`；`--memory` 用内存 checkpointer（仅单进程调试）。
+> 标 ✅ 的命令已实际执行验证；标 ⏳ 的尚不可用。`--decision` 支持 `approve / reject / changes(request_changes) / timeout`；`--memory` 用内存 checkpointer（仅单进程调试）。API 必须用 `--factory`（`create_app` 是工厂函数，不是模块级 `app`）；多 worker 未支持（ISSUE-019）。
 
 ---
 
@@ -229,10 +240,11 @@ Agent_Alex外贸合同智审助手/
 4. **失败显式降级**：LLM 失败 → 抽取降级/解释兜底；规则执行异常 → fail-closed 系统 red（`is_system_finding=true`，进入 HITL）；HITL 超时 → `unreviewed_red_risk`；RAG 无命中 → 退化为纯规则解释。
 5. **证据可定位**：`文件:第N页:字符start-end`；LLM 引文必须精确出现在条款原文（仅允许空白/Unicode 规范化）；知识引用必须能定位到 `source_id#section`。
 6. **抽取状态是一等状态**：`ok / degraded / skipped` 都必须进报告；`degraded` 时字段规则 `skipped`，不得把系统降级伪装成“合同缺少条款”。
-7. **图结构**：确定性顺序主干；条件边只用于“是否有 red”（第 5 步再加“是否 approve”）；不用并行/单体 ReAct；Supervisor 仅白名单路由（ADR-007）。
-8. **持久化**：运行用 SQLite checkpointer，测试用内存；`thread_id=review_id`；报告/pending/审计与 checkpoint 分离。
+7. **图结构**：确定性顺序主干；两个条件边只用于“是否有 red”“是否 approve”；不用并行/单体 ReAct；Supervisor 仅白名单路由（ADR-007）。
+8. **持久化**：运行用 SQLite checkpointer，测试用内存；`thread_id=review_id`；pending 时间戳落盘 `.data/pending/<review_id>.json`；报告由 state 派生。
 9. **RAG/多智能体默认关闭**：`RAG_ENABLED=false`、`AGENTS_ENABLED=false`；开启后也只用于解释/建议/条款比对；Supervisor 与专家不得判级。
-10. **不引入**：Neo4j/GraphRAG、向量数据库、训练模型、Docker、React/Vue、Postgres/Redis、PyMuPDF 默认依赖、无许可证仓库代码。
+10. **入口分层**：CLI / FastAPI / Streamlit 全部只依赖 `ReviewService`；不拼 `Command(resume=...)`；API/UI 不判级（ADR-009）。
+11. **不引入**：Neo4j/GraphRAG、向量数据库、训练模型、Docker、React/Vue、Postgres/Redis、PyMuPDF 默认依赖、无许可证仓库代码。
 
 ---
 
@@ -286,8 +298,18 @@ Agent_Alex外贸合同智审助手/
 | 44 | 已终态 review 再次 `resume` 会重跑图/重复生成报告 | `ReviewService.resume()` 先查 `snapshot.next`；不在 `human_review` 且状态属于 `FINAL_STATUSES` 时直接返回现有结果（幂等） |
 | 45 | CLI 误把 checkpointer 传给 `ReviewService`（第一个参数是 compiled graph） | 正确写法 `ReviewService(build_graph(checkpointer=sqlite_checkpointer()))`；`SqliteSaver` 没有 `invoke` |
 | 46 | `interrupt()` 抛出的暂停不是异常，不会让 CLI 非零退出 | CLI 需要显式判断 `awaiting_human` 并打印 `review_id` 与恢复命令；不要用“进程失败”表示等待审批 |
-| 47 | `ReviewService._requested_at` 仅存进程内存，重启后惰性超时失效 | 单进程演示可接受；第 6 步落盘 `.data/pending/<review_id>.json`（ISSUE-017）；不要把缺失时间当作“已超时” |
+| 47 | ~~`ReviewService._requested_at` 仅存进程内存，重启后惰性超时失效~~ | 已修复（第 6 步）：`app/services/pending_store.py` 落盘 `.data/pending/<review_id>.json`；缺失/损坏一律不判超时（ISSUE-017） |
 | 48 | 人工意见里的 `overrides` 可能引用不存在的 `rule_id` | 节点只产生 warning，不写入报告等级；规则等级永远不会被人工意见改写 |
+| 49 | `uvicorn app.api:app` 会失败（模块里只有工厂函数 `create_app`） | 用 `--factory`：`uvicorn app.api:create_app --factory`；或在 `api.py` 末尾加模块级 `app`（本项目故意不加，避免测试共享全局状态） |
+| 50 | Streamlit 的 `st.cache_resource` 会跨会话复用 checkpointer 连接 | 用 `atexit` 关闭 SQLite 连接；测试用 `streamlit.testing.v1.AppTest` 只跑首屏，不做多会话并发 |
+| 51 | TestClient 必须配 `httpx`，上传必须配 `python-multipart` | 前者在 `requirements-dev.txt`，后者在 `requirements.txt`；缺任一会在测试/上传时直接报错 |
+| 52 | FastAPI 里 `Path(...)` 与 `pathlib.Path` 同名冲突 | 别名导入 `from fastapi import Path as ApiPath`；`review_id` 用 `pattern` 校验，非法值走 422 |
+| 53 | 用户上传的文件名可能含 `..\`/`../` 或控制字符 | `_safe_filename()` 同时按 `\` 与 `/` 取 basename、去不可打印字符、限制长度；落盘目录固定为 `.data/uploads/<新 uuid>/` |
+| 54 | `.doc` 与 `.docx` 是两个不同格式 | `.docx` 用 python-docx；`.doc` 明确 400 并提示另存为 `.docx`（RAG manifest 同样拒绝 `.doc`） |
+| 55 | DOCX 法条通常全是 `Normal` 样式，不能靠标题样式切分 | 按 `^第X条` 正则切分，编/章/节作上下文前缀；`目录` 行丢弃；section 用条文号做引用 |
+| 56 | 英文 CISG 用 `***Article N***` 而非 Markdown 标题 | `_heading_of()` 同时识别 `#` 标题、`***...***` 与结构性加粗；新增格式先加测试再改正则 |
+| 57 | 单条法规超过 1600 字符会让 BM25 与提示词失真 | `_chunk_text()` 按空行段落 + 句末标点二次切分；同一标题依次 `s2`、`s2-2` |
+| 58 | 每次 API/UI 请求都重载 500KB 语料会很慢 | `load_knowledge_base` 按 `(目录, manifest+文件 mtime/size)` 缓存；语料变更自动重建，测试用独立目录避免污染 |
 
 ---
 
@@ -322,10 +344,13 @@ Agent_Alex外贸合同智审助手/
    - ~~**第 2 步**：`ingest` 接入 PDF（pypdf）/DOCX（python-docx）；`segment` 加标题识别、超长条款拆分、完整 `clause_type` 表；补 PDF/DOCX fixture。~~ ✅ 已完成（2026-10-26，63 个测试）。
    - ~~**第 3 步**：`app/services/llm.py` + `services/evidence.py` + `nodes/extract.py` + `nodes/validate.py`；Fake LLM 测试，无需 Key。~~ ✅ 已完成（2026-10-26，115 个测试；规则 5 → 7 条）。
    - ~~**第 4 步**：`route_by_risk` 条件边 + `interrupt()` + checkpointer（测试 `InMemorySaver`，运行 `SqliteSaver`）+ HITL 测试。~~ ✅ 已完成（2026-10-27，131 个测试；14 个 HITL 测试；SQLite 跨进程实测）。
-   - **第 5 步（当前下一步）**：`nodes/explain.py` + Quality Gate + 报告合并；RAG MVP（BM25/字符 n-gram，默认 `RAG_ENABLED=false`）。
-   - **第 6 步**：FastAPI + Streamlit（上传、运行、展示/确认、下载；`.data/pending` 落盘 + `asyncio.Lock`）。
-   - 规则扩到 10–12 条（ISSUE-009），再建 20–30 条 gold（ISSUE-005）。
-   - RAG 语料与授权（ISSUE-015）按 `06_RAG与多智能体资料清单.md` 准备；多智能体范围（ISSUE-016）阶段 B 再定。
+   - ~~**第 5 步**：`nodes/explain.py` + Quality Gate + 报告合并；RAG MVP（BM25/字符 n-gram，默认 `RAG_ENABLED=false`）。~~ ✅ 已完成（2026-10-27，160 个测试）。
+   - ~~**第 6 步**：FastAPI + Streamlit（上传、运行、展示/确认、下载；`.data/pending` 落盘 + 锁）。~~ ✅ 已完成（2026-10-27，197 个测试；真实语料 14 篇接入）。
+   - **下一步（第四阶段）**：
+     - 规则扩到 10–12 条（ISSUE-009）；
+     - 建 20–30 条 gold 评测集（ISSUE-005），再跑规则级评测；
+     - RAG 检索评测：先做 `100问题.md` → manifest 映射（ISSUE-018），再调 `RAG_TOP_K`/`RAG_MIN_SCORE`；
+     - 语料授权与 `effective_date` 复核（ISSUE-015）；多智能体范围（ISSUE-016）阶段 B 再定。
 6. 每完成一个阶段：更新 `00_PROJECT_STATE.md`、写当日 `03_DEV_LOGS/YYYY-MM-DD.md`、更新本文件的“当前完成度/已知坑”、更新 `05_OPEN_ISSUES.md`。
 
 ---

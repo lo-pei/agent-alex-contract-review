@@ -7,11 +7,13 @@
 - 本模块**不生成**风险等级，只搬运图状态与人工决定；
 - 幂等：已是终态时再次 resume 直接返回现有结果，不重跑图、不重复写报告；
 - 超时：惰性检查，只把状态变为 `unreviewed_red_risk`，**绝不映射为 approved**；
-- pending 时间戳目前放在进程内存（API 落盘见 ADR-002 §3.5，第 6 步实现）。
+- pending 时间戳通过 `PendingStore` 持久化（`FilePendingStore` 落盘），进程重启后超时判定仍有效；
+- 同一 `review_id` 的 `get` / `resume` 加进程内可重入锁，避免并发恢复把图跑两次。
 """
 
 from __future__ import annotations
 
+import threading
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -30,6 +32,7 @@ from app.schemas import (
     ReviewStatus,
 )
 from app.services.checkpointer import memory_checkpointer
+from app.services.pending_store import MemoryPendingStore, PendingStore, validate_review_id
 
 #: 图已结束的终态；再次 resume 视为幂等请求
 FINAL_STATUSES = frozenset(
@@ -44,7 +47,14 @@ TIMEOUT_DECISION = HitlDecision(
 
 
 class ReviewStateError(RuntimeError):
-    """审查不存在或当前没有待人工确认的任务。"""
+    """审查不存在或当前没有待人工确认的任务。
+
+    `missing=True` 表示 review_id 从未存在过（API 映射为 404），否则为状态冲突（409）。
+    """
+
+    def __init__(self, message: str, *, missing: bool = False) -> None:
+        super().__init__(message)
+        self.missing = missing
 
 
 class ReviewRun(BaseModel):
@@ -69,13 +79,16 @@ class ReviewService:
         *,
         timeout_minutes: int | None = None,
         clock: Callable[[], datetime] | None = None,
+        pending_store: PendingStore | None = None,
     ) -> None:
         self._graph = graph
         self._timeout_minutes = (
             timeout_minutes if timeout_minutes is not None else settings.hitl_timeout_minutes
         )
         self._clock = clock or (lambda: datetime.now(UTC))
-        self._requested_at: dict[str, datetime] = {}
+        self._pending = pending_store or MemoryPendingStore()
+        self._locks: dict[str, threading.RLock] = {}
+        self._locks_guard = threading.Lock()
 
     # ---------- 构造 ----------
 
@@ -85,65 +98,79 @@ class ReviewService:
         *,
         timeout_minutes: int | None = None,
         clock: Callable[[], datetime] | None = None,
+        pending_store: PendingStore | None = None,
     ) -> ReviewService:
         """测试/一次性演示：进程内 checkpointer。"""
         return cls(
             build_graph(checkpointer=memory_checkpointer()),
             timeout_minutes=timeout_minutes,
             clock=clock,
+            pending_store=pending_store,
         )
 
     # ---------- 对外接口 ----------
 
     def start(self, path: Path | str, *, review_id: str | None = None) -> ReviewRun:
         source = Path(path)
-        identifier = review_id or uuid.uuid4().hex
-        initial = ContractReviewState(
-            review_id=identifier,
-            source_filename=source.name,
-            source_path=str(source),
-        )
-        raw = self._graph.invoke(initial.model_dump(), config=self._config(identifier))
-        return self._run_from_raw(identifier, raw)
+        identifier = validate_review_id(review_id or uuid.uuid4().hex)
+        with self._lock_for(identifier):
+            initial = ContractReviewState(
+                review_id=identifier,
+                source_filename=source.name,
+                source_path=str(source),
+            )
+            raw = self._graph.invoke(initial.model_dump(), config=self._config(identifier))
+            return self._run_from_raw(identifier, raw)
 
     def get(self, review_id: str) -> ReviewRun:
         """读取当前状态；若停在人工确认且已超时，惰性触发超时决定。"""
-        snapshot = self._graph.get_state(self._config(review_id))
-        if not snapshot.values:
-            raise ReviewStateError(f"审查不存在：{review_id}")
-        run = self._run_from_snapshot(review_id, snapshot)
-        if run.awaiting_human and self._timed_out(review_id):
-            return self.resume(review_id, TIMEOUT_DECISION)
-        return run
+        with self._lock_for(review_id):
+            snapshot = self._graph.get_state(self._config(review_id))
+            if not snapshot.values:
+                raise ReviewStateError(f"审查不存在：{review_id}", missing=True)
+            run = self._run_from_snapshot(review_id, snapshot)
+            if run.awaiting_human and self._timed_out(review_id):
+                # RLock 可重入：这里仍持有同一把锁
+                return self.resume(review_id, TIMEOUT_DECISION)
+            return run
 
     def resume(self, review_id: str, decision: HitlDecision) -> ReviewRun:
-        config = self._config(review_id)
-        snapshot = self._graph.get_state(config)
-        if not snapshot.values:
-            raise ReviewStateError(f"审查不存在：{review_id}")
+        with self._lock_for(review_id):
+            config = self._config(review_id)
+            snapshot = self._graph.get_state(config)
+            if not snapshot.values:
+                raise ReviewStateError(f"审查不存在：{review_id}", missing=True)
 
-        if "human_review" not in snapshot.next:
-            state = ContractReviewState.model_validate(snapshot.values)
-            if state.status in FINAL_STATUSES:
-                # 幂等：不重复应用决策、不重复生成报告
-                return self._run_from_snapshot(review_id, snapshot)
-            raise ReviewStateError(
-                f"审查 {review_id} 当前没有待人工确认的任务（status={state.status}）"
+            if "human_review" not in snapshot.next:
+                state = ContractReviewState.model_validate(snapshot.values)
+                if state.status in FINAL_STATUSES:
+                    # 幂等：不重复应用决策、不重复生成报告
+                    return self._run_from_snapshot(review_id, snapshot)
+                raise ReviewStateError(
+                    f"审查 {review_id} 当前没有待人工确认的任务（status={state.status}）"
+                )
+
+            raw = self._graph.invoke(
+                Command(resume=decision.model_dump(mode="json")), config=config
             )
-
-        raw = self._graph.invoke(
-            Command(resume=decision.model_dump(mode="json")), config=config
-        )
-        self._requested_at.pop(review_id, None)
-        return self._run_from_raw(review_id, raw)
+            self._pending.pop(review_id)
+            return self._run_from_raw(review_id, raw)
 
     def get_state(self, review_id: str) -> ContractReviewState:
         snapshot = self._graph.get_state(self._config(review_id))
         if not snapshot.values:
-            raise ReviewStateError(f"审查不存在：{review_id}")
+            raise ReviewStateError(f"审查不存在：{review_id}", missing=True)
         return ContractReviewState.model_validate(snapshot.values)
 
     # ---------- 内部 ----------
+
+    def _lock_for(self, review_id: str) -> threading.RLock:
+        with self._locks_guard:
+            lock = self._locks.get(review_id)
+            if lock is None:
+                lock = threading.RLock()
+                self._locks[review_id] = lock
+            return lock
 
     @staticmethod
     def _config(review_id: str) -> dict:
@@ -161,11 +188,16 @@ class ReviewService:
             return ApprovalPayload.model_validate(interrupt.value)
         return None
 
+    def _mark_waiting(self, review_id: str) -> None:
+        """首次观察到暂停时写入 pending 时间戳（已存在则不覆盖，保证超时起点稳定）。"""
+        if self._pending.get(review_id) is None:
+            self._pending.put(review_id, self._clock())
+
     def _run_from_raw(self, review_id: str, raw: dict) -> ReviewRun:
         interrupts = list(raw.get("__interrupt__") or [])
         state = self._state_from_raw(raw)
         if interrupts:
-            self._requested_at.setdefault(review_id, self._clock())
+            self._mark_waiting(review_id)
             return ReviewRun(
                 review_id=review_id,
                 status=state.status,
@@ -185,7 +217,7 @@ class ReviewService:
         awaiting = "human_review" in tuple(snapshot.next or ())
         approval = self._approval_of(snapshot) if awaiting else None
         if awaiting:
-            self._requested_at.setdefault(review_id, self._clock())
+            self._mark_waiting(review_id)
         return ReviewRun(
             review_id=review_id,
             status=state.status,
@@ -196,7 +228,7 @@ class ReviewService:
         )
 
     def _timed_out(self, review_id: str) -> bool:
-        requested = self._requested_at.get(review_id)
+        requested = self._pending.get(review_id)
         if requested is None:
             return False
         return self._clock() - requested >= timedelta(minutes=self._timeout_minutes)

@@ -154,8 +154,17 @@ def human_review(state: ContractReviewState) -> dict:
     return updates
 
 
-def route_by_risk(state: ContractReviewState) -> Literal["human_review", "build_report"]:
-    """条件边：任何 red（含规则异常产生的系统 red）→ 人工确认；否则快速通道。"""
+def route_by_risk(
+    state: ContractReviewState,
+) -> Literal["human_review", "explain_risks", "build_report"]:
+    """条件边：任何 red（含规则异常产生的系统 red）→ 人工确认；否则进解释。"""
     if state.status == "failed":
         return "build_report"
-    return "human_review" if _red_evaluations(state) else "build_report"
+    return "human_review" if _red_evaluations(state) else "explain_risks"
+
+
+def route_after_human_review(
+    state: ContractReviewState,
+) -> Literal["explain_risks", "build_report"]:
+    """人工确认后才解释；拒绝/要求修改/超时直接出报告（ADR-003 §3.8）。"""
+    return "explain_risks" if state.status == "approved" else "build_report"

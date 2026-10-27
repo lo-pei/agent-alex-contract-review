@@ -28,6 +28,28 @@ def _int_env(name: str, default: int) -> int:
         raise ValueError(f"环境变量 {name} 必须是整数，当前值：{raw!r}") from exc
 
 
+def _float_env(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError as exc:
+        raise ValueError(f"环境变量 {name} 必须是数字，当前值：{raw!r}") from exc
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    value = raw.strip().casefold()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"环境变量 {name} 必须是布尔值（true/false），当前值：{raw!r}")
+
+
 @dataclass(frozen=True)
 class Settings:
     # LLM（阶段 3 后续步骤使用）
@@ -43,6 +65,15 @@ class Settings:
     checkpoint_backend: str
     checkpoint_sqlite_path: str
     hitl_timeout_minutes: int
+    #: HITL 待审批时间戳（跨进程超时判定）与上传暂存目录
+    pending_dir: str
+    upload_dir: str
+
+    # RAG（ADR-007 / ADR-008；默认关闭）
+    rag_enabled: bool
+    rag_knowledge_dir: str
+    rag_top_k: int
+    rag_min_score: float
 
     # 文档上限（ADR-005）
     max_upload_mb: int
@@ -64,6 +95,18 @@ def load_settings() -> Settings:
             "CHECKPOINT_SQLITE_PATH", str(PROJECT_ROOT / ".data" / "checkpoints.sqlite")
         ),
         hitl_timeout_minutes=_int_env("HITL_TIMEOUT_MINUTES", 30),
+        pending_dir=os.getenv(
+            "PENDING_DIR", str(PROJECT_ROOT / ".data" / "pending")
+        ),
+        upload_dir=os.getenv(
+            "UPLOAD_DIR", str(PROJECT_ROOT / ".data" / "uploads")
+        ),
+        rag_enabled=_bool_env("RAG_ENABLED", False),
+        rag_knowledge_dir=os.getenv(
+            "RAG_KNOWLEDGE_DIR", str(PROJECT_ROOT / "data" / "knowledge")
+        ),
+        rag_top_k=_int_env("RAG_TOP_K", 3),
+        rag_min_score=_float_env("RAG_MIN_SCORE", 1.0),
         max_upload_mb=_int_env("MAX_UPLOAD_MB", 15),
         max_contract_chars=_int_env("MAX_CONTRACT_CHARS", 200_000),
         max_pages=_int_env("MAX_PAGES", 200),

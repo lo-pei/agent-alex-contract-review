@@ -9,7 +9,12 @@ import pytest
 from langgraph.types import Command
 
 from app.graph import build_graph
-from app.nodes.hitl import MAX_PAYLOAD_FINDINGS, build_approval_payload, route_by_risk
+from app.nodes.hitl import (
+    MAX_PAYLOAD_FINDINGS,
+    build_approval_payload,
+    route_after_human_review,
+    route_by_risk,
+)
 from app.nodes.report import REJECTED_LIMITATION, UNREVIEWED_LIMITATION
 from app.review_service import ReviewService, ReviewStateError
 from app.schemas import (
@@ -253,8 +258,9 @@ def test_route_by_risk() -> None:
     yellow = RuleEvaluation(
         rule_id="R-TRD-001", title="t", risk_level="yellow", reason="r"
     )
-    assert route_by_risk(ContractReviewState(review_id="a", source_filename="c.txt")) == (
-        "build_report"
+    assert (
+        route_by_risk(ContractReviewState(review_id="a", source_filename="c.txt"))
+        == "explain_risks"
     )
     assert (
         route_by_risk(
@@ -262,7 +268,7 @@ def test_route_by_risk() -> None:
                 review_id="a", source_filename="c.txt", rule_evaluations=[yellow]
             )
         )
-        == "build_report"
+        == "explain_risks"
     )
     assert (
         route_by_risk(
@@ -272,6 +278,27 @@ def test_route_by_risk() -> None:
         )
         == "human_review"
     )
+    assert (
+        route_by_risk(
+            ContractReviewState(
+                review_id="a", source_filename="c.txt", status="failed"
+            )
+        )
+        == "build_report"
+    )
+
+
+def test_route_after_human_review() -> None:
+    def state(status: str) -> ContractReviewState:
+        return ContractReviewState(
+            review_id="a", source_filename="c.txt", status=status  # type: ignore[arg-type]
+        )
+
+    # 只有批准才解释；拒绝/要求修改/超时都直接出报告
+    assert route_after_human_review(state("approved")) == "explain_risks"
+    assert route_after_human_review(state("rejected")) == "build_report"
+    assert route_after_human_review(state("changes_requested")) == "build_report"
+    assert route_after_human_review(state("unreviewed_red_risk")) == "build_report"
 
 
 def test_payload_truncates_many_findings() -> None:

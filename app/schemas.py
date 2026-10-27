@@ -222,6 +222,38 @@ class ApprovalPayload(BaseModel):
     )
 
 
+class RiskExplanation(BaseModel):
+    """LLM 对单条规则结果的解释契约（ADR-003 §3.8）：**没有** `risk_level`。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule_id: str
+    clause_id: str | None = None
+    summary: str = Field(min_length=1, max_length=300)
+    #: 必须从条款原文原样复制；无对应条款时可为 null
+    quote: str | None = Field(default=None, max_length=500)
+    recommendation: str | None = Field(default=None, max_length=300)
+    #: 只能引用检索结果中给出的 citation（`source_id#section`）
+    knowledge_refs: list[str] = Field(default_factory=list, max_length=3)
+
+
+class ExplanationResult(BaseModel):
+    """质量门校验后的解释；报告只消费这个结构，不直接消费 LLM 输出。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule_id: str
+    summary: str
+    quote: str | None = None
+    #: quote 定位到的 `文件名:p页:start-end`（可定位时才有）
+    citation: str | None = None
+    recommendation: str | None = None
+    #: 所展示 quote 是否已在原文定位（规则兜底时也可能为 True）
+    grounded: bool = False
+    source: Literal["llm", "rule"] = "rule"
+    knowledge_citations: list[str] = Field(default_factory=list)
+
+
 class ReportFinding(BaseModel):
     """报告中的一条风险（仅非 pass 的规则结果）。"""
 
@@ -234,12 +266,16 @@ class ReportFinding(BaseModel):
     clause_ids: list[str]
     citations: list[str]
     explanation_summary: str | None = None
+    explanation_quote: str | None = None
     explanation_grounded: bool = False
+    explanation_citation: str | None = None
+    explanation_source: Literal["llm", "rule", "none"] = "none"
+    knowledge_citations: list[str] = Field(default_factory=list)
     is_system_finding: bool = False
 
 
 class ReviewReport(BaseModel):
-    """对外输出报告（阶段 3 第 1 步只包含规则结果，无 LLM 解释）。"""
+    """对外输出报告（规则结果 + 人工决定 + 可选 LLM 解释）。"""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -257,6 +293,9 @@ class ReviewReport(BaseModel):
     rule_engine_version: str
     prompt_version: str = "n/a"
     model_id: str | None = None
+    explanation_status: Literal["ok", "fallback", "skipped"] = "skipped"
+    explanation_model: str | None = None
+    explanation_prompt_version: str = "n/a"
 
 
 class ContractReviewState(BaseModel):
@@ -303,6 +342,9 @@ class ContractReviewState(BaseModel):
 
     # 解释与报告
     explanation_status: Literal["ok", "fallback", "skipped"] = "skipped"
+    explanations: list[ExplanationResult] = Field(default_factory=list)
+    explanation_model: str | None = None
+    explanation_prompt_version: str = "n/a"
     report: ReviewReport | None = None
 
     # 可观测性

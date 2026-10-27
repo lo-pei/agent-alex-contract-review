@@ -17,6 +17,7 @@ from app.schemas import EXTRACTED_FIELDS, ExtractedFieldSet, FieldValue
 Handler = Callable[[type[BaseModel], str, str], Any]
 
 _CLAUSE_ID_PATTERN = re.compile(r"条款编号：(\S+)")
+_RULE_ID_PATTERN = re.compile(r"规则编号：(\S+)")
 
 
 class FakeLLM:
@@ -38,6 +39,12 @@ class FakeLLM:
 
 def clause_id_of(user_prompt: str) -> str | None:
     match = _CLAUSE_ID_PATTERN.search(user_prompt)
+    return match.group(1) if match else None
+
+
+def rule_id_of(user_prompt: str) -> str | None:
+    """解释节点 prompt 里的规则编号（用于按规则返回不同解释）。"""
+    match = _RULE_ID_PATTERN.search(user_prompt)
     return match.group(1) if match else None
 
 

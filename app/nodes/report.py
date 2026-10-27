@@ -16,6 +16,7 @@ from time import perf_counter
 from app.rules.engine import RULE_ENGINE_VERSION
 from app.schemas import (
     ContractReviewState,
+    ExplanationResult,
     ReportFinding,
     ReviewReport,
     ReviewStatus,
@@ -43,12 +44,23 @@ REJECTED_LIMITATION = "复核人已拒绝本版本合同：需修改后重新提
 CHANGES_REQUESTED_LIMITATION = (
     "复核人要求修改：本报告只反映当前版本的问题清单，修改后必须重新审查。"
 )
+EXPLANATION_FALLBACK_LIMITATION = (
+    "部分或全部风险解释未通过质量门/模型不可用，已回退为规则理由；解释仅供参考，"
+    "不得作为法律结论。"
+)
+KNOWLEDGE_NOT_USED_LIMITATION = (
+    "本次风险解释未使用知识库（RAG 未启用或未命中），仅依据规则理由与合同原文。"
+)
 
 #: 人工决定产生的终态；其余状态在报告里统一记为 `completed`
 HUMAN_FINAL_STATUSES = ("approved", "rejected", "changes_requested", "unreviewed_red_risk")
 
 
-def _finding_of(evaluation: RuleEvaluation, filename: str) -> ReportFinding:
+def _finding_of(
+    evaluation: RuleEvaluation,
+    filename: str,
+    explanation: ExplanationResult | None = None,
+) -> ReportFinding:
     citations: list[str] = []
     for evidence in evaluation.evidence:
         citation = format_citation(filename, evidence)
@@ -61,6 +73,12 @@ def _finding_of(evaluation: RuleEvaluation, filename: str) -> ReportFinding:
         suggestion=evaluation.suggestion,
         clause_ids=evaluation.clause_ids,
         citations=citations,
+        explanation_summary=explanation.summary if explanation else None,
+        explanation_quote=explanation.quote if explanation else None,
+        explanation_grounded=explanation.grounded if explanation else False,
+        explanation_citation=explanation.citation if explanation else None,
+        explanation_source=explanation.source if explanation else "none",
+        knowledge_citations=explanation.knowledge_citations if explanation else [],
         is_system_finding=evaluation.is_system_finding,
     )
 
@@ -80,6 +98,14 @@ def _human_sentence(state: ContractReviewState) -> str:
     return "红色风险未获人工确认（审批超时），报告不得作为通过结论。"
 
 
+def _explanation_note(state: ContractReviewState) -> str:
+    if state.explanation_status == "ok":
+        return "风险解释由模型生成，引用已核验。"
+    if state.explanation_status == "fallback":
+        return "风险解释已回退为规则理由（模型不可用或未通过质量门）。"
+    return ""
+
+
 def _summary(state: ContractReviewState, findings: list[ReportFinding]) -> str:
     if state.status == "failed":
         details = "；".join(state.errors) if state.errors else "未知错误"
@@ -89,10 +115,11 @@ def _summary(state: ContractReviewState, findings: list[ReportFinding]) -> str:
     skipped = sum(1 for e in state.rule_evaluations if e.skipped)
     suffix = f"另有 {skipped} 条字段规则因抽取不可用被跳过。" if skipped else ""
     prefix = _human_sentence(state)
+    note = _explanation_note(state)
     if not findings:
-        return f"{prefix}规则执行完成，未命中任何风险规则。{suffix}"
+        return f"{prefix}规则执行完成，未命中任何风险规则。{suffix}{note}"
     base = f"{prefix}规则执行完成：{reds} 条红色风险，{yellows} 条黄色风险。{suffix}"
-    return base
+    return f"{base}{note}"
 
 
 def _limitations(state: ContractReviewState) -> list[str]:
@@ -103,6 +130,12 @@ def _limitations(state: ContractReviewState) -> list[str]:
         limitations.append(EXTRACTION_DEGRADED_LIMITATION)
     elif state.extraction_status == "skipped":
         limitations.append(EXTRACTION_SKIPPED_LIMITATION)
+    if state.explanation_status == "fallback":
+        limitations.append(EXPLANATION_FALLBACK_LIMITATION)
+    elif state.explanation_status == "ok" and not any(
+        explanation.knowledge_citations for explanation in state.explanations
+    ):
+        limitations.append(KNOWLEDGE_NOT_USED_LIMITATION)
     if state.status == "unreviewed_red_risk":
         limitations.append(UNREVIEWED_LIMITATION)
     elif state.status == "rejected":
@@ -123,9 +156,10 @@ def _report_status(state: ContractReviewState) -> ReviewStatus:
 def build_report(state: ContractReviewState) -> dict:
     started = perf_counter()
 
+    explanations = {item.rule_id: item for item in state.explanations}
     evaluations = state.rule_evaluations
     findings = [
-        _finding_of(e, state.source_filename)
+        _finding_of(e, state.source_filename, explanations.get(e.rule_id))
         for e in evaluations
         if e.risk_level in ("red", "yellow")
     ]
@@ -148,6 +182,9 @@ def build_report(state: ContractReviewState) -> dict:
         rule_engine_version=RULE_ENGINE_VERSION,
         prompt_version=state.prompt_version,
         model_id=state.extraction_model,
+        explanation_status=state.explanation_status,
+        explanation_model=state.explanation_model,
+        explanation_prompt_version=state.explanation_prompt_version,
     )
     return {
         "report": report,
