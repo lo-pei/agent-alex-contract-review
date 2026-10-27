@@ -1,7 +1,7 @@
 # 开发交接文档（Handover）
 
-> 更新时间：2026-10-27（第三阶段第 6 步完成后）
-> 当前状态：**第三阶段第 6 步完成：解释 + 质量门 + RAG（真实语料 14 篇）+ FastAPI + Streamlit 全部可用；197 个测试通过**；第四阶段（规则扩充 + gold 评测）未开始
+> 更新时间：2026-10-27（第四阶段：规则扩充 + 合同级评测基线）
+> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI + Streamlit 全部可用）；第四阶段第 1 轮完成：规则 13 条、50 份模拟合同拆分为评测输入、规则级评测基线已跑出；209 个测试通过**；规则级 gold 与检索评测尚未完成
 > 交接原则：任何新接手的人只读本文件 + `00_PROJECT_STATE.md` + `02_ARCHITECTURE_DECISIONS/README.md`，就能继续开发。
 
 ---
@@ -26,19 +26,20 @@
 | 项 | 状态 | 证据 |
 |---|---|---|
 | GitHub 调研 | ✅ 完成 | `01_RESEARCH_LOG.md`，8 个仓库源码级分析 |
-| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~009` |
+| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~010` |
 | 环境与依赖 | ✅ 完成 | `.venv`（Python 3.12.10）+ `requirements*.txt`；实际版本见 ADR-006 §6 |
 | 业务代码（第 3 步） | ✅ 解析/切分/抽取/校验/规则可用 | `app/` |
 | HITL（第 4 步） | ✅ 条件边 + `interrupt()` + checkpointer | `app/nodes/hitl.py`、`app/review_service.py`、`app/services/checkpointer.py` |
 | 解释 / RAG（第 5 步） | ✅ 质量门 + BM25 + 真实语料 | `app/nodes/explain.py`、`app/services/rag.py`、`data/knowledge/` |
 | API / UI（第 6 步） | ✅ FastAPI + Streamlit + pending 落盘 | `app/api.py`、`app/ui.py`、`app/report_markdown.py`、`app/services/pending_store.py` |
-| 测试 | ✅ 197 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
-| 评测集 | ⏳ 未开始 | 无 `data/eval/`、无 `eval/results/`；**没有任何准确率数据** |
-| Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`，以及后续每步提交 |
+| 测试 | ✅ 209 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
+| 规则集 | ✅ 13 条 | `app/rules/definitions.yaml`（`version: 3`）；6 条新规则各有语料命中集合回归（ADR-010） |
+| 评测集 / 基线 | ⏳ 部分完成 | `data/contracts/` 50 份 + `data/eval/gold_contracts.json`（105 条检索期望）+ `eval/results/rules-20261027.json`；**规则级 gold 与准确率仍未做** |
+| Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`、`e41d235`、`c7f24a9`，以及后续每步提交 |
 
-> 不要在汇报里说“已通过评测”或“抽取准确率 X%”；当前有解析、切分、抽取（Fake LLM 已验证）、校验、规则、HITL、解释/质量门、RAG 检索、API/UI 与报告，但**没有评测结果**。
+> 不要在汇报里说“已通过评测”或“抽取准确率 X%”。当前有**规则级触发基线**（50 份模拟合同：11 份命中 / 39 份未命中，`pass:39 / yellow:9 / red:2`），但它只说明“规则是否触发”，**不是 precision/recall，也不代表合同真的无风险**。
 
-### 2.1 架构决策速览（ADR-001~009）
+### 2.1 架构决策速览（ADR-001~010）
 
 | ADR | 结论 | 状态 |
 |---|---|---|
@@ -51,6 +52,7 @@
 | 007 范围变更 | 允许 RAG/多智能体/Supervisor（仅路由）；判级/HITL/证据边界不变；默认开关关闭 | **已接受**（2026-10-27；RAG 已实现，多智能体仍未实现） |
 | 008 RAG/质量门 | 本地 BM25 + 中文二元组；`source_id#section` 白名单；Python 质量门拦截越权；无命中/配置错误降级 | **已接受**（第 5 步已实现） |
 | 009 API/UI | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘；上传校验；Markdown 纯渲染 | **已接受**（第 6 步已实现） |
+| 010 规则扩充/评测 | 规则 7 → 13 条；新规则准入四关；模拟合同拆入 `data/contracts/`；评测只报触发情况 | **已接受**（2026-10-27 第 1 轮已实现） |
 
 ---
 
@@ -175,7 +177,7 @@ Agent_Alex外贸合同智审助手/
 │  │  ├─ explain.py               # LLM 解释 + Python 质量门 + RAG 引用白名单 + 规则兜底
 │  │  └─ report.py                # 报告汇总（跟随人工终态 + limitation）
 │  ├─ rules/
-│  │  ├─ definitions.yaml         # 7 条规则（5 文本 + 2 字段，version 2）
+│  │  ├─ definitions.yaml         # 13 条规则（11 文本 + 2 字段，version 3）
 │  │  ├─ dsl.py                   # 白名单条件 DSL
 │  │  └─ engine.py                # 加载/求值/证据/fail-closed/skipped
 │  ├─ services/
@@ -190,6 +192,7 @@ Agent_Alex外贸合同智审助手/
 │  ├─ fakes.py                    # Fake LLM（无需 Key）
 │  ├─ test_ingest.py / test_ingest_formats.py / test_segment.py
 │  ├─ test_evidence.py / test_llm_service.py / test_extract.py / test_validate.py / test_rules.py
+│  │  └─ test_rules.py 含 6 条新规则正反 fixture + 50 份语料命中集合回归 + 样例零误报
 │  ├─ test_hitl.py                # HITL 暂停/恢复/幂等/超时/载荷/非法决策（17 个）
 │  ├─ test_explain.py             # 解释与质量门（13 个）
 │  ├─ test_rag.py                 # BM25/manifest/DOCX/长段/缓存/真实语料（22 个）
@@ -201,8 +204,13 @@ Agent_Alex外贸合同智审助手/
 │  └─ fixtures/pdf_builder.py     # 纯标准库构造最小 PDF
 ├─ data/
 │  ├─ samples/                    # 2 份自拟脱敏合同（TXT）
-│  └─ knowledge/                  # 真实语料 14 篇 + manifest；examples/ 为测试专用自拟语料
-├─ eval/                          # 计划（未创建）
+│  ├─ contracts/                  # 50 份模拟合同（由 eval/prepare_contracts.py 生成，可重建）
+│  ├─ eval/gold_contracts.json    # 50 份 / 105 条“条款 → Q 编号 → 期望召回 → 干扰项”
+│  └─ knowledge/                  # 真实语料 14 篇 + manifest；模拟合同1..6.md 为评测来源，不进 manifest
+├─ eval/
+│  ├─ prepare_contracts.py        # 拆分模拟合同 → data/contracts/ + gold
+│  ├─ run_eval.py                 # 规则级评测（不调 LLM）→ eval/results/rules-YYYYMMDD.json
+│  └─ results/                    # 评测结果
 └─ docs/
    └─ devlog/                     # 本目录
 ```
@@ -220,13 +228,14 @@ Agent_Alex外贸合同智审助手/
 | 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
 | 恢复人工决定 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision approve --reviewer zhangsan` | ✅ 可用（SQLite 跨进程） |
 | 超时语义 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision timeout` | ✅ 可用 → `unreviewed_red_risk` |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 197 个通过 |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 209 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行（统一入口） | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` | ✅ 可用（`/docs` 可试；默认 SQLite + 文件 pending） |
 | UI | `.\.venv\Scripts\python.exe -m streamlit run app/ui.py` | ✅ 可用（上传/审批/下载） |
-| 规则评测 | `python eval/run_eval.py --mode rules` | ⏳ 计划（`eval/` 未创建） |
-| 全链路评测 | `python eval/run_eval.py --mode full` | ⏳ 计划（需要 LLM Key） |
+| 拆合同 + gold | `.\.venv\Scripts\python.exe eval\prepare_contracts.py` | ✅ 可用（50 份合同 / 105 条映射） |
+| 规则评测 | `.\.venv\Scripts\python.exe eval\run_eval.py` | ✅ 可用（无需 Key，输出 `eval/results/rules-YYYYMMDD.json`） |
+| 全链路评测（含抽取/解释） | 计划 | ⏳ 未实现（需要 LLM Key，且规则级 gold 未标注） |
 
 > 标 ✅ 的命令已实际执行验证；标 ⏳ 的尚不可用。`--decision` 支持 `approve / reject / changes(request_changes) / timeout`；`--memory` 用内存 checkpointer（仅单进程调试）。API 必须用 `--factory`（`create_app` 是工厂函数，不是模块级 `app`）；多 worker 未支持（ISSUE-019）。
 
@@ -310,6 +319,12 @@ Agent_Alex外贸合同智审助手/
 | 56 | 英文 CISG 用 `***Article N***` 而非 Markdown 标题 | `_heading_of()` 同时识别 `#` 标题、`***...***` 与结构性加粗；新增格式先加测试再改正则 |
 | 57 | 单条法规超过 1600 字符会让 BM25 与提示词失真 | `_chunk_text()` 按空行段落 + 句末标点二次切分；同一标题依次 `s2`、`s2-2` |
 | 58 | 每次 API/UI 请求都重载 500KB 语料会很慢 | `load_knowledge_base` 按 `(目录, manifest+文件 mtime/size)` 缓存；语料变更自动重建，测试用独立目录避免污染 |
+| 59 | ICC 官方写作 `Incoterms® 2020`，带注册商标 `®` | 检测版本号的正则必须允许 `[®™]`，否则会把“写了版本”判成“没写版本”（真实误报 40/50，见 ADR-010） |
+| 60 | 新规则容易“看起来合理、实际满语料误报” | 每条新规则先在 `data/contracts/` 上跑命中集合，命中集合写进 `EXPECTED_CORPUS_HITS` 回归测试；再跑两份样例确认零误报 |
+| 61 | `data/contracts/` 是生成物，不是用户原始语料 | 用 `eval/prepare_contracts.py` 重建；不要手改单份合同，否则 gold 与原文会不一致 |
+| 62 | “CIF 没写保险条款”不等于缺陷（Incoterms 默认规则补位） | `R-INS-001` 只在“约定了投保但没写保额/比例”时触发；新增保险类规则前先确认是否与默认规则重复 |
+| 63 | 规则数量变化会让多处硬编码断言失败 | 新增/删除规则时同步 `test_load_default_rules`、`test_graph.py` 的规则数断言与文档中的“N 条规则” |
+| 64 | 模拟合同自带映射摘要是“检索期望”，不是规则判级 gold | 不要用 `gold_contracts.json` 直接算规则 precision；规则级 gold 需另行标注 `合同 × rule_id → red/yellow/pass` |
 
 ---
 
@@ -346,9 +361,11 @@ Agent_Alex外贸合同智审助手/
    - ~~**第 4 步**：`route_by_risk` 条件边 + `interrupt()` + checkpointer（测试 `InMemorySaver`，运行 `SqliteSaver`）+ HITL 测试。~~ ✅ 已完成（2026-10-27，131 个测试；14 个 HITL 测试；SQLite 跨进程实测）。
    - ~~**第 5 步**：`nodes/explain.py` + Quality Gate + 报告合并；RAG MVP（BM25/字符 n-gram，默认 `RAG_ENABLED=false`）。~~ ✅ 已完成（2026-10-27，160 个测试）。
    - ~~**第 6 步**：FastAPI + Streamlit（上传、运行、展示/确认、下载；`.data/pending` 落盘 + 锁）。~~ ✅ 已完成（2026-10-27，197 个测试；真实语料 14 篇接入）。
+   - **第四阶段第 1 轮（已完成，2026-10-27）**：规则 7 → 13 条（ADR-010）；50 份模拟合同拆入 `data/contracts/`；`eval/run_eval.py` 跑出触发基线（11/50 命中）；209 个测试通过。
    - **下一步（第四阶段）**：
-     - 规则扩到 10–12 条（ISSUE-009）；
-     - 建 20–30 条 gold 评测集（ISSUE-005），再跑规则级评测；
+     - 规则级 gold：为 50 份合同标注 `合同 × rule_id → red/yellow/pass + span`，再算 micro P/R/F1（ISSUE-005/020）；
+     - 留出验证：新规则是在同一批 50 份合同上设计的，需另找/另写独立合同集做泛化验证（ISSUE-020）；
+     - 继续补规则主题：不可抗力、责任上限、质保期、所有权保留、合规（ISSUE-009，当前 39/50 未命中）；
      - RAG 检索评测：先做 `100问题.md` → manifest 映射（ISSUE-018），再调 `RAG_TOP_K`/`RAG_MIN_SCORE`；
      - 语料授权与 `effective_date` 复核（ISSUE-015）；多智能体范围（ISSUE-016）阶段 B 再定。
 6. 每完成一个阶段：更新 `00_PROJECT_STATE.md`、写当日 `03_DEV_LOGS/YYYY-MM-DD.md`、更新本文件的“当前完成度/已知坑”、更新 `05_OPEN_ISSUES.md`。

@@ -21,8 +21,8 @@ def test_graph_runs_on_sample(sample_path: Path) -> None:
 
     assert state.status == "approved"
     assert state.overall_level == "red"
-    # 7 条规则：5 条文本规则 + 2 条字段规则（无 Key 时字段规则 skipped）
-    assert len(state.rule_evaluations) == 7
+    # 13 条规则：11 条文本规则 + 2 条字段规则（无 Key 时字段规则 skipped）
+    assert len(state.rule_evaluations) == 13
     assert state.extraction_status == "degraded"
     assert len(state.clauses) >= 5
     assert state.report is not None

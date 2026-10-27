@@ -1,4 +1,4 @@
-# 规则集（阶段 3 第 3 步：5 条文本规则 + 2 条依赖抽取字段的规则）
+# 规则集（阶段 3：5 条文本规则 + 2 条依赖抽取字段的规则；阶段 4 扩充 6 条文本规则）
 # 契约：app/rules/engine.py 的 RuleDefinition（rule_id/title/category/risk_level/reason/
 #       suggestion/requires_fields/requires_extraction/condition/source）
 # 说明：
@@ -6,9 +6,12 @@
 # - 规则只代表业务风险提示，不是法律结论；报告必须保留 limitation。
 # - `requires_extraction: true`：抽取整体不可用（未配置 Key / 失败）时该规则标记 skipped，
 #   不计入 pass 也不误报 yellow，避免把“抽取失败”说成“合同缺少该要素”。
-# - 后续扩到 10–12 条时，先补 fixture 与 gold（ISSUE-009 / ISSUE-005）。
+# - 阶段 4 新增的 6 条规则（R-DIS-003/004、R-INS-001、R-INC-001/002、R-INP-002）
+#   均先在 data/contracts 的 50 份模拟合同上验证命中集合（每条只命中预期合同，
+#   两份样例合同零命中），验证方式与结果见 ADR-010 与 eval/results/。
+# - 继续扩充时：先写 fixture、再在语料上验证命中集合，最后并入规则集（ISSUE-009）。
 
-version: 2
+version: 3
 
 rules:
   - rule_id: R-TRD-001
@@ -26,10 +29,11 @@ rules:
           keywords: [FOB, CIF, CFR, EXW, DDP, DAP, FCA]
         - type: none_of
           conditions:
+            # ICC 官方写法常带 ®（Incoterms® 2020），不能漏掉该符号
             - type: regex_match
-              pattern: "Incoterms\\s*(19|20)\\d{2}"
+              pattern: "Incoterms\\s*[®™]?\\s*(?:19|20)\\d{2}"
     source: 国际货物销售合同常见争议点：贸易术语版本歧义（业务规则）
-    version: "1.0"
+    version: "1.1"
 
   - rule_id: R-PAY-001
     title: 要求买方全额预付货款
@@ -132,4 +136,122 @@ rules:
         - type: contains_any
           keywords: [arbitration, 仲裁, jurisdiction, 管辖, "competent court", 诉讼]
     source: 国际货物销售合同常见争议点：争议解决条款缺失（业务规则）
+    version: "1.0"
+
+  # ---------- 阶段 4 扩充（均在 50 份模拟合同上验证过命中集合） ----------
+
+  - rule_id: R-DIS-003
+    title: 仲裁与诉讼并列约定（“或裁或审”）
+    category: dispute
+    risk_level: red
+    reason: >-
+      争议解决条款把“提交仲裁”和“向法院起诉”并列为可选路径，且未写明选择权归属与先后顺序，
+      仲裁协议可能被认定为约定不明，争议发生时先产生管辖权争议。
+    suggestion: >-
+      二选一：删除诉讼选项，写明仲裁机构、仲裁规则、仲裁地与仲裁语言；
+      或改为明确阶梯条款（先仲裁，仅在对裁决不服时按法定情形申请救济）。
+    requires_fields: []
+    condition:
+      type: regex_match
+      # 命中的是“仲裁 … 或/或者 … 法院/诉讼”这一句内并列结构；[^。] 允许换行但拦截跨句。
+      pattern: "仲裁[^。]{0,60}(?:或|或者)[^。]{0,40}(?:人民法院|法院|诉讼)"
+    source: 国际货物销售合同常见争议点：“或裁或审”条款效力（业务规则）
+    version: "1.0"
+
+  - rule_id: R-DIS-004
+    title: 约定仲裁裁决后仍可向法院起诉（“先裁后审”）
+    category: dispute
+    risk_level: red
+    reason: >-
+      条款约定仲裁裁决作出后当事人仍可就同一争议向法院起诉，实质削弱仲裁的终局性，
+      并与合同中“仲裁裁决是终局的”表述相互冲突。
+    suggestion: >-
+      明确仲裁裁决为终局并对双方有约束力；如需保留司法救济，仅限撤销裁决、
+      不予执行裁决等法定情形，并写明依据的准据法。
+    requires_fields: []
+    condition:
+      type: regex_match
+      pattern: "仲裁裁决[^。]{0,30}后[^。]{0,60}(?:人民法院|法院|诉讼)"
+    source: 国际货物销售合同常见争议点：仲裁终局性与后续诉讼（业务规则）
+    version: "1.0"
+
+  - rule_id: R-INS-001
+    title: CIF/CIP 约定投保但未写明保险金额或比例
+    category: trade_term
+    risk_level: yellow
+    reason: >-
+      合同采用 CIF/CIP 并约定由卖方投保，但没有写明保险金额或投保比例。
+      Incoterms® 2020 的默认规则（合同价 110%、最低 ICC(C) 险别）可以补位，
+      但若合同同时使用“一切险”等与默认险别不一致的措辞，理赔范围仍可能产生争议。
+    suggestion: >-
+      写明“按 ICC(C)（或双方约定的险别）投保，保额为合同价的 110%”，
+      并约定保险单可转让、买方有权直接向保险人索赔。
+    requires_fields: []
+    condition:
+      type: all_of
+      conditions:
+        - type: contains_any
+          keywords: [CIF, CIP]
+        - type: contains_any
+          keywords: [保险, 投保, 险别, insurance]
+        - type: none_of
+          conditions:
+            # 已写明金额/比例（无论中文或英文写法）时不触发
+            - type: regex_match
+              pattern: "(?:保险金额|保额|投保金额|insured value|insurance amount)[^。]{0,20}(?:\\d{2,3}\\s*%|合同价|发票价|contract price|invoice value)"
+            - type: regex_match
+              pattern: "\\d{2,3}\\s*%[^。]{0,20}(?:投保|保险|险别|保险金额)"
+    source: Incoterms® 2020 CIF/CIP 保险义务与合同约定不一致（业务规则）
+    version: "1.0"
+
+  - rule_id: R-INC-001
+    title: 贸易术语与运费承担约定相互矛盾
+    category: trade_term
+    risk_level: yellow
+    reason: >-
+      合同采用 FOB/EXW/FCA 等由买方负责主运输的术语，却又约定运费由卖方预付或承担，
+      费用划分存在两种口径，履约与索赔时需先确定以术语还是以费用条款为准。
+    suggestion: >-
+      统一口径：若确实由卖方承担主运费，改用 CFR/CIF/CPT/CIP 并写明目的地；
+      若坚持 FOB/EXW/FCA，则删除“运费由卖方承担”的约定。
+    requires_fields: []
+    condition:
+      type: regex_match
+      # [\s\S] 允许跨行/跨句（真实合同里术语与运费条款常分处两条），距离上限 160 字符。
+      pattern: "(?:FOB|EXW|FCA)[\\s\\S]{0,160}(?:运费由卖方(?:预付|承担)|freight[^.]{0,60}(?:prepaid|paid) by (?:the )?seller)"
+    source: Incoterms® 2020 术语与费用条款一致性（业务规则）
+    version: "1.0"
+
+  - rule_id: R-INC-002
+    title: FOB/EXW 用于整箱集装箱货物
+    category: trade_term
+    risk_level: yellow
+    reason: >-
+      FOB/EXW 以“货物装上船/在卖方场所交付”为风险转移点，而整箱集装箱货物通常在集装箱堆场
+      交给承运人；卖方难以控制装船节点，按 FOB/EXW 起草的装船义务可能不可履行。
+    suggestion: >-
+      集装箱整箱运输通常应改用 FCA，并写明交货地（堆场/CY）；
+      若坚持 FOB/EXW，需明确装箱、集港与装船的责任与费用承担。
+    requires_fields: []
+    condition:
+      type: regex_match
+      pattern: "(?:FOB|EXW)[\\s\\S]{0,120}(?:集装箱|FCL|拼箱|LCL|堆场)"
+    source: Incoterms® 2020 术语与运输方式匹配（业务规则）
+    version: "1.0"
+
+  - rule_id: R-INP-002
+    title: 检验或通知期限以小时计（极短）
+    category: inspection
+    risk_level: yellow
+    reason: >-
+      合同把检验或通知期限压缩到数小时，买方可能来不及完成检验与取证；
+      若货物并非易腐品，该期限可能被认定为不合理地短。
+    suggestion: >-
+      按货物性质设定可执行期限（如目的港卸货后 14 天）；确需短期限（易腐货物）时，
+      写明检验方式、取样安排与通知渠道。
+    requires_fields: []
+    condition:
+      type: regex_match
+      pattern: "\\d{1,2}\\s*(?:小时|hours?)[^。]{0,30}(?:检验|通知|异议|inspection|notify)"
+    source: CISG 第 38/39 条检验与通知期限的可执行性（业务规则）
     version: "1.0"

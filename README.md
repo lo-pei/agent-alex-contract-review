@@ -2,17 +2,17 @@
 
 面向**国际货物销售合同**的 AI 预审智能体：上传合同 → 条款切分 → LLM 抽取关键要素 → **Python 规则引擎判定红/黄/绿风险**（唯一等级来源）→ 红色风险经 **LangGraph `interrupt()` 真人工确认** → LLM 依据规则结果与原文生成解释 → 输出可追溯报告。
 
-> 当前处于**第三阶段（代码实现）第 6 步**：已跑通 `ingest → segment → extract → validate → rules → [条件边] → human_review → explain_risks → report`——支持 **TXT / Markdown / 文本型 PDF / DOCX** 解析、标题式条款切分、LLM 17 字段要素抽取与 Python 引文校验，7 条规则（5 条文本 + 2 条字段），红色风险触发 **LangGraph `interrupt()` 真暂停**，经 `Command(resume=...)` 恢复后由 LLM 生成**带原文与知识引用**的解释。交付入口：**CLI + FastAPI + Streamlit**；未配置 `LLM_API_KEY` 时抽取降级、解释回退规则理由，字段规则标记跳过。详见 [`docs/devlog/00_PROJECT_STATE.md`](docs/devlog/00_PROJECT_STATE.md)。
+> 当前处于**第四阶段（测试与评测）第 1 轮**：第三阶段的 `ingest → segment → extract → validate → rules → [条件边] → human_review → explain_risks → report` 已全部打通，支持 **TXT / Markdown / 文本型 PDF / DOCX** 解析、标题式条款切分、LLM 17 字段要素抽取与 Python 引文校验，**13 条规则**（11 条文本 + 2 条字段），红色风险触发 **LangGraph `interrupt()` 真暂停**，经 `Command(resume=...)` 恢复后由 LLM 生成**带原文与知识引用**的解释。交付入口：**CLI + FastAPI + Streamlit**；未配置 `LLM_API_KEY` 时抽取降级、解释回退规则理由，字段规则标记跳过。本轮新增 **50 份模拟合同 + 规则级评测链路**（`eval/`），基线为 11/50 份命中规则。详见 [`docs/devlog/00_PROJECT_STATE.md`](docs/devlog/00_PROJECT_STATE.md)。
 
 ## 当前完成度
 
 | 阶段 | 状态 | 说明 |
 |---|---|---|
 | 1. GitHub 调研 | ✅ | 8 个开源项目源码级分析，产出借鉴/不借鉴清单 |
-| 2. 架构设计 | ✅ | ADR-001 ~ ADR-009 全部已接受 |
-| 3. 代码实现 | ✅ 第 6 步完成 | 环境、8 节点图、规则引擎（7 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭，真实语料 14 篇）、FastAPI + Streamlit、197 个测试 |
-| 4. 测试与评测 | ⏳ 未开始 | 尚无评测集，**不公布任何准确率** |
-| 5. 文档与交付 | ⏳ 进行中 | 开发日志、ADR、交接文档与 RAG 资料清单已建立 |
+| 2. 架构设计 | ✅ | ADR-001 ~ ADR-010 全部已接受 |
+| 3. 代码实现 | ✅ 第 6 步完成 | 环境、8 节点图、规则引擎（13 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭，真实语料 14 篇）、FastAPI + Streamlit、209 个测试 |
+| 4. 测试与评测 | ⏳ 第 1 轮完成 | 50 份模拟合同拆分为 `data/contracts/`，规则级评测链路可跑（`eval/run_eval.py`）；**规则级 gold 与准确率未做**，暂不公布 precision/recall |
+| 5. 文档与交付 | ⏳ 进行中 | 开发日志、ADR、交接文档、评测结果与 RAG 资料清单已建立 |
 
 ## 技术栈
 
@@ -60,10 +60,17 @@ py -3.12 -m venv .venv
 
 # 6) 测试与静态检查
 .\.venv\Scripts\python.exe -m pytest
-# 197 passed
+# 209 passed
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
+
+# 7) 规则级评测（不调用 LLM，不需要 Key）
+.\.venv\Scripts\python.exe eval\prepare_contracts.py
+# 50 份模拟合同 → data/contracts/；105 条映射 → data/eval/gold_contracts.json
+.\.venv\Scripts\python.exe eval\run_eval.py
+# 合同 50 份；命中规则 11 份；未命中 39 份；pass 39 / yellow 9 / red 2
+# 结果写入 eval/results/rules-YYYYMMDD.json（只报触发情况，不是准确率）
 ```
 
 环境变量：复制 `.env.example` 为 `.env` 后填写。**不要提交真实 Key**（`.env` 已在 `.gitignore`）。
@@ -123,12 +130,18 @@ app/
     checkpointer.py      # memory / sqlite 工厂 + Pydantic 类型登记
     rag.py               # 本地 BM25 + 中文二元组 + MD/DOCX 切分 + manifest 校验 + 缓存
   rules/
-    definitions.yaml     # 7 条规则（5 文本 + 2 字段，version 2）
+    definitions.yaml     # 13 条规则（11 文本 + 2 字段，version 3）
     dsl.py               # 白名单条件 DSL（无 eval/exec）
     engine.py            # 规则加载 + 求值 + fail-closed + 字段规则 skipped
+eval/
+  prepare_contracts.py   # 模拟合同 → data/contracts/ + data/eval/gold_contracts.json
+  run_eval.py            # 规则级评测 → eval/results/rules-YYYYMMDD.json
+  results/               # 评测结果（JSON）
 data/samples/            # 2 份自拟脱敏合同（含风险 / 全部通过）
-data/knowledge/          # 真实语料 14 篇 + manifest（RAG 默认关闭）；examples/ 为测试专用自拟语料
-tests/                   # 197 个测试（API 15 / pending 11 / RAG 22 / 解释 13 / HITL 17，无需 Key）
+data/contracts/          # 50 份模拟合同（生成物，可重建）
+data/eval/               # gold_contracts.json：50 份 / 105 条检索期望
+data/knowledge/          # 真实语料 14 篇 + manifest（RAG 默认关闭）；模拟合同1..6.md 为评测来源，不进 manifest
+tests/                   # 209 个测试（API 15 / pending 11 / RAG 22 / 解释 13 / HITL 17 / 规则含语料回归，无需 Key）
 tests/fakes.py           # Fake LLM（实现 StructuredLLM 协议）
 docs/devlog/             # 项目状态、调研、ADR、开发日志、交接、待决事项、RAG 资料清单
 ```
@@ -149,7 +162,9 @@ docs/devlog/             # 项目状态、调研、ADR、开发日志、交接�
 - 支持 TXT / Markdown / 文本型 PDF / DOCX；**扫描件与加密 PDF 明确报错**，不做 OCR。
 - PDF 表格/多栏可能打乱列顺序，只在 `warnings` 提示人工核对；DOCX 无真实页码，统一 `p1`。
 - 条款切分依赖标题格式（`第X条` / `ARTICLE N` / `1.` 等）；无标题合同走段落 fallback，可能切得不理想。
-- 7 条规则（5 文本 + 2 字段），**未覆盖**责任上限、不可抗力、所有权保留、合规条款等。
+- 13 条规则（11 文本 + 2 字段），50 份模拟合同中 39 份未命中任何规则；**未覆盖**责任上限、不可抗力（缺失型）、所有权保留、合规条款等。
+- 规则只做确定性文本/字段判定；改写措辞（英文条款、不同表达）会漏检；`R-INC-001` 允许跨句 160 字符，长条款可能跨条匹配，需人工核对证据。
+- 6 条新规则是在同一批 50 份模拟合同上设计并验证的（同分布验证），**不能据此宣称泛化精度**；独立留出合同集与规则级 gold 尚未建立（ISSUE-020）。
 - 未配置 `LLM_API_KEY` 时抽取降级：文本规则照常跑，字段规则跳过；解释也回退为规则理由（报告有 limitation）。
 - 条款数超过 `MAX_EXTRACT_CLAUSES`（默认 40）时只抽取部分条款，字段规则跳过；长合同精度有限。
 - **中文 PDF / 复杂版式未验证**；真实模型抽取与解释效果**无数据**。
@@ -158,7 +173,7 @@ docs/devlog/             # 项目状态、调研、ADR、开发日志、交接�
 - 解释按风险条数逐条调用，4 条风险 ≈ 4 次 LLM 调用；成本与延迟随风险数线性增长（上限 20 条）。
 - **API/UI 只做了单机单 worker**：并发锁是进程内 `RLock`；多 worker 部署前需换文件锁/数据库锁；上传与 pending 文件无保留期清理（ISSUE-019）。
 - HITL 超时是惰性检查（`GET` 时判定），不是后台定时任务；pending 时间戳已落盘，进程重启后仍可判定。
-- **没有评测数据**：README 与文档中的任何指标都必须来自 `eval/results/*.json`，当前为空。
+- **有规则触发基线，但没有准确率**：`eval/results/rules-20261027.json` 只记录“哪条规则在哪份合同上触发”（50 份中 11 份命中），不是 precision/recall；“未命中”不等于合同无风险。任何对外指标必须来自 `eval/results/*.json`，并注明样本、规则版本、日期、命令。
 
 ## 第三方代码与许可
 
@@ -178,3 +193,4 @@ docs/devlog/             # 项目状态、调研、ADR、开发日志、交接�
 - 范围变更决策：[`ADR-007`](docs/devlog/02_ARCHITECTURE_DECISIONS/ADR-007-范围变更-RAG与多智能体.md)
 - RAG 实现与质量门：[`ADR-008`](docs/devlog/02_ARCHITECTURE_DECISIONS/ADR-008-RAG检索与解释质量门.md)
 - API/UI 与 pending 持久化：[`ADR-009`](docs/devlog/02_ARCHITECTURE_DECISIONS/ADR-009-API与UI接入及待审批状态持久化.md)
+- 规则扩充与合同级评测基线：[`ADR-010`](docs/devlog/02_ARCHITECTURE_DECISIONS/ADR-010-规则扩充与合同级评测基线.md)

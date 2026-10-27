@@ -9,6 +9,8 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+from app.nodes.ingest import ingest_document
+from app.nodes.segment import segment_clauses
 from app.rules.dsl import (
     AllOf,
     AnyOf,
@@ -116,7 +118,8 @@ def test_invalid_regex_rejected_at_load() -> None:
 
 def test_load_default_rules() -> None:
     rules = load_rules()
-    assert len(rules) == 7
+    assert len(rules) == 13
+    assert len({r.rule_id for r in rules}) == len(rules)
     assert [r.risk_level for r in rules if r.rule_id == "R-DIS-001"] == ["red"]
 
     by_id = {r.rule_id: r for r in rules}
@@ -124,6 +127,18 @@ def test_load_default_rules() -> None:
     assert by_id["R-DLV-001"].requires_extraction
     assert by_id["R-INP-001"].requires_extraction
     assert not by_id["R-PAY-001"].requires_extraction
+    # 阶段 4 新增的 6 条都是纯文本规则（不依赖抽取）
+    new_rules = {
+        "R-DIS-003": "red",
+        "R-DIS-004": "red",
+        "R-INS-001": "yellow",
+        "R-INC-001": "yellow",
+        "R-INC-002": "yellow",
+        "R-INP-002": "yellow",
+    }
+    for rule_id, level in new_rules.items():
+        assert by_id[rule_id].risk_level == level
+        assert not by_id[rule_id].requires_extraction
 
 
 def test_load_rejects_duplicate_ids(tmp_path: Path) -> None:
@@ -349,3 +364,136 @@ def test_overall_level_aggregation() -> None:
     )
     evaluations = evaluate_rules([rule_yellow], [clause], "x")
     assert overall_level(evaluations) == "yellow"
+
+
+# ---------- 阶段 4 新增规则 ----------
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CONTRACTS_DIR = PROJECT_ROOT / "data" / "contracts"
+SAMPLES_DIR = PROJECT_ROOT / "data" / "samples"
+
+#: 新增规则在 50 份模拟合同上的预期命中集合（语料验证基线，误报会立刻让本测试失败）
+EXPECTED_CORPUS_HITS: dict[str, set[str]] = {
+    "R-DIS-003": {"C47"},
+    "R-DIS-004": {"C48"},
+    "R-INS-001": {"C04"},
+    "R-INC-001": {"C11"},
+    "R-INC-002": {"C23"},
+    "R-INP-002": {"C09"},
+}
+
+NEW_RULE_CASES = [
+    pytest.param(
+        "R-DIS-003",
+        "9.1 任何一方均有权选择：（a）将争议提交上海仲裁委员会仲裁；"
+        "或（b）向有管辖权的人民法院提起诉讼。",
+        "9.1 争议提交上海仲裁委员会仲裁。9.2 仲裁裁决是终局的，对双方均有约束力。",
+        id="or-arbitration-or-litigation",
+    ),
+    pytest.param(
+        "R-DIS-004",
+        "9.2 仲裁裁决作出后，任何一方对裁决结果仍有异议的，可在 30 日内向法院提起诉讼。",
+        "9.2 仲裁裁决是终局的，对双方均有约束力，任何一方不得再向法院起诉。",
+        id="arbitration-then-litigation",
+    ),
+    pytest.param(
+        "R-INS-001",
+        "贸易术语：CIF Rotterdam Incoterms® 2020。卖方应自付费用投保一切险。",
+        "贸易术语：CIF Rotterdam Incoterms® 2020。卖方按 ICC(C) 投保，保额为合同价的110%。",
+        id="cif-insurance-without-amount",
+    ),
+    pytest.param(
+        "R-INC-001",
+        "贸易术语：FOB Shanghai Incoterms® 2020。运费由卖方预付至 Antwerp。",
+        "贸易术语：FOB Shanghai Incoterms® 2020。运费由买方承担。",
+        id="fob-with-seller-freight",
+    ),
+    pytest.param(
+        "R-INC-002",
+        "贸易术语：FOB Shenzhen Incoterms® 2020。货物为集装箱整箱（FCL），在堆场交付。",
+        "贸易术语：FOB Shanghai Incoterms® 2020。货物为散装钢材，装船后风险转移。",
+        id="fob-with-fcl-container",
+    ),
+    pytest.param(
+        "R-INP-002",
+        "买方应在货物到达目的港后24小时内完成检验，并在4小时内发出书面通知。",
+        "买方应在货物到达目的港后14天内完成检验，并向卖方发出书面通知。",
+        id="inspection-within-hours",
+    ),
+]
+
+
+def _evaluate_one_rule(rule_id: str, text: str):
+    rules = [rule for rule in load_rules() if rule.rule_id == rule_id]
+    assert len(rules) == 1, rule_id
+    clause = Clause(clause_id="C001", text=text, start=0, end=len(text))
+    return evaluate_rules(rules, [clause], text, extraction_available=False)[0]
+
+
+@pytest.mark.parametrize(("rule_id", "positive", "negative"), NEW_RULE_CASES)
+def test_new_rule_matches_only_expected_wording(
+    rule_id: str, positive: str, negative: str
+) -> None:
+    triggered = _evaluate_one_rule(rule_id, positive)
+    assert triggered.risk_level != "pass"
+    assert triggered.evidence, "触发时必须给出可定位证据"
+    evidence = triggered.evidence[0]
+    assert evidence.grounded
+    assert positive[evidence.start : evidence.end] == evidence.quote
+
+    assert _evaluate_one_rule(rule_id, negative).risk_level == "pass"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # CIF 但合同完全没写保险：由 Incoterms 默认规则补位，不触发本规则（避免噪声）
+        "贸易术语：CIF Rotterdam Incoterms® 2020。付款方式：不可撤销即期信用证。",
+        # 写了保险但没有金额，但不是 CIF/CIP 术语
+        "贸易术语：FOB Shanghai Incoterms® 2020。卖方应自付费用投保一切险。",
+        # 英文写法已给出比例
+        "CIF Hamburg Incoterms 2020. Seller insures the goods for 110% of the contract price.",
+    ],
+)
+def test_insurance_rule_ignores_non_triggering_context(text: str) -> None:
+    assert _evaluate_one_rule("R-INS-001", text).risk_level == "pass"
+
+
+def _load_state(path: Path) -> ContractReviewState:
+    state = ContractReviewState(
+        review_id="test-corpus", source_filename=path.name, source_path=str(path)
+    )
+    state = ContractReviewState.model_validate({**state.model_dump(), **ingest_document(state)})
+    return ContractReviewState.model_validate({**state.model_dump(), **segment_clauses(state)})
+
+
+def test_new_rules_stay_precise_on_simulated_corpus() -> None:
+    if not CONTRACTS_DIR.is_dir():
+        pytest.skip("缺少 data/contracts 模拟合同目录")
+    new_rules = [rule for rule in load_rules() if rule.rule_id in EXPECTED_CORPUS_HITS]
+    assert len(new_rules) == len(EXPECTED_CORPUS_HITS)
+
+    hits = {rule_id: set() for rule_id in EXPECTED_CORPUS_HITS}
+    for path in sorted(CONTRACTS_DIR.glob("C*.md")):
+        state = _load_state(path)
+        for evaluation in evaluate_rules(
+            new_rules, state.clauses, state.raw_text, extraction_available=False
+        ):
+            if evaluation.risk_level == "pass":
+                continue
+            hits[evaluation.rule_id].add(path.stem)
+            assert evaluation.evidence, f"{path.stem}:{evaluation.rule_id} 触发但无证据"
+            for evidence in evaluation.evidence:
+                assert state.raw_text[evidence.start : evidence.end] == evidence.quote
+                assert evidence.grounded
+    assert hits == EXPECTED_CORPUS_HITS
+
+
+@pytest.mark.parametrize("name", ["sample_sales_contract.txt", "sample_clean_contract.txt"])
+def test_new_rules_do_not_fire_on_samples(name: str) -> None:
+    state = _load_state(SAMPLES_DIR / name)
+    new_rules = [rule for rule in load_rules() if rule.rule_id in EXPECTED_CORPUS_HITS]
+    evaluations = evaluate_rules(
+        new_rules, state.clauses, state.raw_text, extraction_available=False
+    )
+    assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == []
