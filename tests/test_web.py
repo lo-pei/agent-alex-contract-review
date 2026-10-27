@@ -101,6 +101,18 @@ def test_frontend_assets_exist_on_disk() -> None:
     assert re.search(r"localhost|127\.0\.0\.1", script) is None
 
 
+def test_header_pick_button_targets_rendered_input() -> None:
+    """顶部“选择合同”必须从当前视图取 input。
+
+    `#file-input` 是渲染工作台时才创建的，启动时缓存 `dom.fileInput` 会是 undefined，
+    点按钮直接抛错（真实缺陷：按钮点了没反应）。
+    """
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    assert "dom.fileInput" not in script
+    assert re.search(r'on\("pick-file",\s*"click"', script) is not None
+    assert 'querySelector("#file-input")' in script
+
+
 def test_runtime_internals_stay_out_of_the_ui() -> None:
     """面向业务用户：侧栏不再展示接口版本 / checkpoint / RAG 开关等运行环境信息。"""
     page = (WEB_DIR / "index.html").read_text(encoding="utf-8")

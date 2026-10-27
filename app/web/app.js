@@ -457,7 +457,9 @@
         </div>
       </div>`;
 
-    on("pick-file", "click", () => dom.fileInput.click());
+    // 文件 input 是随工作台一起渲染的，不能在启动时缓存（否则 undefined）。
+    on("pick-file", "click", () => dom.view.querySelector("#file-input")?.click());
+
     on("clear-file", "click", () => {
       state.file = null;
       render();
