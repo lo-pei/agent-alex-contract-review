@@ -11,42 +11,100 @@
     />
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316150f'/%3E%3Cpath d='M9 23 16 9l7 14' stroke='%23f7f6f3' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M12 18h8' stroke='%23f7f6f3' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23141513'/%3E%3Cpath d='M9 23 16 9l7 14' stroke='%23f5f4ef' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M12 18h8' stroke='%23f5f4ef' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
     <a class="skip-link" href="#main">跳到主要内容</a>
 
-    <header class="top">
-      <a class="brand" href="#/">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="18" height="18">
-            <path
-              d="M6 18 12 5l6 13M8.5 14h7"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.9"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
+    <div class="app">
+      <aside class="sidebar" id="sidebar" aria-label="侧边导航">
+        <a class="brand" href="#/">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <path
+                d="M6 18 12 5l6 13M8.5 14h7"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+          <span class="brand-text">
+            <strong>Agent Alex</strong>
+            <span>合同审查助手</span>
+          </span>
+        </a>
+
+        <nav class="nav" aria-label="主要导航">
+          <a class="nav-item" href="#/" data-nav="upload">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M12 16.5V4.5m0 0-4 4m4-4 4 4" />
+              <path d="M4.5 15.5v3A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5v-3" />
+            </svg>
+            <span>上传合同</span>
+          </a>
+          <a class="nav-item" href="#/review" data-nav="review">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path
+                d="M8 4.5H6.5A1.5 1.5 0 0 0 5 6v13a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19V6a1.5 1.5 0 0 0-1.5-1.5H16"
+              />
+              <rect x="8" y="3" width="8" height="3" rx="1" />
+              <path d="M8.5 11.5h7M8.5 15h4.5" />
+            </svg>
+            <span>当前审查</span>
+            <span class="nav-badge" id="nav-review-badge" hidden></span>
+          </a>
+        </nav>
+
+        <div class="sidebar-foot">
+          <p class="sidebar-note">只做合同预审辅助，不构成法律意见。</p>
+          <a class="nav-item nav-link" href="/docs" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10a2 2 0 0 1 2 2v13a1.5 1.5 0 0 0-1.5-1.5H4z" />
+              <path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H14a2 2 0 0 0-2 2v13a1.5 1.5 0 0 1 1.5-1.5H20z" />
+            </svg>
+            <span>接口文档</span>
+            <span class="external-mark" aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </aside>
+
+      <header class="topbar">
+        <button
+          class="icon-button menu-button"
+          id="menu-button"
+          type="button"
+          aria-label="打开导航"
+          aria-expanded="false"
+          aria-controls="sidebar"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
           </svg>
-        </span>
-        <span class="brand-text">
-          <strong>外贸合同智审助手</strong>
-          <span>上传合同，查看风险点</span>
-        </span>
-      </a>
-    </header>
+        </button>
+        <nav class="crumbs" aria-label="面包屑">
+          <span class="crumbs-root">合同审查</span>
+          <span class="crumbs-sep" aria-hidden="true">/</span>
+          <span class="crumbs-current" id="crumbs-current">上传合同</span>
+        </nav>
+        <div class="topbar-right">
+          <span class="pill" id="api-status" data-state="pending">
+            <span class="dot" aria-hidden="true"></span>
+            <span id="api-status-text">连接中</span>
+          </span>
+        </div>
+      </header>
 
-    <main class="main" id="main" tabindex="-1">
-      <div id="view" aria-live="polite"></div>
-    </main>
+      <main class="sheet" id="main" tabindex="-1">
+        <div class="view" id="view" aria-live="polite"></div>
+      </main>
+    </div>
 
-    <footer class="foot">
-      <span>只做合同预审辅助，不构成法律意见。</span>
-      <a href="/docs" target="_blank" rel="noopener">接口文档</a>
-    </footer>
+    <div class="scrim" id="scrim" hidden></div>
 
     <script src="/static/app.js" defer></script>
   </body>

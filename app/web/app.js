@@ -1,6 +1,6 @@
-/* 外贸合同智审助手 · 极简前端
+/* 外贸合同智审助手 · 前端
  *
- * 只有三件事：选合同 → 上传审查 → 看风险点。
+ * 侧边栏是固定的导航壳；右侧主区只有两屏：上传合同 / 风险点。
  * 约束（ADR-003 / ADR-009）：不在浏览器判级、不拼 Command、后端文本一律先转义。
  */
 (() => {
@@ -12,6 +12,14 @@
   const dom = {
     view: document.getElementById("view"),
     main: document.getElementById("main"),
+    sidebar: document.getElementById("sidebar"),
+    menuButton: document.getElementById("menu-button"),
+    scrim: document.getElementById("scrim"),
+    crumbs: document.getElementById("crumbs-current"),
+    navItems: Array.from(document.querySelectorAll(".nav-item[data-nav]")),
+    reviewBadge: document.getElementById("nav-review-badge"),
+    apiStatus: document.getElementById("api-status"),
+    apiStatusText: document.getElementById("api-status-text"),
   };
 
   const state = {
@@ -81,23 +89,91 @@
       "</section>";
   }
 
-  /* ---------- 路由 ---------- */
+  /* ---------- 侧边栏 / 顶栏 ---------- */
 
-  function navigate(hash) {
-    if (location.hash === hash) {
-      route();
-      return;
-    }
-    location.hash = hash;
+  function setShell(name) {
+    const title = { upload: "上传合同", review: "风险点", empty: "当前审查" }[name] || "上传合同";
+    if (dom.crumbs) dom.crumbs.textContent = title;
+    const active = name === "upload" ? "upload" : "review";
+    dom.navItems.forEach((item) => {
+      if (item.dataset.nav === active) item.setAttribute("aria-current", "page");
+      else item.removeAttribute("aria-current");
+    });
+    closeDrawer();
   }
+
+  function closeDrawer() {
+    if (!dom.sidebar) return;
+    dom.sidebar.dataset.open = "false";
+    if (dom.menuButton) dom.menuButton.setAttribute("aria-expanded", "false");
+    if (dom.scrim) dom.scrim.hidden = true;
+  }
+
+  function bindDrawer() {
+    if (dom.menuButton) {
+      dom.menuButton.addEventListener("click", () => {
+        const open = dom.sidebar.dataset.open === "true";
+        dom.sidebar.dataset.open = String(!open);
+        dom.menuButton.setAttribute("aria-expanded", String(!open));
+        if (dom.scrim) dom.scrim.hidden = open;
+      });
+    }
+    if (dom.scrim) dom.scrim.addEventListener("click", closeDrawer);
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeDrawer();
+    });
+  }
+
+  function setBadge(count) {
+    if (!dom.reviewBadge) return;
+    if (count > 0) {
+      dom.reviewBadge.textContent = String(count);
+      dom.reviewBadge.hidden = false;
+      dom.reviewBadge.title = count + " 处高风险";
+    } else {
+      dom.reviewBadge.hidden = true;
+      dom.reviewBadge.textContent = "";
+    }
+  }
+
+  function setApiStatus(status) {
+    if (!dom.apiStatus) return;
+    dom.apiStatus.dataset.state = status;
+    if (dom.apiStatusText) {
+      dom.apiStatusText.textContent =
+        status === "online" ? "服务正常" : status === "offline" ? "服务未连接" : "连接中";
+    }
+  }
+
+  async function checkHealth() {
+    try {
+      const response = await fetch("/health", { cache: "no-store" });
+      setApiStatus(response.ok ? "online" : "offline");
+    } catch (error) {
+      setApiStatus("offline");
+    }
+  }
+
+  /* ---------- 路由 ---------- */
 
   function route() {
     const hash = location.hash || "#/";
-    const match = hash.match(/^#\/(?:review|report)\/([A-Za-z0-9_-]{1,64})$/);
+    const match = hash.match(/^#\/review\/([A-Za-z0-9_-]{1,64})$/);
     if (match) {
+      setShell("review");
       loadReview(match[1]);
       return;
     }
+    if (hash === "#/review" || hash === "#/review/") {
+      setShell("review");
+      if (state.reviewId) {
+        loadReview(state.reviewId);
+      } else {
+        renderNoSession();
+      }
+      return;
+    }
+    setShell("upload");
     renderUpload();
   }
 
@@ -121,7 +197,6 @@
   function renderUpload() {
     state.file = null;
     state.busy = false;
-    window.scrollTo({ top: 0 });
     dom.view.innerHTML =
       '<section class="upload">' +
       '<h1 class="headline">上传合同，查看风险点</h1>' +
@@ -142,7 +217,7 @@
       "</div>" +
       '<p class="alert" id="form-error" role="alert" hidden></p>' +
       '<button class="btn btn-primary btn-block" type="button" id="start" disabled>开始审查</button>' +
-      '<p class="fine">系统只做预审辅助，风险等级由规则给出，不构成法律意见。</p>' +
+      '<p class="fine">风险等级由规则引擎判定，本页只做预审辅助，不构成法律意见。</p>' +
       "</section>";
 
     const input = dom.view.querySelector("#file-input");
@@ -181,7 +256,6 @@
   }
 
   function accept(file) {
-    const error = document.getElementById("form-error");
     const suffix = suffixOf(file.name);
     if (!ALLOWED.includes(suffix)) {
       showFormError("只支持 PDF、Word（.docx）、TXT 或 Markdown 文件。");
@@ -195,6 +269,7 @@
       showFormError("这个文件是空的，请换一份。");
       return;
     }
+    const error = document.getElementById("form-error");
     if (error) error.hidden = true;
     state.file = file;
 
@@ -226,13 +301,13 @@
   async function startReview() {
     if (!state.file || state.busy) return;
     const start = document.getElementById("start");
-    const drop = dom.view.querySelector("#drop-body");
+    const body = dom.view.querySelector("#drop-body");
     state.busy = true;
     if (start) {
       start.disabled = true;
       start.innerHTML = spinner() + "正在上传…";
     }
-    if (drop) drop.classList.add("is-dim");
+    if (body) body.classList.add("is-dim");
 
     const form = new FormData();
     form.append("file", state.file, state.file.name);
@@ -242,6 +317,7 @@
       state.reviewId = summary.review_id;
       // 只换 hash 不新增历史记录：刷新 / 分享链接时还能回到这次结果
       history.replaceState(null, "", "#/review/" + summary.review_id);
+      setShell("review");
       renderResult(summary);
     } catch (error) {
       state.busy = false;
@@ -249,7 +325,7 @@
         start.disabled = false;
         start.textContent = "重新试一次";
       }
-      if (drop) drop.classList.remove("is-dim");
+      if (body) body.classList.remove("is-dim");
       showFormError(
         error instanceof TypeError
           ? "服务没有响应，请确认服务已启动后重试。"
@@ -259,6 +335,16 @@
   }
 
   /* ---------- 结果页 ---------- */
+
+  function renderNoSession() {
+    setBadge(0);
+    dom.view.innerHTML =
+      '<section class="result">' +
+      '<h1 class="headline">还没有审查记录</h1>' +
+      '<p class="lead">先上传一份合同；审查结果会自动出现在这里，刷新页面也不会丢。</p>' +
+      '<a class="btn btn-primary" href="#/">上传合同</a>' +
+      "</section>";
+  }
 
   async function loadReview(reviewId) {
     if (state.busy) return;
@@ -279,9 +365,9 @@
   function renderResult(review) {
     state.busy = false;
     state.reviewId = review.review_id;
-    window.scrollTo({ top: 0 });
 
     if (review.status === "failed") {
+      setBadge(0);
       failMessage(
         (review.errors && review.errors.join("；")) ||
           "合同没能被读取，请确认文件是文本型 PDF / Word / TXT。",
@@ -289,6 +375,7 @@
       return;
     }
     if (review.status === "not_contract") {
+      setBadge(0);
       renderNotContract(review);
       return;
     }
@@ -302,6 +389,7 @@
     const findings = (report && report.findings) || [];
     const reds = findings.filter((item) => item.risk_level === "red").length;
     const yellows = findings.length - reds;
+    setBadge(reds);
 
     let headline = "没有发现规则覆盖的风险点";
     let sub = "规则只覆盖常见问题，签署前仍建议请专业人士复核。";
@@ -375,6 +463,7 @@
         ? approval.findings_total
         : findings.length;
     const truncated = approval.truncated || 0;
+    setBadge(total);
 
     const parts = [
       '<section class="result">',
@@ -565,9 +654,7 @@
           reasons.map((item) => "<li>" + esc(item) + "</li>").join("") +
           "</ul>"
         : "") +
-      (hints.length
-        ? '<p class="fine">' + hints.map(esc).join(" ") + "</p>"
-        : "") +
+      (hints.length ? '<p class="fine">' + hints.map(esc).join(" ") + "</p>" : "") +
       '<a class="btn btn-primary" href="#/">换一份合同</a>' +
       "</section>";
   }
@@ -582,6 +669,8 @@
     if (dom.main) dom.main.focus();
   });
 
+  bindDrawer();
+  checkHealth();
   window.addEventListener("hashchange", route);
   route();
 })();

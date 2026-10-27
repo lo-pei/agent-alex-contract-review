@@ -116,21 +116,33 @@ def test_header_pick_button_targets_rendered_input() -> None:
     assert 'querySelector("#file-input")' in script
 
 
-def test_page_is_only_upload_and_risks() -> None:
-    """面向客户：页面上只有“上传合同”和“风险点”，不出现内部工作台。
+def test_sidebar_kept_but_main_content_is_minimal() -> None:
+    """侧栏保留，右侧主区只做“上传合同 → 看风险点”。
 
-    用户诉求是“只想上传合同，然后查看风险点”，侧栏、规则集、流水线、KPI、
-    抽取要素、待核对清单都不该出现在 C 端页面。
+    用户口径：信息过多指的是右侧主体（流水线、规则集、KPI、抽取要素、核对清单）；
+    左侧导航壳保留，仍提供“上传合同 / 当前审查 / 接口文档”入口。
     """
     page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
-    for needle in ("侧栏", "规则集", "审查流水线", "抽取要素", "待核对", "复核记录"):
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    # 侧栏保留：导航壳 + 两个入口 + 文档入口
+    assert '<aside class="sidebar"' in page
+    assert 'id="sidebar"' in page
+    assert 'data-nav="upload"' in page
+    assert 'data-nav="review"' in page
+    assert "接口文档" in page
+    assert 'id="view"' in page
+
+    # 右侧主区不再出现工作台信息
+    for needle in ("审查流水线", "抽取要素", "待核对", "复核记录", "规则集", "运行环境"):
         assert needle not in page, f"index.html 仍包含工作台信息：{needle}"
-    assert "sidebar" not in page
-    assert "sidebar" not in script
-    # 上传 → 风险点 → 确认 → 报告，就是全部流程
+        assert needle not in script, f"app.js 仍包含工作台信息：{needle}"
+
+    # 导航壳的样式必须在（否则侧栏会“裸奔”），主区只剩上传与风险点
+    assert ".sidebar" in styles
+    assert ".sheet" in styles
     assert "上传合同" in page
-    assert "查看风险点" in page
     assert "确认这些风险" in script
     assert "/decisions" in script
 
@@ -160,4 +172,3 @@ def test_runtime_internals_stay_out_of_the_ui() -> None:
     assert ".runtime" not in styles
     # 保留的是对业务有用的入口，而不是调试信息
     assert "接口文档" in page
-
