@@ -513,6 +513,72 @@ def test_rules_match_english_and_paraphrased_wording(
     assert _evaluate_one_rule(rule_id, negative).risk_level == "pass"
 
 
+#: 规则 version 5 的新增写法（holdout3 暴露的 3 类 + 保额邻近判定的回归）
+PARAPHRASE_RULE_CASES = [
+    pytest.param(
+        "R-DIS-003",
+        # “既可以…也可以…”：与“或/或者”同义的并列连接词
+        "9.2 争议发生后，双方既可以提交新加坡国际仲裁中心仲裁，"
+        "也可以向有管辖权的法院提起诉讼。",
+        # 仲裁终局 + 仅可申请撤销裁决（法定救济），不应判为“或裁或审”
+        "9.2 仲裁裁决为终局裁定，对双方均有约束力；任何一方仅可依据法定情形申请撤销裁决。",
+        id="zh-either-or-court",
+    ),
+    pytest.param(
+        "R-INC-001",
+        # “卖方须支付…主运费”：情态词插在“卖方”与“支付”之间
+        "贸易术语：FCA Zhengzhou Incoterms 2020。卖方须支付自郑州至阿拉木图的主运费及订舱费用。",
+        # 出口报关费本就应由卖方承担，且主运费由买方承担
+        "贸易术语：FCA Zhengzhou Incoterms 2020。卖方须支付出口报关费用，主运费由买方承担。",
+        id="zh-seller-must-pay-freight",
+    ),
+    pytest.param(
+        "R-INP-002",
+        "Buyer shall examine the goods within thirty-six (36) hours after discharge at Jeddah.",
+        "Buyer shall examine the goods within 30 days after discharge and notify the Seller "
+        "within 15 days after inspection.",
+        id="en-inspect-before-worded-hours",
+    ),
+    pytest.param(
+        "R-INP-002",
+        "Buyer shall notify the Seller of any claim within Twelve (12) hours after delivery.",
+        "Buyer shall notify the Seller of any claim within 15 days after delivery.",
+        id="en-claim-within-worded-hours",
+    ),
+    pytest.param(
+        "R-INS-001",
+        # 保额判定必须是“保险语境邻近”：付款比例 40% 不能压制本规则（holdout3 H27 缺陷）
+        "贸易术语：CIF Jebel Ali Incoterms 2020。卖方负责投保一切险，保险单交付买方。\n"
+        "7.1 付款方式：40% 合同价电汇预付，剩余 60% 见提单副本后 30 天内支付。",
+        "贸易术语：CIF Jebel Ali Incoterms 2020。卖方投保一切险，保险金额为合同价的 110%。\n"
+        "7.1 付款方式：40% 合同价电汇预付，剩余 60% 见提单副本后支付。",
+        id="zh-payment-percentage-is-not-sum-insured",
+    ),
+    pytest.param(
+        "R-INS-001",
+        "Trade term: CIF Antwerp Incoterms 2020. Seller shall insure the goods against all "
+        "risks in favour of Buyer.",
+        "Trade term: CIF Antwerp Incoterms 2020. Seller shall insure the goods against all "
+        "risks with a sum insured of USD 391,600, being 110% of the contract price.",
+        id="en-sum-insured-usd",
+    ),
+]
+
+
+@pytest.mark.parametrize(("rule_id", "positive", "negative"), PARAPHRASE_RULE_CASES)
+def test_rules_match_new_paraphrase_wording(
+    rule_id: str, positive: str, negative: str
+) -> None:
+    triggered = _evaluate_one_rule(rule_id, positive)
+    assert triggered.risk_level != "pass"
+    assert triggered.evidence
+    for evidence in triggered.evidence:
+        assert evidence.grounded
+        assert positive[evidence.start : evidence.end] == evidence.quote
+
+    assert _evaluate_one_rule(rule_id, negative).risk_level == "pass"
+
+
 @pytest.mark.parametrize(
     "text",
     [
@@ -643,3 +709,93 @@ def test_holdout2_hits_are_stable() -> None:
             load_rules(), state.clauses, state.raw_text, extraction_available=False
         )
         assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == [], name
+
+
+HOLDOUT3_DIR = PROJECT_ROOT / "data" / "contracts_holdout3"
+
+#: holdout3（H21–H28，8 份）在规则 version 5 下的命中集合。
+#: 这批合同暴露过“亦可”“卖方负责支付”“thirty-six (36) hours”三类写法，
+#: 修复后全对；它同样**不再是留出集**，只作回归守卫（对外报数用 holdout4）。
+EXPECTED_HOLDOUT3_HITS: dict[str, set[str]] = {
+    "R-DIS-003": {"H21"},
+    "R-INC-001": {"H22"},
+    "R-INS-001": {"H23"},
+    "R-INP-002": {"H24"},
+    "R-INC-002": {"H25"},
+    "R-PAY-002": {"H26"},
+    "R-DIS-004": {"H26"},
+}
+
+
+def test_holdout3_hits_are_stable() -> None:
+    if not HOLDOUT3_DIR.is_dir():
+        pytest.skip("缺少 data/contracts_holdout3 目录")
+    rules = [rule for rule in load_rules() if rule.rule_id in EXPECTED_HOLDOUT3_HITS]
+    hits = {rule_id: set() for rule_id in EXPECTED_HOLDOUT3_HITS}
+    for path in sorted(HOLDOUT3_DIR.glob("H*.md")):
+        state = _load_state(path)
+        for evaluation in evaluate_rules(
+            rules, state.clauses, state.raw_text, extraction_available=False
+        ):
+            if evaluation.risk_level != "pass":
+                hits[evaluation.rule_id].add(path.stem)
+    assert hits == EXPECTED_HOLDOUT3_HITS
+
+    # H27/H28 是干净对照：已写明 110% 保额的 CIF，且付款里还有别的比例（保额邻近判定的回归）
+    for name in ("H27", "H28"):
+        state = _load_state(HOLDOUT3_DIR / f"{name}.md")
+        evaluations = evaluate_rules(
+            load_rules(), state.clauses, state.raw_text, extraction_available=False
+        )
+        assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == [], name
+
+
+HOLDOUT4_DIR = PROJECT_ROOT / "data" / "contracts_holdout4"
+
+#: holdout4（H29–H40，12 份）在规则 version 5 下的命中集合（当前对外报数用的盲测集）。
+#: H39“award shall be final, but either party may, within 30 days …, commence proceedings”
+#: 是**已知漏报**：modal 与动词之间插入了时间状语。修好那天本测试会失败，届时
+#: 应把 H39 加进本表、把 holdout4 降级为回归集，并另写 holdout5 再对外报数。
+EXPECTED_HOLDOUT4_HITS: dict[str, set[str]] = {
+    "R-INS-001": {"H29"},
+    "R-INC-001": {"H30", "H40"},
+    "R-DIS-003": {"H31", "H38"},
+    "R-INP-002": {"H33"},
+    "R-INC-002": {"H35"},
+    "R-PAY-002": {"H37"},
+}
+
+
+def test_holdout4_hits_are_stable() -> None:
+    if not HOLDOUT4_DIR.is_dir():
+        pytest.skip("缺少 data/contracts_holdout4 目录")
+    rules = [rule for rule in load_rules() if rule.rule_id in EXPECTED_HOLDOUT4_HITS]
+    hits = {rule_id: set() for rule_id in EXPECTED_HOLDOUT4_HITS}
+    for path in sorted(HOLDOUT4_DIR.glob("H*.md")):
+        state = _load_state(path)
+        for evaluation in evaluate_rules(
+            rules, state.clauses, state.raw_text, extraction_available=False
+        ):
+            if evaluation.risk_level != "pass":
+                hits[evaluation.rule_id].add(path.stem)
+    assert hits == EXPECTED_HOLDOUT4_HITS
+
+    # H32（仅可申请撤销裁决）/ H34、H36（已写保额）是干净对照
+    for name in ("H32", "H34", "H36"):
+        state = _load_state(HOLDOUT4_DIR / f"{name}.md")
+        evaluations = evaluate_rules(
+            load_rules(), state.clauses, state.raw_text, extraction_available=False
+        )
+        assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == [], name
+
+    # H39 是已知漏报（见上），先钉住现状：不允许它被“假命中”掩盖
+    h39 = _load_state(HOLDOUT4_DIR / "H39.md")
+    evaluations = evaluate_rules(
+        [rule for rule in load_rules() if rule.rule_id == "R-DIS-004"],
+        h39.clauses,
+        h39.raw_text,
+        extraction_available=False,
+    )
+    assert evaluations[0].risk_level == "pass", (
+        "H39 已修复，请更新 EXPECTED_HOLDOUT4_HITS 并另写 holdout5"
+    )

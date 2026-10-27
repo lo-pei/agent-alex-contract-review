@@ -1,10 +1,10 @@
 # 项目状态快照
 
-> 更新时间：2026-10-27（第四阶段第 3 轮：英文/同义改写补强 + 三批留出集）
-> 当前阶段：**第四阶段（测试与评测）进行中：规则 13 条；silver gold 21 个现象；三批留出集 28 份；当前唯一可对外报的数来自 holdout3（8 份）：P=1.00 / R=0.571 / F1=0.727**
+> 更新时间：2026-10-27（第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
+> 当前阶段：**第四阶段（测试与评测）进行中：规则 13 条（`version: 5`）；silver gold 21 个现象；四批留出集 40 份；当前唯一可对外报的数来自 holdout4（12 份）：P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）**
 > 项目目录：`d:\A项目\Agent_Alex外贸合同智审助手`
-> Git：`cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`（第 3 步）、`e41d235`（第 4 步）、`c7f24a9`（第 6 步）、`6eaff8c`（第 4 阶段第 1 轮），本轮提交见 `git log`
-> 范围变更：2026-10-27 用户明确「可以做 rag 和多 agent」→ **ADR-007**；第 5 步按 **ADR-008** 落地 RAG MVP；第 6 步按 **ADR-009** 落地 API/UI 与 pending 持久化；第 1 轮按 **ADR-010** 扩充规则并建立合同级评测基线；第 2、3 轮按 **ADR-011** 建立 silver gold、指标口径、留出验证与“留出集消耗”规则（RAG/多智能体仍默认关闭，只增强解释、不判级）
+> Git：`cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`（第 3 步）、`e41d235`（第 4 步）、`c7f24a9`（第 6 步）、`6eaff8c`（第 4 阶段第 1 轮）、`5dc05bd`（第 2 轮）、`c540259`（第 3 轮），本轮提交见 `git log`
+> 范围变更：2026-10-27 用户明确「可以做 rag 和多 agent」→ **ADR-007**；第 5 步按 **ADR-008** 落地 RAG MVP；第 6 步按 **ADR-009** 落地 API/UI 与 pending 持久化；第 1 轮按 **ADR-010** 扩充规则并建立合同级评测基线；第 2–4 轮按 **ADR-011** 建立 silver gold、指标口径、留出验证、“留出集消耗”规则与保额邻近判定（RAG/多智能体仍默认关闭，只增强解释、不判级）
 
 ## 一句话了解项目
 
@@ -22,10 +22,33 @@
 | 第三阶段第 4 步：HITL 真中断 | ✅ 100% | 条件边/`interrupt()`/审批载荷/checkpointer/幂等/惰性超时；15 个 HITL 测试 |
 | 第三阶段第 5 步：解释 + 质量门 + RAG MVP | ✅ 100% | `explain_risks` 节点/越权拦截/引用定位/BM25 检索/引用白名单；28 个新测试 |
 | 第三阶段第 6 步：FastAPI + Streamlit | ✅ 100% | 上传/审查/人工决定/下载 JSON+Markdown；pending 落盘；37 个新测试 |
-| 第四阶段：测试与评测 | ⏳ 75% | 规则 13 条（`version: 4`，补英文/同义改写）；50 份合同 + 21 个 silver gold 现象 + 三批留出集 28 份；**当前唯一未消耗的 holdout3：P=1.00 / R=0.571 / F1=0.727**（漏报 H21/H22/H24）；检索评测（ISSUE-018）与人工复核 gold 仍未做 |
+| 第四阶段：测试与评测 | ⏳ 85% | 规则 13 条（`version: 5`：三类措辞 + 保额邻近判定）；50 份合同 + 21 个 silver gold 现象 + 四批留出集 40 份；**当前唯一未消耗的 holdout4：P=1.00 / R=0.889 / F1=0.941**（漏报 H39，故意不修）；检索评测（ISSUE-018）与人工复核 gold 仍未做 |
 | 第五阶段：文档与交付 | ⏳ 45% | README/状态/交接/ADR/资料清单/开发日志已同步；答辩材料未做 |
 
-## 最新产出（2026-10-27 第四阶段第 3 轮：英文/同义改写补强 + 三批留出集）
+## 最新产出（2026-10-27 第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + holdout4 盲测）
+
+- **为什么做这一轮**：holdout3 暴露的 3 个漏报（H21“亦可”、H22“负责支付”、H24“thirty-six (36) hours”）都属**措辞覆盖**，另有 `R-INS-001` 保额判定是**全文级**、会被任意付款比例压制的结构缺陷。按 ADR-011 纪律：先修缺陷 → 再写一批全新留出集（holdout4）→ 只引用新集报数，holdout3 同时降级为回归集。
+- `app/rules/definitions.yaml`（`version: 4 → 5`，规则主题仍是 13 条）
+  - `R-DIS-003` 中文并列连接词扩表：`或|或者|亦可|也可以|仍有权|亦有权|有权|可选择`；
+  - `R-INC-001` 允许情态词插入（`卖方(?:负责|应|须|将|同意)?(?:承担|预付|支付)…运费`），间隔上限 12 → 14；
+  - `R-INP-002` 增加英文数词 + 括号数字（`thirty-six (36) hours`、`Twelve (12) hours`），并补“动词在前、期限在后”的反向语序分支；
+  - `R-INS-001` 保额判定从“全文级 `none_of`”收窄为**保险语境邻近**：保险关键字与金额/比例须在同一句内相距 60 字符（反向语序 40 字符），英文单列 `sum insured / insured value / amount of insurance` 分支。**没有改 DSL**——两条限定窗口正则即可解决，保持 ADR-003 的白名单边界与引擎接口不动；窗口是启发式，已在规则注释与 ADR 写明。
+- `data/contracts_holdout4/`（H29–H40，12 份）+ `data/eval/gold_holdout4.json`（9 个现象，**当前唯一未消耗**）
+  - 刻意覆盖：H29 中文 CIF 无保额但另有 40% 预付款（保额邻近判定的关键回归点）、H30/H40 英文/中文卖方付海运费、H31 “既可以…也可以…法院”、H32 仅可申请撤销裁决的干净对照、H33 `within Twelve (12) hours`、H34/H36 已写 `sum insured` 的干净对照、H35 EXW+FCL、H37 无付款条款、H38/H39 英文或裁或审与先裁后审。
+- **本轮对外数字（holdout4，12 份 / 132 个规则-合同对）**：
+  - 规则级 `TP=8 FP=0 FN=1 TN=123` → **P=1.00 / R=0.889 / F1=0.941**，等级一致率 1.00；
+  - 合同级 `TP=8 FP=0 FN=1 TN=3` → P=1.00 / R=0.889 / F1=0.941；漏报 H39；
+  - 干净对照全部通过（H32/H34/H36），H29 正确判出“保额缺失”而未被 40% 预付款压制。
+- **唯一漏报 H39（故意不修）**：`award shall be final, but either party may, within 30 days after the award is issued, commence proceedings …`。`R-DIS-004` 要求 modal 后紧跟动词，此处插入了时间状语。修法明确（`[^.]{0,80}?`），但本轮不动——holdout4 是唯一报数集，修完再引用它就是“用测试集调参”。
+- `tests/test_rules.py`（升级）
+  - 新增 `PARAPHRASE_RULE_CASES`（6 个正反 fixture：中文并列、卖方付运费、英文数词期限、付款比例不等于保额、`sum insured` 等），校验证据 span 能切回原文；
+  - 新增 `test_holdout3_hits_are_stable`（7 条命中 + H27/H28 零命中）与 `test_holdout4_hits_are_stable`（8 条命中 + H32/H34/H36 零命中）；
+  - `test_holdout4_hits_are_stable` 里用断言**钉住 H39 必须是漏报**：修好那天测试会失败，强制作者更新期望集合、降级 holdout4、另写 holdout5。
+- 回归确认：主集 50 份命中集合与修复前**完全一致**（C04/C09/C11/C23/C39–C43/C47/C48），holdout3 由 4/0/3 升为 7/0/0。
+- 验证：`pytest` **236 passed**、`ruff check .` 通过；五条 eval 命令（主集 + 四批留出集）均可复现。
+- 文档：`ADR-011` 新增“第 4 轮补充”（修了什么表、未改 DSL 的说明、holdout4 数字、H39 与“只报不修”、四批样本分工表、测试钉纪律），同步本文件、交接、待决事项（ISSUE-020/021 重写）、README、开发日志。
+
+## 上一轮产出（2026-10-27 第四阶段第 3 轮：英文/同义改写补强 + 三批留出集）
 
 - **为什么做这一轮**：第 2 轮留出集给出 `R=0.714`，还留下 2 个“看明白了但没修”的漏报（H01 英文或裁或审、H03 “费用由卖方承担并预付”）。不修就等于承认规则只能处理中文标准写法；但直接在旧留出集上修又等于用测试集调参。于是采用：**修规则 → 新留出集验证 → 再暴露 → 再另写**的循环。
 - `app/rules/definitions.yaml`（`version: 3 → 4`，13 条规则主题不变）
@@ -220,7 +243,7 @@ START → ingest → segment → extract(LLM) → validate → rules(Python)
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
-# 228 passed
+# 236 passed
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
@@ -235,18 +258,22 @@ START → ingest → segment → extract(LLM) → validate → rules(Python)
 # 覆盖率 21 个 gold 现象中 11 个有规则（0.5238）
 # 结果：eval/results/rules-YYYYMMDD.json
 
-# 留出集（对外报数只能用**当前未被消耗**的那一批；见 ADR-011 第 3 轮补充）
-# ① 本轮唯一未消耗：holdout3（H21–H28，8 份）——引用这一组对外报数
-.\.venv\Scripts\python.exe eval\run_eval.py --contracts data\contracts_holdout3 `
-  --gold data\eval\gold_holdout3.json --gold-rules data\eval\gold_holdout3.json --tag holdout3
-# 规则级 TP=4 FP=0 FN=3 TN=81 → P=1.00 R=0.571 F1=0.727，等级一致率 1.00
-# 合同级 TP=3 FP=0 FN=3 TN=2 → P=1.00 R=0.50 F1=0.667；漏报 H21/H22/H24
-# 结果：eval/results/rules-holdout3-YYYYMMDD.json
+# 留出集（对外报数只能用**当前未被消耗**的那一批；见 ADR-011 第 4 轮补充）
+# ① 本轮唯一未消耗：holdout4（H29–H40，12 份）——引用这一组对外报数
+.\.venv\Scripts\python.exe eval\run_eval.py --contracts data\contracts_holdout4 `
+  --gold data\eval\gold_holdout4.json --gold-rules data\eval\gold_holdout4.json --tag holdout4
+# 规则级 TP=8 FP=0 FN=1 TN=123 → P=1.00 R=0.889 F1=0.941，等级一致率 1.00
+# 合同级 TP=8 FP=0 FN=1 TN=3 → P=1.00 R=0.889 F1=0.941；漏报 H39（已知，故意不修）
+# 结果：eval/results/rules-holdout4-YYYYMMDD.json
 
 # ② 已消耗样本：只作回归守卫，不得再对外报数
+.\.venv\Scripts\python.exe eval\run_eval.py --contracts data\contracts_holdout3 `
+  --gold data\eval\gold_holdout3.json --gold-rules data\eval\gold_holdout3.json --tag holdout3
+# 修完三类措辞后：8 份 TP=7 FP=0 FN=0 TN=81（已消耗，属回归结果，不是泛化证据）
+
 .\.venv\Scripts\python.exe eval\run_eval.py --contracts data\contracts_holdout `
   --gold data\eval\gold_holdout.json --gold-rules data\eval\gold_holdout.json --tag holdout
-# 修复 H01/H03 后：TP=7 FP=0 FN=0（P/R=1.0 —— 已消耗，属回归结果，不是泛化证据）
+# 修复 H01/H03 后：TP=7 FP=0 FN=0（同样只作回归守卫）
 
 .\.venv\Scripts\python.exe eval\run_eval.py --contracts data\contracts_holdout2 `
   --gold data\eval\gold_holdout2.json --gold-rules data\eval\gold_holdout2.json --tag holdout2
@@ -300,7 +327,8 @@ API/UI（`tests/test_api.py` 15 个 + `tests/test_pending_store.py` 11 个 + `te
    - ~~第 1 轮：规则 7 → 13 条（ISSUE-009）~~ ✅ 每条新规则都有语料命中集合回归；
    - ~~第 2 轮：silver gold（21 现象）+ 指标（rule/contract/coverage）+ 独立留出集（8 份）~~ ✅ 留出集 P=1.00 / R=0.71 / F1=0.83，暴露 2 个英文/同义改写漏报（ISSUE-021）；
    - ~~第 3 轮：规则 `version: 4` 补英文/同义改写 + 修子串误命中与运费窗口截断 + 新写 holdout2(12)/holdout3(8)~~ ✅ holdout3 盲测 **P=1.00 / R=0.571 / F1=0.727**，暴露 3 个措辞漏报（H21/H22/H24）；
-   - 下一步：① 修 H21/H22/H24 三类写法 + `R-INS-001` 保额全文级判定，**另写 holdout4** 再报数（ISSUE-021）；② 人工复核 silver gold（ISSUE-020）；③ 补规则缺口：检验条款缺失/不可抗力缺失等（ISSUE-009）；④ `100问题.md` → manifest 的检索评测映射（ISSUE-018）；⑤ 阶段 B 多智能体专家节点（ISSUE-016）。
+   - ~~第 4 轮：规则 `version: 5` 修三类措辞 + `R-INS-001` 保额邻近判定 + 新写 holdout4(12)~~ ✅ holdout4 盲测 **P=1.00 / R=0.889 / F1=0.941**，仅剩 H39 一个漏报（故意不修）；holdout3 回归 7/0/0；
+   - 下一步：① 修 H39（modal 与动词间允许时间状语），**另写 holdout5（8–12 份）** 再报数（ISSUE-021）；② 人工复核 silver gold（ISSUE-020）；③ 补规则缺口：检验条款缺失/不可抗力缺失等（ISSUE-009）；④ `100问题.md` → manifest 的检索评测映射（ISSUE-018）；⑤ 阶段 B 多智能体专家节点（ISSUE-016）。
 
 ## 当前阻塞 / 需要你拍板
 
@@ -311,8 +339,8 @@ API/UI（`tests/test_api.py` 15 个 + `tests/test_pending_store.py` 11 个 + `te
 | RAG 检索评测（ISSUE-015/018） | 待映射 | 把 `100问题.md` 的 source_id/section 映射到 manifest 引用 | 映射完成前不宣称召回率 |
 | 多智能体角色与编排（ISSUE-016） | 待确认 | 确认是否需要专家节点（付款/交付/争议）及其资料 | 阶段 B 再做；Supervisor 仅路由 |
 | 规则集范围（ISSUE-009） | 第 1 轮已扩 | 确认 13 条是否够用，或指定下一批主题（不可抗力/责任上限/质保/合规） | 13 条已落地；39/50 合同仍无命中 |
-| 评测 gold（ISSUE-020） | silver 已完成，待复核 | 是否需要你/业务专家人工复核 21 个银标现象 + 三批留出的 23 个现象 | 已按 silver 跑出指标；复核前对外标注“待复核” |
-| 英文/同义改写漏报（ISSUE-021） | 英文已补，仍有 3 个措辞漏报 | 是否需要继续追写法覆盖（成本高、收益递减），或转去做规则缺口/检索评测 | 下轮修 H21/H22/H24 + 保额全文级判定，另写 holdout4 再报数 |
+| 评测 gold（ISSUE-020） | silver 已完成，待复核 | 是否需要你/业务专家人工复核 21 个银标现象 + 四批留出的 32 个现象 | 已按 silver 跑出指标；复核前对外标注“待复核” |
+| 英文/同义改写漏报（ISSUE-021） | 已修两轮，仍剩 H39 | 是否需要继续追写法覆盖（成本高、收益递减），或转去做规则缺口/检索评测 | 下轮修 H39，另写 holdout5 再报数 |
 | 首批真实 PDF/DOCX 样例 | 待提供 | 有真实脱敏合同时优先用真实件 | 已有程序化 PDF/DOCX fixture，不阻塞 |
 | 长合同抽取覆盖 | 已知限制 | 是否接受 > 40 条条款时字段规则跳过 | 先保持保守（宁可跳过不误报） |
 | 多进程部署 | 已知限制 | 是否需要多 worker（当前锁仅进程内） | 单机单 worker 演示（ISSUE-019） |
@@ -323,7 +351,7 @@ API/UI（`tests/test_api.py` 15 个 + `tests/test_pending_store.py` 11 个 + `te
 2. 读 `02_ARCHITECTURE_DECISIONS/README.md` 的“关键设计一句话”，再按需读 ADR-001~011。
 3. 代码入口：`app/graph.py`（图组装）→ `app/review_service.py`（启动/查询/恢复）→ `app/graph_demo.py` / `app/api.py` / `app/ui.py`（三种入口）→ `app/nodes/explain.py`（解释与质量门）；规则在 `app/rules/definitions.yaml`（13 条），评测在 `eval/`。
 4. 当前已实现 ingest/segment/extract/validate/rules/human_review/explain/report、RAG 检索、FastAPI 与 Streamlit；未配置 Key 时抽取降级、解释回退规则理由。
-5. 未解决事项看 `05_OPEN_ISSUES.md`（ISSUE-009 规则覆盖、ISSUE-020 silver gold 待复核、ISSUE-021 英文漏报、ISSUE-015/018 检索评测/授权、ISSUE-019 单进程假设）；RAG/多智能体资料要求看 `06_RAG与多智能体资料清单.md`；RAG 设计看 `ADR-008`，API/UI 与 pending 落盘看 `ADR-009`，规则扩充看 `ADR-010`，评测方法与 gold 口径看 `ADR-011`。
+5. 未解决事项看 `05_OPEN_ISSUES.md`（ISSUE-009 规则覆盖、ISSUE-020 silver gold 待复核、ISSUE-021 英文/措辞漏报与 H39、ISSUE-015/018 检索评测/授权、ISSUE-019 单进程假设）；RAG/多智能体资料要求看 `06_RAG与多智能体资料清单.md`；RAG 设计看 `ADR-008`，API/UI 与 pending 落盘看 `ADR-009`，规则扩充看 `ADR-010`，评测方法、gold 口径与留出集消耗规则看 `ADR-011`。
 
 ## 文件地图
 
@@ -354,26 +382,28 @@ app/
   services/checkpointer.py             # memory/sqlite 工厂 + JsonPlusSerializer 类型登记
   services/pending_store.py            # pending 时间戳落盘（原子写 + review_id 白名单）
   services/rag.py                      # 本地 BM25 + 中文二元组 + MD/DOCX 切分 + manifest 校验 + 缓存
-  rules/definitions.yaml               # 13 条规则（11 文本 + 2 字段，version 4）
+  rules/definitions.yaml               # 13 条规则（11 文本 + 2 字段，version 5）
   rules/dsl.py                         # 条件 DSL
   rules/engine.py                      # 规则加载/求值/证据/fail-closed/skipped
 eval/
   prepare_contracts.py                 # 拆分模拟合同 → data/contracts/ + data/eval/gold_contracts.json
   metrics.py                           # 指标纯计算（rule_level / contract_level / coverage），无第三方依赖
   run_eval.py                          # 规则级评测 + 指标（不调 LLM）→ eval/results/rules[-tag]-YYYYMMDD.json
-  results/                             # 评测结果（JSON，可版本化；主集 + 三批留出集各一份）
+  results/                             # 评测结果（JSON，可版本化；主集 + 四批留出集各一份）
 data/samples/                          # 2 份自拟脱敏样例
 data/contracts/                        # 50 份模拟合同（由 eval/prepare_contracts.py 生成，可重建）
 data/contracts_holdout/                # 8 份留出合同（H01–H08）→ 已消耗，回归守卫
 data/contracts_holdout2/               # 12 份留出合同（H09–H20）→ 已消耗，回归守卫
-data/contracts_holdout3/               # 8 份留出合同（H21–H28）→ 唯一未消耗，对外报数用这一批
+data/contracts_holdout3/               # 8 份留出合同（H21–H28）→ 第 4 轮已消耗，回归守卫
+data/contracts_holdout4/               # 12 份留出合同（H29–H40）→ 唯一未消耗，对外报数用这一批
 data/eval/gold_contracts.json          # 50 份 / 105 条“条款 → Q 编号 → 期望召回 → 干扰项”（检索期望）
 data/eval/gold_rules.json              # silver gold：21 个风险现象（11 有规则 / 10 为规则缺口），待人工复核
 data/eval/gold_holdout.json            # 留出 gold：7 个现象（H04 为干净对照）
 data/eval/gold_holdout2.json           # 留出 gold：9 个现象（H10/H13/H20 为干净对照）
 data/eval/gold_holdout3.json           # 留出 gold：7 个现象（H27/H28 为干净对照）
+data/eval/gold_holdout4.json           # 留出 gold：9 个现象（H32/H34/H36 为干净对照）
 data/knowledge/                        # 真实语料 14 篇 + manifest；模拟合同1..6.md 为评测来源，不进 manifest
-tests/                                 # 228 个测试（API 15 / pending 11 / RAG 22 / 解释 13 / HITL 17 / 规则含三批留出回归 / 指标 11）
+tests/                                 # 236 个测试（API 15 / pending 11 / RAG 22 / 解释 13 / HITL 17 / 规则含四批留出回归 / 指标 11）
 tests/fakes.py                         # Fake LLM（无需 Key）
 tests/fixtures/pdf_builder.py          # 纯标准库构造最小 PDF（测试用）
 docs/devlog/
@@ -381,7 +411,7 @@ docs/devlog/
   01_RESEARCH_LOG.md                   # 第一阶段调研
   02_ARCHITECTURE_DECISIONS/           # ADR-001~011（均已接受）
   03_DEV_LOGS/2026-10-26.md            # 调研 + ADR + 第 1/2/3/4/5/6 步日志
-  03_DEV_LOGS/2026-10-27.md            # 第四阶段第 1/2/3 轮：规则扩充、评测基线、silver gold、留出验证、英文补强与三批留出集
+  03_DEV_LOGS/2026-10-27.md            # 第四阶段第 1/2/3/4 轮：规则扩充、评测基线、silver gold、留出验证、英文补强、三类措辞与保额邻近判定
   04_HANDOVER.md                       # 交接说明
   05_OPEN_ISSUES.md                    # 待决事项
   06_RAG与多智能体资料清单.md          # RAG/多智能体需要准备的资料与目录格式

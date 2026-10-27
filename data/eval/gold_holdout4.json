@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "created_at": "2026-10-27",
+  "provenance": "holdout4：规则 version 5（修完 holdout3 的 3 类写法 + 保额邻近判定）后新写的 12 份合同（H29–H40），与 C01–C50 及前三批留出集均不重复；写完只跑一次，未按结果改规则（ADR-011 留出纪律）；gold 为 AI 初标，待人工复核",
+  "annotation_protocol": [
+    "按业务事实标注“该合同是否存在该风险”，标注时不参考规则能否命中",
+    "刻意使用与前几批不同的措辞：中文“既可以…也可以…”“卖方须支付…主运费”，英文“shall be paid by the Seller”“Twelve (12) hours”“Either party may refer…or commence proceedings”",
+    "刻意包含反例（应当判 pass）：H32“仅可依法申请撤销裁决”、H34/H36 已写明保额、H38/H39 分别覆盖“或裁或审”与“先裁后审”",
+    "等级口径与 gold_rules.json 一致：red=可能致重大损失或权利落空；yellow=条款缺失/口径矛盾"
+  ],
+  "scored_rules": {
+    "R-TRD-001": "yellow",
+    "R-PAY-001": "red",
+    "R-PAY-002": "yellow",
+    "R-DIS-001": "red",
+    "R-DIS-002": "red",
+    "R-DIS-003": "red",
+    "R-DIS-004": "red",
+    "R-INS-001": "yellow",
+    "R-INC-001": "yellow",
+    "R-INC-002": "yellow",
+    "R-INP-002": "yellow"
+  },
+  "unscored_rules": {
+    "R-DLV-001": "依赖 LLM 抽取字段，评测不调用 LLM",
+    "R-INP-001": "依赖 LLM 抽取字段，评测不调用 LLM"
+  },
+  "contract_ids": [
+    "H29",
+    "H30",
+    "H31",
+    "H32",
+    "H33",
+    "H34",
+    "H35",
+    "H36",
+    "H37",
+    "H38",
+    "H39",
+    "H40"
+  ],
+  "phenomena": [
+    {
+      "contract_id": "H29",
+      "phenomenon": "CIF 下只约定投保一切险，未写明保险金额或投保比例（合同另有 40% 预付款比例，不能当作保额）",
+      "level": "yellow",
+      "rule_id": "R-INS-001",
+      "evidence": "第5.1条 卖方负责为货物投保一切险（无保险金额/比例）；第7.1条另有“40% 合同价”付款比例"
+    },
+    {
+      "contract_id": "H30",
+      "phenomenon": "FOB 术语下约定海运费与订舱费由卖方支付，与本应由买方承担的主运费冲突",
+      "level": "yellow",
+      "rule_id": "R-INC-001",
+      "evidence": "第5.1条 The ocean freight to Port Klang shall be paid by the Seller"
+    },
+    {
+      "contract_id": "H31",
+      "phenomenon": "争议解决条款把“提交仲裁”与“向法院起诉”并列（“既可以…也可以…”）",
+      "level": "red",
+      "rule_id": "R-DIS-003",
+      "evidence": "第9.2条 双方既可以提交新加坡国际仲裁中心仲裁，也可以向有管辖权的法院提起诉讼"
+    },
+    {
+      "contract_id": "H33",
+      "phenomenon": "检验/索赔通知期限仅 12 小时，非易腐设备下难以执行",
+      "level": "yellow",
+      "rule_id": "R-INP-002",
+      "evidence": "第5.1条 notify the Seller of any claim within Twelve (12) hours after delivery"
+    },
+    {
+      "contract_id": "H35",
+      "phenomenon": "EXW 起草却用于整箱集装箱（FCL）运输，卖方无法控制承运人交接",
+      "level": "yellow",
+      "rule_id": "R-INC-002",
+      "evidence": "第3.2条 EXW Wenzhou Incoterms 2020，货物以整箱集装箱（FCL）方式发运"
+    },
+    {
+      "contract_id": "H37",
+      "phenomenon": "合同未约定付款方式或付款节点",
+      "level": "yellow",
+      "rule_id": "R-PAY-002",
+      "evidence": "全文无付款条款（仅交货、检验、不可抗力、法律适用与争议解决）"
+    },
+    {
+      "contract_id": "H38",
+      "phenomenon": "争议解决条款允许任一方在仲裁与法院诉讼之间选择（或裁或审）",
+      "level": "red",
+      "rule_id": "R-DIS-003",
+      "evidence": "第9.2条 Either party may refer the dispute to arbitration …, or commence proceedings before the courts of Singapore"
+    },
+    {
+      "contract_id": "H39",
+      "phenomenon": "约定仲裁裁决作出后当事人仍可向法院起诉，削弱仲裁终局性",
+      "level": "red",
+      "rule_id": "R-DIS-004",
+      "evidence": "第8.3条 The arbitral award shall be final, but either party may … commence proceedings before the High Court"
+    },
+    {
+      "contract_id": "H40",
+      "phenomenon": "FCA 术语下约定卖方须支付主运费与订舱费用",
+      "level": "yellow",
+      "rule_id": "R-INC-001",
+      "evidence": "第5.1条 卖方须支付自郑州至阿拉木图的主运费及订舱费用"
+    }
+  ]
+}

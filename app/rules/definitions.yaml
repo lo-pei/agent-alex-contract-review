@@ -14,8 +14,12 @@
 #   补英文与同义改写表达。改动依据是上一轮独立留出集暴露的 2 个真实漏报
 #   （H01 英文“或裁或审”、H03“费用由卖方承担并预付”）；验收改用新写的
 #   data/contracts_holdout2（H09–H20），避免用旧留出集调参（ADR-011 留出纪律）。
+# - version 5（阶段 4 第 4 轮，ISSUE-021 第 2 步）：修 holdout3 暴露的 3 类写法
+#   （中文并列“亦可”、运费条款“卖方负责支付”、英文数词“thirty-six (36) hours”），
+#   并把 R-INS-001 的“已写保额”判定从全文级收窄为“保险关键字邻近”（不再被付款比例压制）。
+#   验收改用新写的 data/contracts_holdout4（H29–H38），holdout3 同时降级为回归集。
 
-version: 4
+version: 5
 
 rules:
   - rule_id: R-TRD-001
@@ -161,8 +165,9 @@ rules:
       type: any_of
       conditions:
         - type: regex_match
-          # 中文：命中的是“仲裁 … 或/或者 … 法院/诉讼”这一句内并列结构；[^。] 允许换行但拦截跨句。
-          pattern: "仲裁[^。]{0,60}(?:或|或者)[^。]{0,40}(?:人民法院|法院|诉讼)"
+          # 中文：命中的是“仲裁 … 或/亦可/有权 … 法院/诉讼”这一句内并列结构；[^。] 允许换行但拦截跨句。
+          # “亦可 / 也可以 / 仍有权 / 有权 / 可选择”都是实务中写“或裁或审”的同义连接词（holdout3 H21）。
+          pattern: "仲裁[^。]{0,60}(?:或|或者|亦可|也可以|仍有权|亦有权|有权|可选择)[^。]{0,40}(?:人民法院|法院|诉讼)"
         - type: regex_match
           # 英文：“arbitration … or … court/litigate”同一句内的并列结构。
           # 用 \\s+or\\s+ 而不是裸 or，避免误吃 arbitrator / order / for 等词。
@@ -216,19 +221,18 @@ rules:
           keywords: [保险, 投保, 险别, insurance, insure, insured]
         - type: none_of
           conditions:
-            # 已写明金额/比例（无论中文或英文写法）时不触发
+            # 已写明金额/比例时视为合规；**但必须是“保险语境邻近”**，
+            # 不能用全文级判定——否则合同里任意一处比例（如付款 40%）都会压制本规则（holdout3 H27 实测）。
+            # 下面两条分别是“保险关键字在前”“金额在前”，窗口 60/40 字符，跨句仍用 [^。] 拦截。
             - type: regex_match
-              pattern: "(?:保险金额|保额|投保金额|insured value|insurance amount|sum insured)[^。]{0,20}(?:\\d{2,3}\\s*%|合同价|发票价|contract price|invoice value)"
+              pattern: "(?:保险金额|保额|投保金额|保险|投保|险别|insur[a-z]*|insured|sum insured|policy)[^。]{0,60}?(?:\\d{2,3}\\s*%|合同价|发票价|contract price|invoice value|insured value|insurance amount|sum insured)"
             - type: regex_match
-              pattern: "\\d{2,3}\\s*%[^。]{0,20}(?:投保|保险|险别|保险金额)"
-            # 英文比例写法：110% of the contract/invoice value
-            - type: regex_match
-              pattern: "\\d{2,3}\\s*%[^.]{0,40}?of\\s+(?:the\\s+)?(?:contract|invoice|goods)\\s+(?:price|value)"
-            # 英文金额写法：insured value of USD 100,000
+              pattern: "(?:\\d{2,3}\\s*%|保险金额|保额|insured value|insurance amount|sum insured)[^。]{0,40}?(?:投保|保险|险别|insur[a-z]*|insured)"
+            # 英文金额写法：insured value of USD 100,000 / sum insured USD …
             - type: regex_match
               pattern: "(?:sum insured|insured\\s+(?:value|amount)|insurance\\s+(?:amount|value)|amount\\s+of\\s+insurance)[^.]{0,40}?(?:USD|EUR|CNY|RMB|\\d)"
     source: Incoterms® 2020 CIF/CIP 保险义务与合同约定不一致（业务规则）
-    version: "1.1"
+    version: "1.2"
 
   - rule_id: R-INC-001
     title: 贸易术语与运费承担约定相互矛盾
@@ -246,10 +250,11 @@ rules:
       # [\s\S] 允许跨行/跨句（真实合同里术语与运费条款常分处两条），距离上限 260 字符
       # （H03 实测 134；H19 因“Freight and Charges”小标题插在中间，实测 210）。
       # 术语前后排除英文字母（允许紧跟中文），避免 “specification / Pacific” 之类的子串误命中。
-      # 中文侧允许“海运费及舱位订舱费用由卖方承担 / 卖方承担至鹿特丹的主运费”两种语序；
+      # 中文侧允许“海运费及舱位订舱费用由卖方承担 / 卖方承担至鹿特丹的主运费 / 卖方负责支付…主运费”三种语序；
       # 只收运费类费用（运费/海运费/运输费用/订舱费），不收“报关费用”等本就应由卖方负担的费用；
-      # 倒装语序的间隔里排除中英文逗号/句号，避免把“卖方承担，主运费由买方承担”误读为卖方付运费。
-      pattern: "(?<![A-Za-z])(?:FOB|EXW|FCA)(?![A-Za-z])[\\s\\S]{0,260}(?:(?:海运费|运费|运输费用|订舱费用|订舱费)[^。]{0,20}?由(?:the )?卖方(?:承担|预付|支付)|卖方(?:承担|预付|支付)[^。，,]{0,12}?(?:海运费|运费|订舱费用|订舱费)|freight[^.]{0,60}?(?:prepaid|paid|borne) by (?:the )?seller)"
+      # 倒装语序的间隔里排除中英文逗号/句号，避免把“卖方承担，主运费由买方承担”误读为卖方付运费；
+      # 情态/动词前缀（负责/应/须/将/同意）允许出现（holdout3 H22“卖方负责支付”）。
+      pattern: "(?<![A-Za-z])(?:FOB|EXW|FCA)(?![A-Za-z])[\\s\\S]{0,260}(?:(?:海运费|运费|运输费用|订舱费用|订舱费)[^。]{0,20}?由(?:the )?卖方(?:承担|预付|支付)|卖方(?:负责|应|须|将|同意)?(?:承担|预付|支付)[^。，,]{0,14}?(?:海运费|运费|订舱费用|订舱费)|freight[^.]{0,60}?(?:prepaid|paid|borne) by (?:the )?seller)"
     source: Incoterms® 2020 术语与费用条款一致性（业务规则）
     version: "1.2"
 
@@ -287,7 +292,11 @@ rules:
         - type: regex_match
           pattern: "\\d{1,2}\\s*(?:小时|hours?)[^。]{0,30}(?:检验|通知|异议|inspection|notify)"
         - type: regex_match
-          # 英文：“48 hours ... inspect / notice / claim”同句结构（H05 这类写法）
-          pattern: "\\d{1,2}\\s*hours?[^.]{0,30}?(?:inspect[a-z]*|examin[a-z]*|notif[a-z]*|notice|claim[a-z]*)"
+          # 英文：“48 hours ... inspect / notice / claim”同句结构（H05 这类写法）。
+          # 期限可用阿拉伯数字、英文数词，或“thirty-six (36)”这种数词+括号数字的写法（holdout3 H24）。
+          pattern: "(?:(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)-(?:one|two|three|four|five|six|seven|eight|nine)|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|\\d{1,2})\\s*(?:\\(\\s*\\d{1,2}\\s*\\)\\s*)?hours?[^.]{0,30}?(?:inspect[a-z]*|examin[a-z]*|notif[a-z]*|notice|claim[a-z]*)"
+        - type: regex_match
+          # 反向语序：“inspect/examine … within 36 hours”（动词在前、期限在后），H24 即此结构
+          pattern: "(?:inspect[a-z]*|examin[a-z]*|notif[a-z]*|notice|claim[a-z]*)[^.]{0,30}?(?:(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)-(?:one|two|three|four|five|six|seven|eight|nine)|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|\\d{1,2})\\s*(?:\\(\\s*\\d{1,2}\\s*\\)\\s*)?hours?"
     source: CISG 第 38/39 条检验与通知期限的可执行性（业务规则）
-    version: "1.1"
+    version: "1.2"
