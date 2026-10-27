@@ -12,7 +12,7 @@
 |---|---|---|
 | 1. GitHub 调研 | ✅ | 8 个开源项目源码级分析，产出借鉴/不借鉴清单 |
 | 2. 架构设计 | ✅ | ADR-001 ~ ADR-012 全部已接受 |
-| 3. 代码实现 | ✅ 第 6 步完成 | 环境、9 节点图（含文档类型闸门）、规则引擎（13 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭，真实语料 14 篇）、FastAPI + B 端审查工作台 + Streamlit、256 个测试 |
+| 3. 代码实现 | ✅ 第 6 步完成 | 环境、9 节点图（含文档类型闸门）、规则引擎（13 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭，真实语料 14 篇）、FastAPI + B 端审查工作台 + Streamlit、257 个测试 |
 | 4. 测试与评测 | ⏳ 第 4 轮完成 | 50 份模拟合同 + 21 个 silver gold 现象 + 四批留出集 40 份；三组指标（rule/contract/coverage）；**holdout4（唯一未消耗）P=1.00 / R=0.889 / F1=0.941，silver gold 待人工复核**；检索评测未做 |
 | 5. 文档与交付 | ⏳ 进行中 | 开发日志、ADR、交接文档、评测结果与 RAG 资料清单已建立 |
 
@@ -65,7 +65,7 @@ py -3.12 -m venv .venv
 
 # 6) 测试与静态检查
 .\.venv\Scripts\python.exe -m pytest
-# 256 passed
+# 257 passed
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
@@ -196,7 +196,7 @@ data/contracts_holdout3/ # 8 份留出合同（H21–H28）→ 第 4 轮已消�
 data/contracts_holdout4/ # 12 份留出合同（H29–H40）→ 唯一未消耗，对外报数用这一批
 data/eval/               # gold_contracts.json（105 条检索期望）/ gold_rules.json（21 个 silver 现象）/ gold_holdout{,2,3,4}.json
 data/knowledge/          # 真实语料 14 篇 + manifest（RAG 默认关闭）；模拟合同1..6.md 为评测来源，不进 manifest
-tests/                   # 256 个测试（API 17 / 前端 7 / 文档类型 11 / pending 11 / RAG 22 / 解释 13 / HITL 17 / 指标 11 / 规则含四批留出回归，无需 Key）
+tests/                   # 257 个测试（API 17 / 前端 8 / 文档类型 11 / pending 11 / RAG 22 / 解释 13 / HITL 17 / 指标 11 / 规则含四批留出回归，无需 Key）
 tests/fakes.py           # Fake LLM（实现 StructuredLLM 协议）
 docs/devlog/             # 项目状态、调研、ADR、开发日志、交接、待决事项、RAG 资料清单
 ```

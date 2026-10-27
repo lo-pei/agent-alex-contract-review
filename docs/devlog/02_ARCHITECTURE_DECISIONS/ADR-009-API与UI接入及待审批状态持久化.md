@@ -227,4 +227,4 @@
 - **工作台可发现性**：流水线由 5 步改为 6 步（新增“判断类型 / 不是合同直接停止”），顶部提示明确“论文、法规、说明书会被直接拒绝，不进入判级”。
 - **布局修正**：`.app` 改为 `grid-template-rows: auto minmax(min-content, 1fr)` + `align-items: stretch`，内容少时 sheet 不再浮在页面中间、白板铺到底。
 - **契约**：`API_VERSION` 0.8.0 → **0.9.0**（`ReviewSummary.document_check`、`ReviewStatus` 增加 `not_contract`）。
-- 验证：`pytest` 256 passed；`ruff check .`、`node --check` 通过；论文 PDF 实测被拒（0.98 / 0 findings），C47 正常进入人工确认。
+- 验证：`pytest` 257 passed；`ruff check .`、`node --check` 通过；论文 PDF 实测被拒（0.98 / 0 findings），C47 正常进入人工确认。

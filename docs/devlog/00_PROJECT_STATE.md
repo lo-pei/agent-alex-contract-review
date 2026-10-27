@@ -42,8 +42,8 @@
   - 工作台流水线 5 步 → 6 步（新增“判断类型 / 不是合同直接停止”），顶部提示明确“论文、法规、说明书会被直接拒绝”；
   - **删除侧栏“运行环境”块**（接口版本 / 规则集版本 / checkpoint / RAG 开关），只保留“接口文档”入口；`updateRuntime()` 与 `.runtime*` 样式一并移除；
   - `.app` 改为 `grid-template-rows: auto minmax(min-content, 1fr)`，内容少时 sheet 铺到底、不再浮在中间。
-- **关于“RAG 为什么是关闭的”**：这是产品默认值，不是故障——RAG 只用于给**解释**补充知识片段，不能参与判级；ADR-008 规定默认关闭，避免知识库未就绪时把“检索不到”当成“没有风险”。要开启可设置 `AGENT_ALEX_RAG_ENABLED=true`；本轮按要求把该状态从界面移除，需要时在 `.env` 打开、或在 `/docs` 查看 `/health` 的 `rag_enabled`。
-- **测试**：`tests/test_document_type.py`（11 项：论文/法规/过短/90 份合同语料 0 误杀/两个样例/图集成 2 项）、`tests/test_api.py::test_non_contract_upload_is_not_reviewed`、`tests/test_web.py::test_runtime_internals_stay_out_of_the_ui`；全量 **256 passed**，`ruff check .` 与 `node --check` 通过。
+- **关于“RAG 为什么是关闭的”**：这是产品默认值，不是故障——RAG 只用于给**解释**补充知识片段，不能参与判级；ADR-008 规定默认关闭，避免知识库未就绪时把“检索不到”当成“没有风险”。要开启可设置 `RAG_ENABLED=true`（本机 `.env` 已按用户要求开启，`/health` 的 `rag_enabled` 为 true）；本轮按要求把该状态从界面移除，需要时在 `.env` 打开、或在 `/docs` 查看 `/health` 的 `rag_enabled`。
+- **测试**：`tests/test_document_type.py`（11 项：论文/法规/过短/90 份合同语料 0 误杀/两个样例/图集成 2 项）、`tests/test_api.py::test_non_contract_upload_is_not_reviewed`、`tests/test_web.py::test_runtime_internals_stay_out_of_the_ui`；全量 **257 passed**，`ruff check .` 与 `node --check` 通过。
 - **真实文件验证**：论文 PDF `全球比较下的我国人工智能立法_丁晓东.pdf` → `not_contract`、置信度 0.98、0 条 findings、报告可下载且写“未执行审查”；C47 → `is_contract=true`、契约度 11/11 → 正常进入人工确认。
 - **已知边界**：闸门是召回优先（宁可放过不误杀）；中文/英文词表之外的合同（日文、德文等）可能被误拒；扫描件无文本时按“过短”拒绝并提示 OCR。
 
@@ -312,7 +312,7 @@ START → ingest → precheck(是不是合同?) ─否→ report(not_contract)
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
-# 236 + 6 个前端测试 + 1 个规则目录测试 + 11 个文档类型闸门 + 1 个 API + 1 个前端 = 256 个用例
+# 236 + 6 个前端测试 + 1 个规则目录测试 + 11 个文档类型闸门 + 1 个 API + 2 个前端回归 = 257 个用例
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
@@ -401,7 +401,7 @@ API/UI（`tests/test_api.py` 16 个 + `tests/test_web.py` 6 个 + `tests/test_pe
    - UI/API 均不拼 `Command(resume=...)`，一律走 `ReviewService`。
    - ~~界面轮 1：原生 Web 前端~~ ✅ 已完成（2026-10-27，241 个测试）：`app/web/` 单页由 FastAPI 托管 `/` 与 `/static`，无框架/无 CDN/无构建；Streamlit 降为备用。
    - ~~界面轮 2：B 端审查工作台重设计（taste-skill）~~ ✅ 已完成（2026-10-27，243 个测试）：侧栏 + 面包屑 + sheet 画布 + hash 路由四视图；本地 IBM Plex 字体；新增只读 `GET /api/rules`；四页在 1440/768/390 均 0 FAIL / 0 WARN。
-   - ~~界面轮 3：非合同闸门 + 收掉内部信息~~ ✅ 已完成（2026-10-27，256 个测试）：`precheck_document` 先判断是不是合同；`not_contract` 直接出“未执行审查”报告；前端新增“不是合同”页并移除侧栏运行环境；`API_VERSION 0.9.0`。
+   - ~~界面轮 3：非合同闸门 + 收掉内部信息~~ ✅ 已完成（2026-10-27，257 个测试）：`precheck_document` 先判断是不是合同；`not_contract` 直接出“未执行审查”报告；前端新增“不是合同”页并移除侧栏运行环境；`API_VERSION 0.9.0`。
 6. **第四阶段（进行中）**：
    - ~~第 1 轮：规则 7 → 13 条（ISSUE-009）~~ ✅ 每条新规则都有语料命中集合回归；
    - ~~第 2 轮：silver gold（21 现象）+ 指标（rule/contract/coverage）+ 独立留出集（8 份）~~ ✅ 留出集 P=1.00 / R=0.71 / F1=0.83，暴露 2 个英文/同义改写漏报（ISSUE-021）；
@@ -488,7 +488,7 @@ data/eval/gold_holdout2.json           # 留出 gold：9 个现象（H10/H13/H20
 data/eval/gold_holdout3.json           # 留出 gold：7 个现象（H27/H28 为干净对照）
 data/eval/gold_holdout4.json           # 留出 gold：9 个现象（H32/H34/H36 为干净对照）
 data/knowledge/                        # 真实语料 14 篇 + manifest；模拟合同1..6.md 为评测来源，不进 manifest
-tests/                                 # 256 个测试（API 17 / 前端 7 / 文档类型 11 / pending 11 / RAG 22 / 解释 13 / HITL 17 / 规则含四批留出回归 / 指标 11）
+tests/                                 # 257 个测试（API 17 / 前端 8 / 文档类型 11 / pending 11 / RAG 22 / 解释 13 / HITL 17 / 规则含四批留出回归 / 指标 11）
 tests/fakes.py                         # Fake LLM（无需 Key）
 tests/fixtures/pdf_builder.py          # 纯标准库构造最小 PDF（测试用）
 docs/devlog/
