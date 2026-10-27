@@ -1,7 +1,7 @@
 ﻿# 开发交接文档（Handover）
 
-> 更新时间：2026-10-27（界面轮 3：非合同闸门 + 收掉运行环境；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
-> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI）；界面轮 3 完成（B 端审查工作台 + **上传先判断是不是合同**：不是合同即 `not_contract`，不切条款/不抽取/不判级；侧栏不再展示运行环境；Streamlit 降为备用）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）；257 个测试通过**；检索评测与人工复核 gold 尚未完成
+> 更新时间：2026-10-27（界面轮 4：极简 C 端页“上传合同 → 看风险点”；界面轮 3：非合同闸门 + 收掉运行环境；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
+> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI）；界面轮 4 完成（`app/web/` 收成两屏：`#/` 上传合同、`#/review/{id}` 风险点；待确认态直接列出审批载荷中的红色风险；侧栏/规则集/流水线/KPI 已移除；Streamlit 降为备用）；上传仍先判断是不是合同（不是即 `not_contract`，不切条款/不抽取/不判级）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）；261 个测试通过**；检索评测与人工复核 gold 尚未完成
 > 交接原则：任何新接手的人只读本文件 + `00_PROJECT_STATE.md` + `02_ARCHITECTURE_DECISIONS/README.md`，就能继续开发。
 
 ---
@@ -15,9 +15,9 @@
 - Python 规则引擎唯一决定 `red / yellow / pass`；
 - 红色风险触发 LangGraph `interrupt()`，人工确认后才出最终报告；
 - 报告每条风险都有 `rule_id + reason + 原文引用 + 文件:页码:字符偏移`；
-- 交付：B 端审查工作台（FastAPI 托管）+ 命令行 + FastAPI 接口；Streamlit 备用。
+- 交付：极简 C 端页（FastAPI 托管，上传合同 → 查看风险点）+ 命令行 + FastAPI 接口；Streamlit 备用。
 
-硬约束来自根目录 `开发提示词.md`：技术栈 Python / LangGraph / Streamlit / FastAPI / Pydantic；规则决定等级，LLM 只抽取与解释；HITL 必须暂停/恢复；全部代码要解释清、能测试、边界明确。**2026-10-27 用户明确放开 RAG 与多智能体（ADR-007）**：允许 RAG、专家节点与 Supervisor 路由，但判级仍只由 Python 规则产生、HITL 仍必须真中断、证据仍必须可追溯；RAG/多智能体默认关闭（`RAG_ENABLED=false`、`AGENTS_ENABLED=false`）。训练模型、Docker、前端框架仍禁止——**B 端审查工作台用 HTML/CSS/JS 手写，未引入 React/Vue/npm/CDN，字体随包离线**（ADR-009 第 3 轮补充）。
+硬约束来自根目录 `开发提示词.md`：技术栈 Python / LangGraph / Streamlit / FastAPI / Pydantic；规则决定等级，LLM 只抽取与解释；HITL 必须暂停/恢复；全部代码要解释清、能测试、边界明确。**2026-10-27 用户明确放开 RAG 与多智能体（ADR-007）**：允许 RAG、专家节点与 Supervisor 路由，但判级仍只由 Python 规则产生、HITL 仍必须真中断、证据仍必须可追溯；RAG/多智能体默认关闭（`RAG_ENABLED=false`、`AGENTS_ENABLED=false`）。训练模型、Docker、前端框架仍禁止——**极简 C 端页用 HTML/CSS/JS 手写，未引入 React/Vue/npm/CDN，字体随包离线**（ADR-009 第 3、5 轮补充）。
 
 ---
 
@@ -33,8 +33,9 @@
 | 解释 / RAG（第 5 步） | ✅ 质量门 + BM25 + 真实语料 | `app/nodes/explain.py`、`app/services/rag.py`、`data/knowledge/` |
 | API / UI（第 6 步） | ✅ FastAPI + pending 落盘 + Streamlit 备用 | `app/api.py`、`app/ui.py`、`app/report_markdown.py`、`app/services/pending_store.py` |
 | B 端审查工作台（界面轮 2） | ✅ 四视图 + 本地字体 + 只读规则目录 | `app/web/index.html`、`app/web/styles.css`、`app/web/app.js`、`app/web/fonts/`；`GET /`、`GET /static/*`、`GET /api/rules`；`tests/test_web.py`（6 项）、`tests/test_api.py::test_rule_catalog_matches_definitions` |
+| 极简 C 端页（界面轮 4） | ✅ 两屏：上传 → 风险点 | `app/web/index.html`、`app/web/app.js`、`app/web/styles.css`；hash 路由只留 `#/` 与 `#/review/{id}`；待确认态渲染 `approval.findings`；`tests/test_web.py`（10 项） |
 | 文档类型闸门（界面轮 3） | ✅ 先判断是不是合同，不是就停 | `app/services/document_type.py`、`app/nodes/precheck.py`、`app/graph.py`（`ingest → precheck → segment | report`）；`status=not_contract`；`tests/test_document_type.py`（11 项）、`tests/test_api.py::test_non_contract_upload_is_not_reviewed`、`tests/test_web.py::test_runtime_internals_stay_out_of_the_ui` |
-| 测试 | ✅ 259 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
+| 测试 | ✅ 261 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
 | 规则集 | ✅ 13 条 | `app/rules/definitions.yaml`（`version: 5`，三类措辞 + 保额邻近判定）；6 条新规则各有语料命中集合回归（ADR-010） |
 | 评测集 / 指标 | ⏳ 主集完成、四批留出完成、待复核 | `data/eval/gold_rules.json`（21 现象，silver）+ `gold_holdout{,2,3,4}.json`（7/9/7/9 现象）+ `eval/results/rules-*.json`；**silver gold 未经人工复核**，检索评测未做 |
 | Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`、`e41d235`、`c7f24a9`、`6eaff8c`、`5dc05bd`、`c540259`，以及后续每步提交 |
@@ -53,7 +54,7 @@
 | 006 环境 | Python 3.12 + LangGraph 1.2.17 等最新稳定依赖；OpenAI 兼容接口；无 Docker/Redis/Postgres | **已接受** |
 | 007 范围变更 | 允许 RAG/多智能体/Supervisor（仅路由）；判级/HITL/证据边界不变；默认开关关闭 | **已接受**（2026-10-27；RAG 已实现，多智能体仍未实现） |
 | 008 RAG/质量门 | 本地 BM25 + 中文二元组；`source_id#section` 白名单；Python 质量门拦截越权；无命中/配置错误降级 | **已接受**（第 5 步已实现） |
-| 009 API/UI | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘；上传校验；Markdown 纯渲染；**第 2 轮补充：原生 Web 前端；第 3 轮补充：B 端工作台（framed-sheet + hash 路由四视图 + 本地 IBM Plex 字体 + 只读 `GET /api/rules`）；第 4 轮补充：移除侧栏“运行环境”块 + 非合同页，`API_VERSION` 0.9.0**，Streamlit 降为备用 | **已接受**（第 6 步已实现；第 2、3、4 轮补充均已实现） |
+| 009 API/UI | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘；上传校验；Markdown 纯渲染；**第 2 轮补充：原生 Web 前端；第 3 轮补充：B 端工作台（framed-sheet + hash 路由四视图 + 本地 IBM Plex 字体 + 只读 `GET /api/rules`）；第 4 轮补充：移除侧栏“运行环境”块 + 非合同页，`API_VERSION` 0.9.0；第 5 轮补充：收成极简两屏（上传 / 风险点），待确认先展示审批载荷中的红色风险，下载走 `/report?format=markdown`**，Streamlit 降为备用 | **已接受**（第 6 步已实现；第 2–5 轮补充均已实现） |
 | 010 规则扩充/评测 | 规则 7 → 13 条；新规则准入四关；模拟合同拆入 `data/contracts/`；评测只报触发情况 | **已接受**（2026-10-27 第 1 轮已实现） |
 | 011 评测方法 | gold 三层（检索期望 / silver 规则 gold / 留出 gold）；三组指标；留出集发现漏报也不回改规则；**留出集一旦被用于定位缺陷即视为“已消耗”，只能作回归守卫**；报数纪律；第 4 轮补“保额邻近判定”与“测试钉住已知漏报” | **已接受**（2026-10-27 第 2–4 轮已实现） |
 
@@ -247,11 +248,11 @@ Agent_Alex外贸合同智审助手/
 | 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
 | 恢复人工决定 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision approve --reviewer zhangsan` | ✅ 可用（SQLite 跨进程） |
 | 超时语义 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision timeout` | ✅ 可用 → `unreviewed_red_risk` |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 259 个通过 |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 261 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行（统一入口） | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` | ✅ 可用（`/docs` 可试；默认 SQLite + 文件 pending） |
-| **Web 前端（主界面）** | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` → 打开 `http://127.0.0.1:8000/` | ✅ 可用（上传 → 审查 → 人工确认 → 下载 JSON/Markdown） |
+| **Web 前端（主界面）** | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` → 打开 `http://127.0.0.1:8000/` | ✅ 可用（极简两屏：上传 → 风险点 → 人工确认 → 下载报告；结果页 URL 为 `#/review/{id}`） |
 | Streamlit（备用） | `.\.venv\Scripts\python.exe -m streamlit run app/ui.py` | ✅ 可用（上传/审批/下载） |
 | 拆合同 + gold | `.\.venv\Scripts\python.exe eval\prepare_contracts.py` | ✅ 可用（50 份合同 / 105 条映射） |
 | 主集评测 | `.\.venv\Scripts\python.exe eval\run_eval.py` | ✅ 可用（无需 Key；含三组指标） |
@@ -379,6 +380,11 @@ Agent_Alex外贸合同智审助手/
 | 94 | PowerShell 里用 `-replace` / `Replace()` 改中文与多行 Markdown，容易产生字面 `\n` 或引号解析错误 | 改文档优先用 Edit 工具做**精确整行替换**；改完用 `Select-String` 复核目标行，避免出现 `\n   -` 这类脏字符 |
 | 95 | 动态渲染出来的 `<input type="file">` 在脚本启动时还不存在，缓存成 `dom.fileInput` 会是 `undefined`，点“选择合同”直接抛错、按钮像坏了一样 | 事件里现取：`dom.view.querySelector("#file-input")?.click()`；凡是“渲染后才存在的节点”都不要缓存进 `dom`（`test_web.py::test_header_pick_button_targets_rendered_input` 已钉住） |
 | 96 | 检索写在 `get_llm()` 成功之后，没配 Key 时直接 return——RAG 开着也永远看不到引用，用户以为知识库没生效 | `explain_risks` 必须**先加载知识库、再判断 LLM**；LLM 不可用时也检索，把 `source_id#section` 挂到规则兜底（`source="rule"`，等级与正文不变），并在摘要写明“未参与解释与判级” |
+| 97 | 改了 `index.html` / `app.js` 的类名，却把旧工作台选择器（`.sheet`、`.sidebar`、`.dropzone`）留在 `styles.css`，新页面会“裸奔”或错位 | 改结构必须同步重写样式；本轮把 `.app/.sidebar/.topbar/.sheet/.rules-table/.pipeline` 全部替换为 `.top/.main/.view/.drop/.risks/.risk/.confirm`，并保留 `:root` / `@font-face`；改完跑 `test_web.py` + 真实截图复核 |
+| 98 | 待确认态 `report` 是 `None`，只读 `report.findings` 会先显示“0 处风险”，用户没看到风险点就被要求确认 | 待确认时用 `ReviewSummary.approval.findings / findings_total / quotes / citations`（审批载荷，只含 red）；`awaiting_human=false` 且 `report` 存在时才读报告 |
+| 99 | 结果页“下载报告”写成 `/api/reviews/{id}?format=markdown`，拿到的是审查 JSON 而不是 Markdown 报告 | 报告接口是 `GET /api/reviews/{id}/report?format=markdown`；`tests/test_web.py` 已断言脚本包含该路径 |
+| 100 | hash 路由下任何 `href="#xxx"` 都会触发 `hashchange`，跳转链接 `#main` 会被当成未知路由重渲染成首页 | 跳转链接点击时 `preventDefault()` 再 `focus()`；新增锚点前先确认不会进入 `route()` |
+| 101 | Edge headless `--screenshot` 异步写文件，命令返回后立刻 `Test-Path` 可能为 False；`--window-size=390` 会被浏览器最小窗口宽度裁切，看起来像横向溢出 | 截图后 `Start-Sleep 2–3` 再读文件；窄屏验证用 500px 或 CDP 设备仿真，不要把 390 的裁切误判成 CSS 溢出 |
 
 ---
 

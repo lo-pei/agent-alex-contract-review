@@ -47,7 +47,10 @@ def test_frontend_assets_are_served(client: TestClient) -> None:
     assert script.status_code == 200
     assert "javascript" in script.headers["content-type"]
     assert "/api/reviews" in script.text
-    assert "/api/rules" in script.text
+    # 结果页的“下载报告”必须指向报告接口，而不是审查详情接口
+    assert "/report?format=markdown" in script.text
+    # 极简页没有规则集视图，不再请求规则目录
+    assert "/api/rules" not in script.text
 
 
 def test_local_fonts_are_served(client: TestClient) -> None:
@@ -102,15 +105,47 @@ def test_frontend_assets_exist_on_disk() -> None:
 
 
 def test_header_pick_button_targets_rendered_input() -> None:
-    """顶部“选择合同”必须从当前视图取 input。
+    """上传区的“选择文件”必须从当前视图取 input。
 
-    `#file-input` 是渲染工作台时才创建的，启动时缓存 `dom.fileInput` 会是 undefined，
+    `#file-input` 是渲染上传区时才创建的，启动时缓存 `dom.fileInput` 会是 undefined，
     点按钮直接抛错（真实缺陷：按钮点了没反应）。
     """
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     assert "dom.fileInput" not in script
     assert re.search(r'on\("pick-file",\s*"click"', script) is not None
     assert 'querySelector("#file-input")' in script
+
+
+def test_page_is_only_upload_and_risks() -> None:
+    """面向客户：页面上只有“上传合同”和“风险点”，不出现内部工作台。
+
+    用户诉求是“只想上传合同，然后查看风险点”，侧栏、规则集、流水线、KPI、
+    抽取要素、待核对清单都不该出现在 C 端页面。
+    """
+    page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    for needle in ("侧栏", "规则集", "审查流水线", "抽取要素", "待核对", "复核记录"):
+        assert needle not in page, f"index.html 仍包含工作台信息：{needle}"
+    assert "sidebar" not in page
+    assert "sidebar" not in script
+    # 上传 → 风险点 → 确认 → 报告，就是全部流程
+    assert "上传合同" in page
+    assert "查看风险点" in page
+    assert "确认这些风险" in script
+    assert "/decisions" in script
+
+
+def test_pending_review_shows_rule_findings_before_confirmation() -> None:
+    """上传后立刻看到风险点：待确认状态用审批载荷里的规则结果渲染。
+
+    真实缺陷：报告要等人工确认后才生成，若页面只看 `report.findings`，
+    用户会先看到“0 处风险”再被要求确认，等于没看到风险点。
+    """
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    assert "renderApproval" in script
+    assert "approval.findings" in script
+    assert "findings_total" in script
+    assert "待您确认" in script
 
 
 def test_runtime_internals_stay_out_of_the_ui() -> None:

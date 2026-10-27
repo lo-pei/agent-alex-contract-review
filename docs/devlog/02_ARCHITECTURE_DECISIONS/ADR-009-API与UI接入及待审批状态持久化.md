@@ -228,3 +228,29 @@
 - **布局修正**：`.app` 改为 `grid-template-rows: auto minmax(min-content, 1fr)` + `align-items: stretch`，内容少时 sheet 不再浮在页面中间、白板铺到底。
 - **契约**：`API_VERSION` 0.8.0 → **0.9.0**（`ReviewSummary.document_check`、`ReviewStatus` 增加 `not_contract`）。
 - 验证：`pytest` 259 passed；`ruff check .`、`node --check` 通过；论文 PDF 实测被拒（0.98 / 0 findings），C47 正常进入人工确认。
+
+---
+
+## 第 5 轮补充（2026-10-27）：收成极简 C 端页——“上传合同，看风险点”
+
+**决定**：以客户视角重做页面，只保留两屏：`#/`（上传合同）与 `#/review/{id}`（风险点清单与其后的确认/报告）。删除侧栏、面包屑、规则集视图（`#/rules`）、审查流水线、KPI、抽取要素、待核对、复核记录等 B 端工作台内容。
+
+**理由**：用户诉求是“只想上传合同，然后查看合同的风险点”。工作台把 6 步流水线、13 条规则目录、抽取字段、复核记录同时摊在首屏，真正的结论（哪几条条款有风险、怎么改）被埋在信息里。
+
+**实现**：
+
+- `index.html` 仅品牌头 + `main#view` + 页脚（免责声明、`/docs`）；`app.js` 去掉四个视图与 `/api/rules` 调用，路由只认 `#/` 与 `#/review/{id}`（其余 hash 一律回上传页）。
+- 上传成功后 `history.replaceState(null, "", "#/review/" + id)`，刷新/分享可回到同一次结果；结果页只留“换一份合同”一个返回入口。
+- **待确认态必须先给结论**：红色风险触发 HITL 时 `report` 仍为 `None`，页面改为渲染 `ReviewSummary.approval`（`findings / findings_total / quotes / citations`）——规则已定位的红色风险 + 原文 + 位置，再请用户确认；确认后才生成报告与解释。若只读 `report.findings`，会出现“0 处风险 + 请确认”的自相矛盾界面。
+- 每条风险按“等级 chip → 一句话结论 → 建议 → 折叠的原文与依据（原文 / 位置 / 知识引用 / 规则编号）”排列；默认只显示结论与建议，证据按需展开。
+- HITL 保留完整语义：`approve` 主按钮、`reject` 次要按钮（“不能接受这份合同”），复核人可留空；两者都只 POST `/api/reviews/{id}/decisions`，等级不在浏览器计算。
+- **修复**：下载报告链接由 `GET /api/reviews/{id}?format=markdown`（返回审查 JSON）改为 `GET /api/reviews/{id}/report?format=markdown`；跳转链接 `#main` 不再进入 hash 路由（`preventDefault` + 聚焦 `main`）。
+- 样式改为 760px 单列：`.top/.main/.view/.drop/.headline/.lead/.risks/.risk/.tag/.why/.confirm/.down`，卡片左侧红/黄竖条，保留本地 IBM Plex 与 `prefers-color-scheme: dark`；`@media (max-width: 640px)` 收窄留白与字号。
+
+**代价与边界**：
+
+- 页面上不再有规则目录，`GET /api/rules` 仍保留给第三方/`/docs` 调试，前端不再消费；若要恢复“规则说明”入口，应做成结果页里的说明链接，而不是恢复侧栏。
+- 待确认页只展示**红色**风险（审批载荷口径）；黄色风险在确认后的报告中出现，符合“先确认真正会阻断交易的问题”的取舍。
+- 结果页信息量下降意味着“报告全貌”只在 Markdown 中完整呈现（含 limitations、抽取状态、解释来源），页面本身不承载审计细节。
+
+**验证**：`tests/test_web.py` 10 项（新增 `test_page_is_only_upload_and_risks`、`test_pending_review_shows_rule_findings_before_confirmation`，改为断言脚本不再请求 `/api/rules` 且下载指向 `/report?format=markdown`）；`pytest` 261 passed；`ruff check .`、`node --check` 通过；HTTP 冒烟：上传 → 201 `awaiting_human=true`（3 条红色，`report=null`）→ approve 200 → 报告含知识引用；论文 TXT → `not_contract`；Edge headless 截图复核上传 / 待确认 / 报告 / 非合同 / 500px（`scrollWidth == clientWidth`）。
