@@ -8,7 +8,9 @@
 - 幂等：已是终态时再次 resume 直接返回现有结果，不重跑图、不重复写报告；
 - 超时：惰性检查，只把状态变为 `unreviewed_red_risk`，**绝不映射为 approved**；
 - pending 时间戳通过 `PendingStore` 持久化（`FilePendingStore` 落盘），进程重启后超时判定仍有效；
-- 同一 `review_id` 的 `get` / `resume` 加进程内可重入锁，避免并发恢复把图跑两次。
+- 同一 `review_id` 的 `get` / `resume` 加进程内可重入锁，避免并发恢复把图跑两次；
+- 用户自带的模型配置（BYOK）只以 `review_id` 为键在进程内登记，随图调用进出作用域，
+  不写入 checkpoint，也不进任何响应（ADR-013）。
 """
 
 from __future__ import annotations
@@ -32,6 +34,12 @@ from app.schemas import (
     ReviewStatus,
 )
 from app.services.checkpointer import memory_checkpointer
+from app.services.llm import (
+    LLMRuntime,
+    clear_llm_runtime,
+    get_llm_runtime,
+    review_llm_scope,
+)
 from app.services.pending_store import MemoryPendingStore, PendingStore, validate_review_id
 
 #: 图已结束的终态；再次 resume 视为幂等请求
@@ -118,7 +126,17 @@ class ReviewService:
 
     # ---------- 对外接口 ----------
 
-    def start(self, path: Path | str, *, review_id: str | None = None) -> ReviewRun:
+    def start(
+        self,
+        path: Path | str,
+        *,
+        review_id: str | None = None,
+        focus: str = "",
+        skill_id: str | None = None,
+        skill_name: str | None = None,
+        llm_runtime: LLMRuntime | None = None,
+    ) -> ReviewRun:
+        """启动一次审查；`focus`/`skill` 只影响解释措辞，`llm_runtime` 只在本进程内生效。"""
         source = Path(path)
         identifier = validate_review_id(review_id or uuid.uuid4().hex)
         with self._lock_for(identifier):
@@ -126,9 +144,15 @@ class ReviewService:
                 review_id=identifier,
                 source_filename=source.name,
                 source_path=str(source),
+                focus=focus,
+                skill_id=skill_id,
+                skill_name=skill_name,
             )
-            raw = self._graph.invoke(initial.model_dump(), config=self._config(identifier))
-            return self._run_from_raw(identifier, raw)
+            with review_llm_scope(identifier, llm_runtime):
+                raw = self._graph.invoke(
+                    initial.model_dump(), config=self._config(identifier)
+                )
+            return self._finish(identifier, self._run_from_raw(identifier, raw))
 
     def get(self, review_id: str) -> ReviewRun:
         """读取当前状态；若停在人工确认且已超时，惰性触发超时决定。"""
@@ -140,7 +164,7 @@ class ReviewService:
             if run.awaiting_human and self._timed_out(review_id):
                 # RLock 可重入：这里仍持有同一把锁
                 return self.resume(review_id, TIMEOUT_DECISION)
-            return run
+            return self._finish(review_id, run)
 
     def resume(self, review_id: str, decision: HitlDecision) -> ReviewRun:
         with self._lock_for(review_id):
@@ -158,11 +182,12 @@ class ReviewService:
                     f"审查 {review_id} 当前没有待人工确认的任务（status={state.status}）"
                 )
 
-            raw = self._graph.invoke(
-                Command(resume=decision.model_dump(mode="json")), config=config
-            )
+            with review_llm_scope(review_id, get_llm_runtime(review_id)):
+                raw = self._graph.invoke(
+                    Command(resume=decision.model_dump(mode="json")), config=config
+                )
             self._pending.pop(review_id)
-            return self._run_from_raw(review_id, raw)
+            return self._finish(review_id, self._run_from_raw(review_id, raw))
 
     def get_state(self, review_id: str) -> ContractReviewState:
         snapshot = self._graph.get_state(self._config(review_id))
@@ -183,6 +208,13 @@ class ReviewService:
     @staticmethod
     def _config(review_id: str) -> dict:
         return {"configurable": {"thread_id": review_id}}
+
+    @staticmethod
+    def _finish(review_id: str, run: ReviewRun) -> ReviewRun:
+        """进入终态后立刻丢弃进程内的模型配置（Key 不驻留内存）。"""
+        if not run.awaiting_human:
+            clear_llm_runtime(review_id)
+        return run
 
     @staticmethod
     def _state_from_raw(raw: dict) -> ContractReviewState:

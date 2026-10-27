@@ -1,7 +1,7 @@
 ﻿# 开发交接文档（Handover）
 
-> 更新时间：2026-10-27（界面轮 4：侧栏保留、主区收成“上传合同 → 看风险点”；界面轮 3：非合同闸门 + 收掉运行环境；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
-> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI）；界面轮 4 完成（`app/web/` 主区收成两屏：`#/` 上传合同、`#/review/{id}` 风险点；侧栏与顶栏导航壳保留；待确认态直接列出审批载荷中的红色风险；流水线/规则集/KPI/抽取要素/待核对已移除；Streamlit 降为备用）；上传仍先判断是不是合同（不是即 `not_contract`，不切条款/不抽取/不判级）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）；261 个测试通过**；检索评测与人工复核 gold 尚未完成
+> 更新时间：2026-10-27（界面轮 5：账号 / 审查记录 / Skill 仓库 / BYOK + 右侧对话式首屏；界面轮 4：侧栏保留、主区收成“上传合同 → 看风险点”；界面轮 3：非合同闸门 + 收掉运行环境；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
+> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI）；界面轮 5 完成（账号体系 / 审查记录 / Skill 仓库 / BYOK 按 ADR-013 落地，`API_VERSION 1.0.0`；右侧主区改为对话式首屏：给审查重点 + 附件 + Skill 后发送；侧栏 = 导航 + API 配置 + 接口文档 + 账号区，只留“登录”入口，注册在登录弹窗内切换且弹窗尺寸不变；底部免责一行 + 右下角隐私条款/使用政策弹窗带编号排版）；上传仍先判断是不是合同（不是即 `not_contract`，不切条款/不抽取/不判级）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）；288 个测试通过**；检索评测与人工复核 gold 尚未完成
 > 交接原则：任何新接手的人只读本文件 + `00_PROJECT_STATE.md` + `02_ARCHITECTURE_DECISIONS/README.md`，就能继续开发。
 
 ---
@@ -15,7 +15,7 @@
 - Python 规则引擎唯一决定 `red / yellow / pass`；
 - 红色风险触发 LangGraph `interrupt()`，人工确认后才出最终报告；
 - 报告每条风险都有 `rule_id + reason + 原文引用 + 文件:页码:字符偏移`；
-- 交付：侧栏导航壳 + 两屏主区（FastAPI 托管，上传合同 → 查看风险点）+ 命令行 + FastAPI 接口；Streamlit 备用。
+- 交付：侧栏导航壳 + 对话式主区（FastAPI 托管，给审查重点/附件/Skill → 查看风险点 → 人工确认 → 下载报告）+ 账号与审查记录 + BYOK 模型配置 + 命令行 + FastAPI 接口；Streamlit 备用。
 
 硬约束来自根目录 `开发提示词.md`：技术栈 Python / LangGraph / Streamlit / FastAPI / Pydantic；规则决定等级，LLM 只抽取与解释；HITL 必须暂停/恢复；全部代码要解释清、能测试、边界明确。**2026-10-27 用户明确放开 RAG 与多智能体（ADR-007）**：允许 RAG、专家节点与 Supervisor 路由，但判级仍只由 Python 规则产生、HITL 仍必须真中断、证据仍必须可追溯；RAG/多智能体默认关闭（`RAG_ENABLED=false`、`AGENTS_ENABLED=false`）。训练模型、Docker、前端框架仍禁止——**主区两屏 + 侧栏导航壳用 HTML/CSS/JS 手写，未引入 React/Vue/npm/CDN，字体随包离线**（ADR-009 第 3、5 轮补充）。
 
@@ -26,23 +26,24 @@
 | 项 | 状态 | 证据 |
 |---|---|---|
 | GitHub 调研 | ✅ 完成 | `01_RESEARCH_LOG.md`，8 个仓库源码级分析 |
-| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~012` |
+| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~013` |
 | 环境与依赖 | ✅ 完成 | `.venv`（Python 3.12.10）+ `requirements*.txt`；实际版本见 ADR-006 §6 |
 | 业务代码（第 3 步） | ✅ 解析/切分/抽取/校验/规则可用 | `app/` |
 | HITL（第 4 步） | ✅ 条件边 + `interrupt()` + checkpointer | `app/nodes/hitl.py`、`app/review_service.py`、`app/services/checkpointer.py` |
 | 解释 / RAG（第 5 步） | ✅ 质量门 + BM25 + 真实语料 | `app/nodes/explain.py`、`app/services/rag.py`、`data/knowledge/` |
 | API / UI（第 6 步） | ✅ FastAPI + pending 落盘 + Streamlit 备用 | `app/api.py`、`app/ui.py`、`app/report_markdown.py`、`app/services/pending_store.py` |
 | B 端审查工作台（界面轮 2） | ✅ 四视图 + 本地字体 + 只读规则目录 | `app/web/index.html`、`app/web/styles.css`、`app/web/app.js`、`app/web/fonts/`；`GET /`、`GET /static/*`、`GET /api/rules`；`tests/test_web.py`（6 项）、`tests/test_api.py::test_rule_catalog_matches_definitions` |
+| 账号 / 记录 / Skill / BYOK（界面轮 5） | ✅ 本地 SQLite + 密文盒 + 每审查模型运行时 | `app/services/accounts.py`、`app/services/secret_box.py`、`app/services/llm_providers.py`、`app/services/skill_catalog.py`、`app/services/llm.py`（`LLMRuntime` / `review_llm_scope`）；`tests/test_accounts.py`（24 项）；`API_VERSION 1.0.0` |
 | 主区极简 + 侧栏保留（界面轮 4） | ✅ 两屏：上传 → 风险点 | `app/web/index.html`、`app/web/app.js`、`app/web/styles.css`；侧栏/顶栏导航壳保留；hash 路由只留 `#/` 与 `#/review/{id}`；待确认态渲染 `approval.findings`；`tests/test_web.py`（10 项） |
 | 文档类型闸门（界面轮 3） | ✅ 先判断是不是合同，不是就停 | `app/services/document_type.py`、`app/nodes/precheck.py`、`app/graph.py`（`ingest → precheck → segment | report`）；`status=not_contract`；`tests/test_document_type.py`（11 项）、`tests/test_api.py::test_non_contract_upload_is_not_reviewed`、`tests/test_web.py::test_runtime_internals_stay_out_of_the_ui` |
-| 测试 | ✅ 261 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
+| 测试 | ✅ 288 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
 | 规则集 | ✅ 13 条 | `app/rules/definitions.yaml`（`version: 5`，三类措辞 + 保额邻近判定）；6 条新规则各有语料命中集合回归（ADR-010） |
 | 评测集 / 指标 | ⏳ 主集完成、四批留出完成、待复核 | `data/eval/gold_rules.json`（21 现象，silver）+ `gold_holdout{,2,3,4}.json`（7/9/7/9 现象）+ `eval/results/rules-*.json`；**silver gold 未经人工复核**，检索评测未做 |
 | Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`、`e41d235`、`c7f24a9`、`6eaff8c`、`5dc05bd`、`c540259`，以及后续每步提交 |
 
 > 报数纪律（ADR-011）：对外只引用**当前未被消耗**的留出集（holdout4，12 份，P=1.00 / R=0.889 / F1=0.941），并注明“silver gold 待复核、样本 12 份、唯一漏报 H39”。主集（50 份）P/R=1.0 是**同分布**产物；holdout、holdout2、holdout3 三批已被用于定位缺陷（“已消耗”），修复后即使 1.0 也只能当回归守卫。覆盖率 52.4%（主集 gold）与 H39 漏报才是当前真实短板；留出集的 `coverage=1.0` 是平凡结果，不能与 recall 混读。
 
-### 2.1 架构决策速览（ADR-001~012）
+### 2.1 架构决策速览（ADR-001~013）
 
 | ADR | 结论 | 状态 |
 |---|---|---|
@@ -57,6 +58,8 @@
 | 009 API/UI | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘；上传校验；Markdown 纯渲染；**第 2 轮补充：原生 Web 前端；第 3 轮补充：B 端工作台（framed-sheet + hash 路由四视图 + 本地 IBM Plex 字体 + 只读 `GET /api/rules`）；第 4 轮补充：移除侧栏“运行环境”块 + 非合同页，`API_VERSION` 0.9.0；第 5 轮补充：收成极简两屏（上传 / 风险点），待确认先展示审批载荷中的红色风险，下载走 `/report?format=markdown`**，Streamlit 降为备用 | **已接受**（第 6 步已实现；第 2–5 轮补充均已实现） |
 | 010 规则扩充/评测 | 规则 7 → 13 条；新规则准入四关；模拟合同拆入 `data/contracts/`；评测只报触发情况 | **已接受**（2026-10-27 第 1 轮已实现） |
 | 011 评测方法 | gold 三层（检索期望 / silver 规则 gold / 留出 gold）；三组指标；留出集发现漏报也不回改规则；**留出集一旦被用于定位缺陷即视为“已消耗”，只能作回归守卫**；报数纪律；第 4 轮补“保额邻近判定”与“测试钉住已知漏报” | **已接受**（2026-10-27 第 2–4 轮已实现） |
+| 012 类型闸门 | `ingest` 后 `precheck_document` 判定“是不是合同”；否 → `not_contract` 直接出报告，不切条款/不抽取/不判级/不触发 HITL | **已接受**（界面轮 3 已实现，`API_VERSION` 0.9.0） |
+| 013 账号与 BYOK | 账号/会话/Skill/记录/模型配置落本地 SQLite（零新依赖）；口令 PBKDF2 + 会话只存 token 哈希；API Key 密文盒加密、接口只回尾号；`LLMRuntime` 按 `review_id` 登记 + `ContextVar` 作用域；**审查重点 / Skill 只进 `<untrusted_focus>`，不改等级** | **已接受**（界面轮 5 已实现，`API_VERSION` 1.0.0） |
 
 ---
 
@@ -145,9 +148,15 @@ RAG_MIN_SCORE=1.0
 MAX_UPLOAD_MB=15
 MAX_CONTRACT_CHARS=200000
 MAX_PAGES=200
+
+# 账号 / 审查记录 / Skill / BYOK（ADR-013）
+USER_DB_PATH=.data/app.sqlite
+USER_SECRET_PATH=.data/secret.key
+SESSION_TTL_DAYS=7
 ```
 
 > 真实 `.env` 必须进 `.gitignore`；代码、日志、README 不得出现 Key。
+> `.data/app.sqlite`（账号/会话/Skill/记录/密文 Key）与 `.data/secret.key`（主密钥）必须一起备份：**只备份库不备份主密钥，已保存的 API Key 无法解密**，界面会提示重新填写。
 
 ---
 
@@ -248,11 +257,11 @@ Agent_Alex外贸合同智审助手/
 | 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
 | 恢复人工决定 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision approve --reviewer zhangsan` | ✅ 可用（SQLite 跨进程） |
 | 超时语义 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision timeout` | ✅ 可用 → `unreviewed_red_risk` |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 261 个通过 |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 288 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行（统一入口） | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` | ✅ 可用（`/docs` 可试；默认 SQLite + 文件 pending） |
-| **Web 前端（主界面）** | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` → 打开 `http://127.0.0.1:8000/` | ✅ 可用（侧栏导航壳 + 两屏主区：上传 → 风险点 → 人工确认 → 下载报告；结果页 URL 为 `#/review/{id}`） |
+| **Web 前端（主界面）** | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` → 打开 `http://127.0.0.1:8000/` | ✅ 可用（侧栏 = 导航 + API 配置 + 接口文档 + 账号区；右侧对话式首屏：审查重点 + 合同 + Skill → 发送 → 风险点 → 人工确认 → 下载报告；结果页 URL 为 `#/review/{id}`） |
 | Streamlit（备用） | `.\.venv\Scripts\python.exe -m streamlit run app/ui.py` | ✅ 可用（上传/审批/下载） |
 | 拆合同 + gold | `.\.venv\Scripts\python.exe eval\prepare_contracts.py` | ✅ 可用（50 份合同 / 105 条映射） |
 | 主集评测 | `.\.venv\Scripts\python.exe eval\run_eval.py` | ✅ 可用（无需 Key；含三组指标） |
@@ -387,6 +396,16 @@ Agent_Alex外贸合同智审助手/
 | 101 | Edge headless `--screenshot` 异步写文件，命令返回后立刻 `Test-Path` 可能为 False；`--window-size=390` 会被浏览器最小窗口宽度裁切，看起来像横向溢出 | 截图后 `Start-Sleep 2–3` 再读文件；窄屏验证用 500px 或 CDP 设备仿真，不要把 390 的裁切误判成 CSS 溢出 |
 | 102 | “页面信息太多”≠“页面元素都删掉”：曾把侧栏、面包屑、顶栏一并拆掉，用户立刻要求“原来的侧边栏保留，仅右侧主体内容做变更” | 界面改动先区分**导航壳**（侧栏/顶栏：定位、导航、服务状态）与**业务主区**（结论与证据）；精简只动主区，导航壳保留原结构，只删对应视图已不存在的死链 |
 | 103 | 用 CDP 断言 `getComputedStyle(el).display` 时，flex 容器里的 `inline-flex` 按钮会被 blockify 成 `flex`；照文档写 `inline-flex` 会误判失败 | 断言前想清父容器布局：`.topbar` 是 flex，汉堡按钮计算值就是 `flex`；同理 headless 默认视口不是 `--window-size`，需 `Emulation.setDeviceMetricsOverride` 显式设宽 |
+| 104 | 把“审查重点 / 附件 / Skill”塞进侧栏，用户看的是 Codex/Harness 那种**主体对话输入区** | 导航壳（侧栏）只放导航/账号/API 配置/接口文档；输入区放 `#view` 的 `.chat`（标题 + `.composer-box`：textarea + 工具行 + 圆形发送键），Enter 发送、Shift+Enter 换行；`tests/test_web.py::test_review_focus_lives_in_main_composer_not_sidebar` 钉住两侧 |
+| 105 | 侧栏同时放“登录 / 注册”两个入口，且弹窗内切换 tab 时高度跳动（昵称字段出现/消失） | 侧栏只留“登录”；注册放登录弹窗的 tab；`.auth-extra{min-height:62px}` 固定占位，注册显示昵称、登录显示等高提示框 `#auth-switch-hint`；用 CDP 量两种模式的弹窗尺寸必须一致（实测 460×458） |
+| 106 | 法务条款用一长段 `<p>` + 大行距，看起来像“免责声明墙”，没人读 | `LEGAL.privacy/terms` 存结构化数组，渲染成 `<h3><span class="legal-no">01</span>标题</h3><p>正文</p>`：编号用 `padStart(2,"0")`、正文 13.5px、行高 1.62；改文案只改常量，不写死 HTML |
+| 107 | `uvicorn app.api:app` 直接报 `Attribute "app" not found in module "app.api"`，前端/CDP 全部连不上 | `app/api.py` 只有工厂 `create_app`，必须 `uvicorn app.api:create_app --factory`；写冒烟脚本时先等 `/health` 返回再断言 |
+| 108 | 用三段短句当“合同”做 HTTP 冒烟，会被文档类型闸门判成 `not_contract`，后续 `awaiting_human`/报告断言全挂 | 冒烟必须用完整合同（`data/samples/sample_sales_contract.txt`）；闸门判否时 `approval=None`、`report.findings=[]`，不要把这当成接口坏了 |
+| 109 | PowerShell 里 here-string + `curl.exe` 做 multipart/cookie 冒烟，`"@ |` 同行、引号转义极易报“string is missing the terminator” | 冒烟脚本改用 Python `httpx.Client`（自动管 cookie）+ `sys.exit(1)` 断言；`@'…'@` 必须独占一行，且用 `Set-Content -Encoding utf8` |
+| 110 | CDP `Runtime.evaluate` 报 `'Runtime.evaluate' wasn't found`，或取值报 `reading 'value' of undefined` | `send()` 时必须带 `sessionId`（`Target.attachToTarget` 后取）；`send()` 已返回 `message.result`，再按 `response.result.value` 取，别多解构一层 |
+| 111 | 把用户 API Key 放进 `ContractReviewState` / 函数默认参数，会随 checkpoint 落盘、进日志 | 用 `LLMRuntime` 按 `review_id` 登记 + `with review_llm_scope(...)` 包住 `graph.invoke()`；`get_llm()` 优先级“本次审查配置 → 环境默认 → `LLMNotConfigured` 降级”；终态 `_finish()` 清理运行时 |
+| 112 | 主密钥被删/换后，解密失败若静默回退到环境 Key，会变成“用错模型还要用户付钱” | `SecretBoxError` → 500 并提示“主密钥已变更，请在 API 配置里重新填写 Key”；测试 `test_rotated_master_key_reports_actionable_error` 钉住 |
+| 113 | 冒烟脚本、截图、临时 sqlite 散落在 `.tmp-shots/` 未忽略，容易被 `git add .` 带进仓库 | `.gitignore` 增加 `.tmp-shots/`；临时库用环境变量指到该目录（`USER_DB_PATH`/`CHECKPOINT_SQLITE_PATH`/`PENDING_DIR`/`UPLOAD_DIR`），不要动真实 `.data/` |
 
 ---
 
@@ -431,6 +450,11 @@ Agent_Alex外贸合同智审助手/
    - **界面轮 2（已完成，2026-10-27）**：按外部方法论 `Leonxlnx/taste-skill`（`references/app-screens.md`）重做成 **B 端审查工作台**——`aside.sidebar`（工作台 / 当前审查 / 复核报告 / 规则集 + 运行环境块）+ `header.topbar`（面包屑 + 服务在线）+ `main.sheet`（framed-sheet 画布）；hash 路由四视图；本地 IBM Plex 字体（`app/web/fonts/`，含 `OFL.txt`，零 CDN）；新增只读 `GET /api/rules`（`API_VERSION` 0.7.0 → 0.8.0，`RuleSummary/RuleCatalog` 白名单投影，不返回正则/DSL）；`tests/test_web.py` 6 项 + `tests/test_api.py::test_rule_catalog_matches_definitions`；真实浏览器 1440/768/390 四页 **0 FAIL / 0 WARN**；243 个测试通过。
    - **界面轮 3（已完成，2026-10-27）**：用户上传论文被当成合同跑完整审查 → 新增**文档类型闸门**（ADR-012）：`ingest_document` 后插 `precheck_document`，`classify_document` 用“抬头 / 合同编号 / 买卖双方 / 编号条款 / 交易要素 / 签署语”打分（阈值 4），叠加论文与法规反向信号；不是合同 → `status=not_contract` → 直接 `build_report`，**不切条款、不抽取、不判级、不触发 HITL**。契约侧 `DocumentCheck{is_contract, confidence, reasons, hints}` + `ReviewSummary.document_check` + `API_VERSION` 0.9.0 + `ReviewService.FINAL_STATUSES` 纳入 `not_contract`；前端新增“不是合同”页（判定依据 / 下一步 / 重新选择文件），工作台流水线 5 → 6 步。同时按用户要求**移除侧栏“运行环境”块**（接口版本 / 规则集 / checkpoint / RAG 开关），只留 `/docs` 入口。实测：论文 PDF 判否（0.98、0 findings）；5 个语料目录 90 份合同 0 误杀；257 个测试通过。
    - **界面轮 3 补充（已完成，2026-10-27）**：修复顶部“选择合同”按钮点了没反应（`#file-input` 是渲染时生成的，启动时缓存 `dom.fileInput` 为 `undefined`，改为 `dom.view.querySelector("#file-input")?.click()`，并加静态回归测试）；按用户要求在本机 `.env` 开启 RAG（`RAG_ENABLED=true`，知识库 1834 个片段可检索），并把检索移到 LLM 判断之前——**没配 Key 也能在报告里看到“知识引用”**（解释正文仍回退规则理由、`source="rule"`、等级不变），见 ADR-008 §6。
+   - **界面轮 4（已完成，2026-10-27）**：用户要求“原来的侧边栏保留，仅右侧主体内容做变更” → 主区收成两屏（`#/` 上传合同、`#/review/{id}` 风险点），删除流水线/规则集/KPI/抽取要素/待核对/复核记录与 `#/workbench`、`#/rules`；待确认态改为用 `approval.findings` 先展示红色风险；下载链接改指 `/report?format=markdown`；261 个测试通过。
+   - **界面轮 5（已完成，2026-10-27，ADR-013）**：账号/审查记录/Skill 仓库/BYOK + 右侧对话式首屏。
+     - 后端：`app/services/accounts.py`（本地 SQLite 五表，PBKDF2 口令，会话只存 token 哈希，跨账号 404）、`secret_box.py`（`v1:` 密文盒 + `.data/secret.key`）、`llm_providers.py`（9 个厂商目录）、`skill_catalog.py`（7 个内置 Skill + `compose_focus`）、`llm.py`（`LLMRuntime` / `review_llm_scope` / `probe_llm`）；`POST /api/reviews` 增加 `focus / skill_id / reference`，`ReviewSummary.focus/skill_name`、`ReviewReport.focus/skill`；`API_VERSION 1.0.0`。
+     - 前端：审查重点/附件/Skill 移到 `#view` 的对话式 `.composer-box`（Enter 发送、Shift+Enter 换行、拖拽）；侧栏只留登录入口（注册在弹窗 tab 内、`.auth-extra` 等高）；底部免责一行 + 右下角隐私条款/使用政策弹窗（`01…` 编号、13.5px/1.62）；新增 API 配置、Skill 仓库、我的审查三个弹窗。
+     - 验证：`pytest` 288 通过；`ruff` / `node --check` 通过；HTTP 端到端 34 项（注册→Skill→带 focus 上传→approve→Markdown→记录→BYOK 密文→退出→跨账号 404）全过；CDP 11 项（对话式首屏、弹窗等高 460×458、政策编号、480px 无溢出）全过。
    - **下一步（第四阶段）**：
      - 修 H39（`R-DIS-004` modal 与动词之间放宽为 `[^.]{0,80}?`），**另写 holdout5（8–12 份）再报数**（ISSUE-021）；
      - 人工复核 21 个 silver 现象 + 32 个留出现象，silver 升 gold（ISSUE-020）；

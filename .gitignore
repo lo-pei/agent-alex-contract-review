@@ -20,6 +20,7 @@ __pycache__/
 # 设计测量临时产物（taste-skill 快照、浏览器截图、一次性探针脚本）
 .tmp-taste/
 .taste-skill/
+.tmp-shots/
 probe-*.mjs
 
 # 编辑器 / 系统

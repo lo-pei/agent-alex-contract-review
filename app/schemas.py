@@ -315,6 +315,10 @@ class ReviewReport(BaseModel):
     explanation_status: Literal["ok", "fallback", "skipped"] = "skipped"
     explanation_model: str | None = None
     explanation_prompt_version: str = "n/a"
+    #: 用户指定的审查重点（指令 + Skill + 参考材料）；只影响解释措辞，不改变等级
+    focus: str | None = None
+    #: 本次使用的 Skill 名称（内置推荐或用户自建）
+    skill: str | None = None
 
 
 class ContractReviewState(BaseModel):
@@ -356,6 +360,11 @@ class ContractReviewState(BaseModel):
     # 规则（唯一等级来源）
     rule_evaluations: list[RuleEvaluation] = Field(default_factory=list)
     overall_level: OverallLevel = "unknown"
+
+    # 用户审查重点（ADR-013）：只作为解释背景，任何节点都不得据此调用判级
+    focus: str = ""
+    skill_id: str | None = None
+    skill_name: str | None = None
 
     # HITL
     status: ReviewStatus = "running"

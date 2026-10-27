@@ -69,6 +69,12 @@ class Settings:
     pending_dir: str
     upload_dir: str
 
+    # 账号 / Skill / 模型配置（ADR-013；本地 SQLite，零额外依赖）
+    user_db_path: str
+    #: 本地密文主密钥（第三方 API Key 静态保护）；首次启动自动生成
+    user_secret_path: str
+    session_ttl_days: int
+
     # RAG（ADR-007 / ADR-008；默认关闭）
     rag_enabled: bool
     rag_knowledge_dir: str
@@ -101,6 +107,13 @@ def load_settings() -> Settings:
         upload_dir=os.getenv(
             "UPLOAD_DIR", str(PROJECT_ROOT / ".data" / "uploads")
         ),
+        user_db_path=os.getenv(
+            "USER_DB_PATH", str(PROJECT_ROOT / ".data" / "app.sqlite")
+        ),
+        user_secret_path=os.getenv(
+            "USER_SECRET_PATH", str(PROJECT_ROOT / ".data" / "secret.key")
+        ),
+        session_ttl_days=_int_env("SESSION_TTL_DAYS", 7),
         rag_enabled=_bool_env("RAG_ENABLED", False),
         rag_knowledge_dir=os.getenv(
             "RAG_KNOWLEDGE_DIR", str(PROJECT_ROOT / "data" / "knowledge")

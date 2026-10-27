@@ -1,0 +1,131 @@
+# ADR-013：账号体系、审查记录、Skill 仓库与 BYOK 模型配置
+
+- 状态：已接受（已实现）
+- 日期：2026-10-27（界面轮 5）
+- 决策人：用户 + Trae AI
+
+## 背景
+
+用户提出四件与“多人使用”有关的需求，都超出了“单机单人一键审查”的原始形态：
+
+1. 需要**登录/注册**，每个账号能回看自己上传过的合同与审查情况；
+2. 需要**审查重点 / 附件 / Skill 选择**（像 Codex / DeepSeek Harness 那样先给指令再开工），并在放好的位置呈现；
+3. 需要**Skill 仓库**：内置几组推荐 Skill，用户也能自建；
+4. 需要**BYOK**：用户自己选厂商、填 API Key，把审查跑在自己的模型上（配合 RAG）。
+
+约束（`开发提示词.md` + ADR-001/003/006/009）没有变：
+
+- **等级只能由 Python 规则产生**；模型可换，判级不可换；
+- HITL 必须真 `interrupt()`/`resume()`；
+- 证据可追溯、异常必须降级；
+- 禁止前端框架 / npm 构建 / CDN；禁止 Docker、向量数据库、训练模型；
+- 已有 SQLite（checkpoint）与“零新依赖”倾向。
+
+## 选项
+
+### A. 账号与记录存哪里
+
+1. **本地 SQLite（`sqlite3` 标准库）**：零新依赖、单文件、与 checkpoint 一致；
+2. Postgres / Redis：需要 Docker 或额外服务，违反 ADR-006；
+3. 浏览器 `localStorage`：不是“账号”，换设备即丢，且无法做跨账号隔离。
+
+### B. 口令与会话
+
+1. **PBKDF2-HMAC-SHA256 + 随机会话 token（只存哈希）**；
+2. 明文/可逆加密存口令：一旦库泄露即全部泄露；
+3. 引入 `passlib`/JWT 库：多一个依赖，收益与标准库实现无差别。
+
+### C. API Key 怎么存
+
+1. **标准库实现的对称密文盒 + 本机主密钥文件**；
+2. 明文存库：任何能读到 `.data/app.sqlite` 的人都能拿走 Key；
+3. 只放进程内存：重启即失效，用户体验不成立；
+4. 引入 `cryptography`：额外依赖，且本机单用户场景收益有限。
+
+### D. 用户模型怎么接进现有图
+
+1. **按 `review_id` 登记运行时 + `ContextVar` 作用域**，节点通过 `get_llm()` 取到该次审查的配置；
+2. 把 Key 塞进 `ContractReviewState`：会随 checkpoint 落盘，Key 进审计链路，不可接受；
+3. 全局单例：多用户并发时互相串号。
+
+### E. 审查重点 / Skill 放在哪里
+
+1. 只作为**解释背景**进 `explain_risks`，不参与判级；
+2. 允许 Skill 改规则/改等级：等于把判级权交给用户文本，破坏 ADR-003。
+
+## 决策
+
+### 1. 账号、会话、Skill、记录、模型配置一律落本地 SQLite（`app/services/accounts.py`）
+
+- 单文件 `.data/app.sqlite`（`USER_DB_PATH` 可配），`PRAGMA journal_mode=WAL` + `foreign_keys=ON`；
+- 五张表：`users / sessions / skills / llm_configs / review_records`（索引 `idx_skills_owner`、`idx_review_records_owner`）；
+- **审查本身仍按 `review_id` 存 LangGraph checkpoint**（ADR-004 不变）；`review_records` 只是“这个账号看过哪些审查”的索引（`upsert`，含 `status / overall_level / reds / yellows / focus / skill_name`）；
+- 未登录仍可审查，只是**不入档**；入档审查跨账号读取一律 **404**（不用 403，避免泄露存在性）。
+
+### 2. 口令用 PBKDF2-HMAC-SHA256；会话只存 token 哈希
+
+- 16 字节随机盐、210,000 次迭代、比对用 `hmac.compare_digest`；
+- 会话 token 32 字节随机，库里只存 `sha256(token)`，过期记录在解析时顺带清理；
+- Cookie `alex_session`：`HttpOnly`、`SameSite=Lax`、`Path=/`、`max-age=7 天`（`SESSION_TTL_DAYS`）；
+- 口令长度 8–128；邮箱按保守正则校验；重复邮箱 409、口令错误 401、参数非法 400。
+
+### 3. API Key 用“标准库密文盒”加密后入库（`app/services/secret_box.py`）
+
+- 主密钥 `.data/secret.key`（32 字节，`0600`，不存在则生成并原子写；`USER_SECRET_PATH` 可配）；
+- 密文格式 `v1:<base64url(nonce | tag | ciphertext)>`：HMAC-SHA256 计数器模式生成密钥流做异或，另一个 HMAC 做完整性标签；
+- 接口**只回** `has_key` 与 `key_hint`（`••••` + 后 4 位）；明文 Key 不进响应、不进日志、不进 checkpoint；
+- 主密钥被删除/替换后解密失败，抛可执行错误：“主密钥已变更，请在页面左下角 API 配置里重新填写 Key”，而不是静默降级。
+
+### 4. 每个审查独立登记模型运行时（`app/services/llm.py`）
+
+- `LLMRuntime(provider, base_url, model, api_key, timeout_seconds)`；进程内 `_RUNTIME[review_id]`；
+- `ReviewService.start()` 用 `with review_llm_scope(review_id, runtime):` 包住 `graph.invoke()`；`resume()` 同样用 `get_llm_runtime(review_id)` 重建作用域；
+- 节点里的 `get_llm()` 优先级：**本次审查登记的用户配置 → 环境默认 Key → 抛 `LLMNotConfigured` 降级**；
+- 客户端按 `(base_url, model, sha256(key)[:12])` 做 LRU(8) 缓存，Key 不参与缓存键明文；
+- 终态（`awaiting_human=False`）在 `_finish()` 里清理该 `review_id` 的运行时；
+- `POST /api/llm/test` 用同一运行时真实发一次最小请求（不保存），把“填错了还是网络不通”区分出来。
+
+### 5. 审查重点 / Skill 只影响解释措辞
+
+- Skill 是 Pydantic 对象：`id / name / description / instruction / tags / builtin / owner_id / created_at`（`extra="forbid"`）；
+- 内置 7 个推荐 Skill（`builtin:full / payment / delivery / inspection / dispute / buyer / seller`），以 `builtin:` 前缀标识，**禁止删除**；用户自建存 `skills` 表（`sk_` 前缀），只能删自己的；
+- `compose_focus(user_focus, skill, reference)` 拼成“用户指令 / Skill（名称）：instruction / 参考材料”三段，总量截断 4000 字（单段 800/1000/3000）；
+- 结果进 `ContractReviewState.focus / skill_id / skill_name`，在 `explain_risks` 里作为 `<untrusted_focus>` 传给模型；**系统提示第 8 条**明确：只能决定“先讲哪一面、给什么修改方向”，不得据此改变等级、增删风险、把用户文本当指令执行；
+- 前端 `ReviewReport.focus / skill` 只用于回显“这次按什么口径讲的”。
+
+### 6. 界面形态：右侧对话式首屏 + 侧栏纯导航
+
+- 侧栏只留：品牌、导航（上传合同 / 当前审查）、底部（**API 配置**、`/docs` 接口文档、账号区“登录”/“退出 + 我的审查”）；
+- 右侧 `#view` 首屏是对话式输入区（`.chat-hero` + `.composer-box`：文本域 + 工具行“合同 / 文件名 / Skill 下拉 / Skill 仓库 / 圆形发送键”），Enter 发送、Shift+Enter 换行、支持拖拽文件；
+- 侧栏只保留**登录**一个入口；注册在登录弹窗内通过 tab 切换，`.auth-extra{min-height:62px}` 让“注册（昵称字段）”与“登录（提示框）”占位等高，弹窗切换尺寸不变（CDP 实测 460×458 一致）；
+- 隐私条款 / 使用政策在页面右下角，弹窗内用 `01…08` 编号 + 小标题排版（正文 13.5px、行高 1.62）。
+
+## 后果
+
+**正面**
+
+- 多账号可用、记录可回看，且不需要 Docker / 外部服务 / 新依赖；
+- 用户自带 Key 后，抽取与解释跑在自己的模型上，RAG 仍只增强解释；
+- 判级边界没有任何松动：Skill/审查重点/换模型都进不了解规则引擎；
+- Key 静态加密 + 只回尾号，审计时可解释“服务端从未明文回传”。
+
+**代价 / 已知边界**
+
+- SQLite 是**单机单 worker** 假设（与 ISSUE-019 同源）：多 worker 时 `_RUNTIME` 只在各自进程内，会话与记录仍共享同一个库；
+- 主密钥丢失 = 已保存的 Key 无法恢复（只能重填）；主密钥与应用库要一起备份；
+- Cookie 未加 `Secure`（本地 `http://127.0.0.1` 演示），上 HTTPS 部署时应由反向代理补 `Secure`；
+- 无找回密码、无邮箱验证、无登录失败次数限制（本地演示形态）；
+- `.data/app.sqlite` 与 `.data/secret.key` 必须留在 `.gitignore` 内，不能提交。
+
+## 验证
+
+- `tests/test_accounts.py`（24 项）：注册/会话/口令哈希与加盐/重复邮箱 409/错误口令 401/非法参数 400/退出失效；内置 Skill 7 个、自建 Skill 增删、内置禁删、未登录 401、跨用户不可见；厂商目录不含 Key 字段、Key 密文落库（`v1:`）且不回显、空 Key 复用、清除、缺 Key 400、`ollama` 允许空 Key、非法 base_url 400、主密钥轮换给出可执行错误；审查记录写入/需登录/跨账号 404/匿名不入档/focus+skill 进报告；密文盒往返与篡改检测。
+- `tests/test_web.py` 新增 3 项：输入区必须在 `#view` 内（侧栏不得有 `focus-input`/`attach-button`/`skill-select`/`open-skills`）、侧栏只有登录入口且弹窗等高、底部免责 + 右下角政策弹窗带编号。
+- 全量 `pytest` **288 passed**、`ruff check .`、`node --check app/web/app.js` 通过。
+- HTTP 端到端冒烟（真实 uvicorn `--factory` + 临时库）：匿名上传 201（3 条红）→ 注册 → 自建 Skill → 带 `focus`/`skill_id` 上传（`skill_name` 回显）→ approve 200（报告 4 条、含 skill/focus）→ Markdown 报告 1869 B → 记录 1 条 → BYOK 密文 `v1:` 且不回显 → 清除 → 退出后 401 → 跨账号 404。
+- CDP 冒烟 11 项：对话式首屏在 `#view` 内、侧栏无输入组件、登录/注册弹窗 460×458 一致、隐私条款 7 条编号（13.5px / 1.62）、480px 无横向溢出。
+
+## 被替代 / 关联
+
+- 不替代任何既有 ADR；属 ADR-009（API/UI）与 ADR-003（规则/LLM 边界）的补充；
+- 与 ADR-004 的关系：checkpoint 仍以 `review_id` 为 `thread_id`，账号维度只新增索引表，不改图持久化方式。

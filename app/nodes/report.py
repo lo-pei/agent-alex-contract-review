@@ -202,6 +202,8 @@ def build_report(state: ContractReviewState) -> dict:
         explanation_status=state.explanation_status,
         explanation_model=state.explanation_model,
         explanation_prompt_version=state.explanation_prompt_version,
+        focus=state.focus or None,
+        skill=state.skill_name or None,
     )
     return {
         "report": report,

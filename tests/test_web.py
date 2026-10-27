@@ -70,16 +70,21 @@ def test_local_fonts_are_served(client: TestClient) -> None:
 
 
 def test_frontend_has_no_external_dependency(client: TestClient) -> None:
-    """离线约束：页面与脚本不得引用任何 http(s) 外链。
+    """离线约束：页面不得从外网加载任何资源。
 
-    唯一允许出现的是 SVG 的 XML 命名空间（`http://www.w3.org/2000/svg`），
-    它是 data URI 内联图标的一部分，不会产生网络请求。
+    只检查真正会发起请求的引用（`src` / `href` / `url()` / `@import`）；
+    厂商目录里的“默认服务地址”只是输入框占位文本，不会在加载时请求。
     """
-    allowed = {"http://www.w3.org/2000/svg"}
     for path in ("/", "/static/app.js", "/static/styles.css"):
         body = client.get(path).text
-        found = set(re.findall(r"https?://[^\s\"'()<>]+", body))
-        assert found <= allowed, f"{path} 含外部引用：{sorted(found - allowed)}"
+        remote = set(
+            re.findall(r"""(?:src|href)\s*=\s*["'](https?://[^"']+)""", body)
+        )
+        remote |= set(re.findall(r"""url\(\s*["']?(https?://[^)"']+)""", body))
+        # SVG 的 XML 命名空间只是字符串常量，不是加载请求
+        remote = {item for item in remote if not item.startswith("http://www.w3.org/")}
+        assert not remote, f"{path} 含外部资源引用：{sorted(remote)}"
+        assert "@import" not in body, f"{path} 使用了 @import"
         assert "cdn." not in body, f"{path} 含 CDN 引用"
 
 
@@ -104,15 +109,15 @@ def test_frontend_assets_exist_on_disk() -> None:
     assert re.search(r"localhost|127\.0\.0\.1", script) is None
 
 
-def test_header_pick_button_targets_rendered_input() -> None:
-    """上传区的“选择文件”必须从当前视图取 input。
+def test_attachment_button_targets_rendered_input() -> None:
+    """对话输入区的“合同”按钮必须从当前视图取 input。
 
-    `#file-input` 是渲染上传区时才创建的，启动时缓存 `dom.fileInput` 会是 undefined，
+    `#file-input` 是渲染输入区时才创建的，启动时缓存成 `dom.fileInput` 会是 undefined，
     点按钮直接抛错（真实缺陷：按钮点了没反应）。
     """
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     assert "dom.fileInput" not in script
-    assert re.search(r'on\("pick-file",\s*"click"', script) is not None
+    assert re.search(r'on\("attach-button",\s*"click"', script) is not None
     assert 'querySelector("#file-input")' in script
 
 
@@ -120,7 +125,7 @@ def test_sidebar_kept_but_main_content_is_minimal() -> None:
     """侧栏保留，右侧主区只做“上传合同 → 看风险点”。
 
     用户口径：信息过多指的是右侧主体（流水线、规则集、KPI、抽取要素、核对清单）；
-    左侧导航壳保留，仍提供“上传合同 / 当前审查 / 接口文档”入口。
+    左侧导航壳保留，仍提供“上传合同 / 当前审查 / API 配置 / 接口文档”入口。
     """
     page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
@@ -145,6 +150,62 @@ def test_sidebar_kept_but_main_content_is_minimal() -> None:
     assert "上传合同" in page
     assert "确认这些风险" in script
     assert "/decisions" in script
+
+
+def test_review_focus_lives_in_main_composer_not_sidebar() -> None:
+    """审查重点 / 附件 / Skill 选择属于右侧对话输入区，不再塞在侧栏。"""
+    page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    sidebar = page.split('<header class="topbar"', 1)[0]
+    for needle in ("focus-input", "attach-button", "skill-select", "open-skills"):
+        assert needle not in sidebar, f"侧栏仍包含输入组件：{needle}"
+        assert needle in script, f"app.js 缺少输入组件：{needle}"
+
+    # 输入区按对话式排布：文本域 + 工具行 + 圆形发送键
+    assert 'class="composer-box"' in script
+    assert 'class="composer-tools"' in script
+    assert 'class="send"' in script
+    assert "Shift" in script and "Enter" in script
+
+
+def test_auth_dialog_keeps_single_entry_and_stable_size() -> None:
+    """侧栏只保留“登录”；注册在弹窗内切换，切换时高度不跳动。"""
+    page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    sidebar = page.split('<header class="topbar"', 1)[0]
+    assert 'id="auth-login"' in sidebar
+    assert 'id="auth-register"' not in sidebar
+    assert 'data-auth="register"' not in sidebar
+
+    assert 'data-auth-tab="register"' in page
+    assert 'id="auth-switch-hint"' in page
+    assert ".auth-extra" in styles
+    assert "auth-switch-hint" in script
+    # 两个模式共用同一块占位区域，弹窗尺寸不随切换变化
+    assert "min-height: 62px" in styles
+
+
+def test_footer_disclaimer_and_legal_dialogs() -> None:
+    """免责声明放在主体底部一行；隐私条款/使用政策在右下角并弹出带编号的条款。"""
+    page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    main = page.split('<main class="sheet"', 1)[1].split("</main>", 1)[0]
+    assert "只做合同预审辅助，不构成法律意见。" in main
+    assert 'id="open-privacy"' in main
+    assert 'id="open-terms"' in main
+    assert 'class="sheet-foot"' in main
+
+    assert "LEGAL" in script
+    assert "legal-no" in script
+    assert "隐私条款" in script and "使用政策" in script
+    # 每个条款都有序号（01、02…）与标题
+    assert 'padStart(2, "0")' in script
+    assert ".legal-no" in styles
 
 
 def test_pending_review_shows_rule_findings_before_confirmation() -> None:

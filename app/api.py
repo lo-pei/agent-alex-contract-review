@@ -1,14 +1,16 @@
-"""FastAPI 应用：上传合同 → 启动审查 → 人工决定 → 下载报告（ADR-002 / ADR-009）。
+"""FastAPI 应用：账号 → 上传合同 → 启动审查 → 人工决定 → 下载报告（ADR-002 / ADR-009 / ADR-013）。
 
-角色：把 `ReviewService` 暴露成 HTTP 接口，供 Streamlit 与第三方系统调用。
+角色：把 `ReviewService` 暴露成 HTTP 接口，供原生前端与第三方系统调用。
 依赖：`app/review_service.py`、`app/services/checkpointer.py`、`app/services/pending_store.py`、
-`app/report_markdown.py`。
+`app/services/accounts.py`（账号/记录/Skill/模型配置）、`app/report_markdown.py`。
 约束：
 - **不在 API 层判级或改级**，等级只来自图里的 Python 规则；
 - HITL 只通过 `ReviewService.resume()` 恢复，不接受外部拼 `Command`；
 - 上传只做类型/大小/空文件校验并落盘到 `.data/uploads/<review_id>/`，不做 OCR/格式转换；
 - 报告未生成时返回 409，绝不返回空报告冒充完成；
-- 未知 review_id 返回 404，状态冲突返回 409。
+- 未知 review_id 返回 404，状态冲突返回 409；
+- 会话 Cookie 只带 `HttpOnly` 随机 token；API Key 只进不出（响应只有 `has_key`/尾号提示）；
+- 未登录可以审查（不记录）；已登录的审查与账号绑定，跨账号读取返回 404。
 """
 
 from __future__ import annotations
@@ -21,11 +23,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi import Path as ApiPath
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.config import settings
 from app.graph import build_graph
@@ -40,11 +42,23 @@ from app.schemas import (
     ReviewReport,
     ReviewStatus,
 )
+from app.services import llm as llm_service
+from app.services import secret_box
+from app.services.accounts import (
+    AccountError,
+    AccountsStore,
+    LLMSettings,
+    ReviewRecord,
+    User,
+)
 from app.services.checkpointer import sqlite_checkpointer
+from app.services.llm import LLMNotConfigured, LLMRuntime, probe_llm
+from app.services.llm_providers import provider_payload, resolve_provider
 from app.services.pending_store import FilePendingStore
+from app.services.skill_catalog import Skill, compose_focus
 
 API_TITLE = "Agent Alex · 外贸合同智审助手"
-API_VERSION = "0.9.0"
+API_VERSION = "1.0.0"
 
 #: 原生前端资源目录（无框架、无 CDN；见 ADR-009 第 2 轮补充）
 WEB_DIR = Path(__file__).resolve().parent / "web"
@@ -59,6 +73,13 @@ MAX_FILENAME_CHARS = 180
 CHUNK_SIZE = 1024 * 1024
 
 REVIEW_ID_PATTERN = r"^[A-Za-z0-9_-]{1,64}$"
+SKILL_ID_PATTERN = r"^[A-Za-z0-9:_-]{1,64}$"
+
+#: 会话 Cookie 名；只存随机 token 的原文，服务端只留 SHA-256（ADR-013）
+SESSION_COOKIE = "alex_session"
+#: 审查侧栏“参考材料”只收纯文本，避免把第二份合同/扫描件塞进提示词
+REFERENCE_SUFFIXES = frozenset({".txt", ".md", ".markdown"})
+MAX_REFERENCE_BYTES = 64 * 1024
 
 
 class ReviewSummary(BaseModel):
@@ -79,6 +100,73 @@ class ReviewSummary(BaseModel):
     explanation_status: Literal["ok", "fallback", "skipped"] = "skipped"
     #: 文档类型闸门：`is_contract=False` 时前端直接展示“不是合同”，不展示风险结论
     document_check: DocumentCheck | None = None
+    #: 审查重点与 Skill 名称（只影响解释措辞）
+    focus: str | None = None
+    skill_name: str | None = None
+
+
+class Credentials(BaseModel):
+    """注册/登录请求体。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=128)
+    display_name: str = Field(default="", max_length=40)
+
+
+class SessionInfo(BaseModel):
+    """当前登录态：未登录时 `authenticated=false`，其余字段为空。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    authenticated: bool
+    user: User | None = None
+    llm: LLMSettings | None = None
+    #: 环境默认模型是否可用（未登录用户也能看到“是否已配置模型”）
+    env_llm: bool = False
+
+
+class SkillList(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    skills: list[Skill]
+    builtin_count: int
+
+
+class SkillCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=40)
+    description: str = Field(default="", max_length=160)
+    instruction: str = Field(min_length=1, max_length=1000)
+
+
+class LLMUpdate(BaseModel):
+    """BYOK 写入请求：`api_key` 留空表示沿用已保存的 Key。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(min_length=1, max_length=40)
+    base_url: str = Field(default="", max_length=300)
+    model: str = Field(min_length=1, max_length=120)
+    api_key: str = Field(default="", max_length=256)
+
+
+class LLMProbeResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ok: bool
+    provider: str
+    model: str
+    detail: str = ""
+
+
+class ReviewHistory(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reviews: list[ReviewRecord]
+    total: int
 
 
 class RuleSummary(BaseModel):
@@ -125,7 +213,17 @@ def _summary_of(run: ReviewRun) -> ReviewSummary:
         extraction_status=state.extraction_status,
         explanation_status=state.explanation_status,
         document_check=state.document_check,
+        focus=state.focus or None,
+        skill_name=state.skill_name,
     )
+
+
+def _level_counts(state) -> tuple[int, int]:
+    reds = sum(1 for e in state.rule_evaluations if e.risk_level == "red" and not e.skipped)
+    yellows = sum(
+        1 for e in state.rule_evaluations if e.risk_level == "yellow" and not e.skipped
+    )
+    return reds, yellows
 
 
 def _safe_filename(name: str | None) -> str:
@@ -148,34 +246,60 @@ def _service_of(request: Request) -> ReviewService:
     return service
 
 
+def _set_session(response: Response, token: str, ttl_days: int) -> None:
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=ttl_days * 24 * 3600,
+        httponly=True,
+        samesite="lax",
+        path="/",
+    )
+
+
 def create_app(
     service: ReviewService | None = None,
     *,
     upload_dir: Path | str | None = None,
     pending_dir: Path | str | None = None,
     max_upload_mb: int | None = None,
+    accounts: AccountsStore | None = None,
+    user_db_path: Path | str | None = None,
 ) -> FastAPI:
-    """构造应用。传入 `service` 时使用该实例（测试用内存 checkpointer），否则使用 SQLite。"""
+    """构造应用。
+
+    传入 `service` 时使用该实例（测试用内存 checkpointer），否则使用 SQLite；
+    `accounts` 可注入账号存储（测试用 `tmp_path`），否则按 `user_db_path` 建在 `.data/`。
+    """
     upload_root = Path(upload_dir or settings.upload_dir)
     upload_root.mkdir(parents=True, exist_ok=True)
     limit_bytes = (max_upload_mb if max_upload_mb is not None else settings.max_upload_mb) * (
         1024 * 1024
     )
+    db_path = Path(user_db_path or settings.user_db_path)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        if service is not None:
-            app.state.service = service
-            yield
-            return
-        with sqlite_checkpointer() as saver:
-            app.state.service = ReviewService(
-                build_graph(checkpointer=saver),
-                pending_store=FilePendingStore(pending_dir),
-            )
-            yield
+        owns_store = accounts is None
+        store = accounts or AccountsStore(db_path)
+        app.state.accounts = store
+        try:
+            if service is not None:
+                app.state.service = service
+                yield
+                return
+            with sqlite_checkpointer() as saver:
+                app.state.service = ReviewService(
+                    build_graph(checkpointer=saver),
+                    pending_store=FilePendingStore(pending_dir),
+                )
+                yield
+        finally:
+            if owns_store:
+                store.close()
 
     app = FastAPI(title=API_TITLE, version=API_VERSION, lifespan=lifespan)
+    app.state.accounts = accounts
     if service is not None:
         app.state.service = service
 
@@ -198,6 +322,74 @@ def create_app(
             content={"detail": str(exc)},
         )
 
+    @app.exception_handler(AccountError)
+    def _account_error_handler(_request: Request, exc: AccountError) -> JSONResponse:
+        status = {
+            "invalid": 400,
+            "unauthorized": 401,
+            "not_found": 404,
+            "conflict": 409,
+        }.get(exc.code, 400)
+        return JSONResponse(status_code=status, content={"detail": str(exc)})
+
+    @app.exception_handler(secret_box.SecretBoxError)
+    def _secret_error_handler(_request: Request, exc: secret_box.SecretBoxError) -> JSONResponse:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "detail": f"本地密钥不可用：{exc}；请删除 .data/secret.key 后重新配置 API Key。"
+            },
+        )
+
+    def store_of(request: Request) -> AccountsStore:
+        store = getattr(request.app.state, "accounts", None)
+        if store is None:  # pragma: no cover - lifespan 总会设置
+            raise HTTPException(status_code=503, detail="账号存储未初始化")
+        return store
+
+    def current_user(request: Request) -> User | None:
+        return store_of(request).resolve_session(request.cookies.get(SESSION_COOKIE))
+
+    def require_user(request: Request) -> User:
+        user = current_user(request)
+        if user is None:
+            raise HTTPException(status_code=401, detail="请先登录或注册")
+        return user
+
+    def llm_runtime_for(request: Request) -> LLMRuntime | None:
+        """登录用户自带模型配置；未登录/未配置返回 None（回落到环境默认模型）。"""
+        user = current_user(request)
+        if user is None:
+            return None
+        return store_of(request).resolve_llm_runtime(user.id)
+
+    def authorize(request: Request, review_id: str) -> User | None:
+        """已入册的审查只有归属账号能读；匿名审查凭不可猜的 id 可读。"""
+        owner = store_of(request).owner_of(review_id)
+        if owner is None:
+            return current_user(request)
+        user = current_user(request)
+        if user is None or user.id != owner:
+            raise HTTPException(status_code=404, detail=f"审查不存在：{review_id}")
+        return user
+
+    def record(request: Request, run: ReviewRun, user: User | None) -> None:
+        state = run.state
+        if user is None or state is None:
+            return
+        reds, yellows = _level_counts(state)
+        store_of(request).record_review(
+            review_id=run.review_id,
+            owner_id=user.id,
+            source_filename=state.source_filename,
+            status=run.status,
+            overall_level=state.overall_level,
+            reds=reds,
+            yellows=yellows,
+            focus=state.focus,
+            skill_name=state.skill_name,
+        )
+
     @app.get("/health")
     def health() -> dict:
         return {
@@ -205,8 +397,169 @@ def create_app(
             "version": API_VERSION,
             "checkpoint_backend": settings.checkpoint_backend if service is None else "memory",
             "rag_enabled": settings.rag_enabled,
+            "accounts": True,
             "time": datetime.now(UTC).isoformat(),
         }
+
+    # ---------- 账号 ----------
+
+    @app.post("/api/auth/register", response_model=SessionInfo, status_code=201)
+    def register(payload: Credentials, response: Response, request: Request) -> SessionInfo:
+        store = store_of(request)
+        user, token = store.register(payload.email, payload.password, payload.display_name)
+        _set_session(response, token, settings.session_ttl_days)
+        return SessionInfo(
+            authenticated=True,
+            user=user,
+            llm=store.get_llm_settings(user.id),
+            env_llm=bool(settings.llm_api_key.strip()),
+        )
+
+    @app.post("/api/auth/login", response_model=SessionInfo)
+    def login(payload: Credentials, response: Response, request: Request) -> SessionInfo:
+        store = store_of(request)
+        user, token = store.login(payload.email, payload.password)
+        _set_session(response, token, settings.session_ttl_days)
+        return SessionInfo(
+            authenticated=True,
+            user=user,
+            llm=store.get_llm_settings(user.id),
+            env_llm=bool(settings.llm_api_key.strip()),
+        )
+
+    @app.post("/api/auth/logout", status_code=204)
+    def logout(response: Response, request: Request) -> Response:
+        store_of(request).revoke_session(request.cookies.get(SESSION_COOKIE))
+        response.delete_cookie(SESSION_COOKIE, path="/")
+        response.status_code = 204
+        return response
+
+    @app.get("/api/auth/me", response_model=SessionInfo)
+    def me(request: Request) -> SessionInfo:
+        user = current_user(request)
+        store = store_of(request)
+        return SessionInfo(
+            authenticated=user is not None,
+            user=user,
+            llm=store.get_llm_settings(user.id) if user is not None else None,
+            env_llm=bool(settings.llm_api_key.strip()),
+        )
+
+    @app.get("/api/reviews", response_model=ReviewHistory)
+    def list_reviews(request: Request, limit: int = 20) -> ReviewHistory:
+        user = require_user(request)
+        items = store_of(request).list_reviews(user.id, limit=limit)
+        return ReviewHistory(reviews=items, total=len(items))
+
+    # ---------- Skill ----------
+
+    @app.get("/api/skills", response_model=SkillList)
+    def list_skills(request: Request) -> SkillList:
+        user = current_user(request)
+        skills = store_of(request).list_skills(user.id if user is not None else None)
+        return SkillList(
+            skills=skills,
+            builtin_count=sum(1 for skill in skills if skill.builtin),
+        )
+
+    @app.post("/api/skills", response_model=Skill, status_code=201)
+    def create_skill(payload: SkillCreate, request: Request) -> Skill:
+        user = require_user(request)
+        return store_of(request).create_skill(
+            user.id,
+            name=payload.name,
+            description=payload.description,
+            instruction=payload.instruction,
+        )
+
+    @app.delete("/api/skills/{skill_id}", status_code=204)
+    def delete_skill(
+        request: Request,
+        skill_id: str = ApiPath(pattern=SKILL_ID_PATTERN),
+    ) -> Response:
+        user = require_user(request)
+        store_of(request).delete_skill(user.id, skill_id)
+        return Response(status_code=204)
+
+    # ---------- 模型配置（BYOK） ----------
+
+    @app.get("/api/llm/providers")
+    def llm_providers() -> dict:
+        """厂商目录：只给默认地址与模型名，不含任何 Key。"""
+        return {"providers": provider_payload()}
+
+    @app.get("/api/llm", response_model=LLMSettings | None)
+    def get_llm_settings(request: Request) -> LLMSettings | None:
+        user = require_user(request)
+        return store_of(request).get_llm_settings(user.id)
+
+    @app.put("/api/llm", response_model=LLMSettings)
+    def save_llm_settings(payload: LLMUpdate, request: Request) -> LLMSettings:
+        user = require_user(request)
+        settings_out = store_of(request).save_llm_settings(
+            user.id,
+            provider=payload.provider,
+            base_url=payload.base_url,
+            model=payload.model,
+            api_key=payload.api_key,
+        )
+        # 换了 Key/地址后旧客户端不能复用
+        llm_service.clear_llm_cache()
+        return settings_out
+
+    @app.delete("/api/llm", status_code=204)
+    def clear_llm_settings(request: Request) -> Response:
+        user = require_user(request)
+        store_of(request).clear_llm_settings(user.id)
+        return Response(status_code=204)
+
+    @app.post("/api/llm/test", response_model=LLMProbeResult)
+    def test_llm_settings(payload: LLMUpdate, request: Request) -> LLMProbeResult:
+        """用表单里填的值做一次真实连通性探测（不保存、不落盘）。"""
+        user = require_user(request)
+        catalog = resolve_provider(payload.provider)
+        if catalog is None:
+            raise HTTPException(status_code=400, detail="未知的模型厂商")
+
+        key = payload.api_key.strip()
+        runtime: LLMRuntime | None
+        if not key:
+            saved = store_of(request).get_llm_settings(user.id)
+            if saved is None:
+                raise HTTPException(status_code=400, detail="请先填写 API Key 再测试")
+            runtime = store_of(request).resolve_llm_runtime(user.id)
+            if runtime is None:  # pragma: no cover - saved 存在时 runtime 必存在
+                raise HTTPException(status_code=400, detail="保存的配置不完整，请重新填写")
+        else:
+            address = payload.base_url.strip() or catalog.base_url
+            if not address.startswith(("http://", "https://")):
+                raise HTTPException(status_code=400, detail="服务地址必须以 http(s):// 开头")
+            runtime = LLMRuntime(
+                provider=catalog.id,
+                base_url=address,
+                model=payload.model,
+                api_key=key,
+                timeout_seconds=settings.llm_timeout_seconds,
+            )
+        try:
+            result = probe_llm(runtime)
+        except LLMNotConfigured as exc:  # pragma: no cover - runtime 已给全字段
+            return LLMProbeResult(
+                ok=False, provider=runtime.provider, model=runtime.model, detail=str(exc)
+            )
+        except Exception as exc:  # noqa: BLE001 - 探测失败要让用户看到原因
+            return LLMProbeResult(
+                ok=False,
+                provider=runtime.provider,
+                model=runtime.model,
+                detail=f"{type(exc).__name__}: {exc}"[:400],
+            )
+        return LLMProbeResult(
+            ok=bool(result.ok),
+            provider=runtime.provider,
+            model=runtime.model,
+            detail="接口可用" if result.ok else "接口返回了非预期结果",
+        )
 
     @app.get("/api/rules", response_model=RuleCatalog)
     def list_rules() -> RuleCatalog:
@@ -240,6 +593,11 @@ def create_app(
     def create_review(
         request: Request,
         file: Annotated[UploadFile, File(description="合同文件（txt/md/pdf/docx）")],
+        focus: Annotated[str, Form(description="审查重点（用户指令）")] = "",
+        skill_id: Annotated[str, Form(description="选用的 Skill id（可空）")] = "",
+        reference: Annotated[
+            UploadFile | None, File(description="参考材料（txt/md，可选）")
+        ] = None,
     ) -> ReviewSummary:
         filename = _safe_filename(file.filename)
         if not filename:
@@ -256,6 +614,28 @@ def create_app(
                 detail=f"不支持的文件类型 {suffix or '(无扩展名)'}；"
                 "支持 .txt/.md/.pdf/.docx",
             )
+
+        user = current_user(request)
+        store = store_of(request)
+        skill = store.resolve_skill(user.id if user is not None else None, skill_id or None)
+
+        reference_name: str | None = None
+        reference_text = ""
+        if reference is not None and reference.filename:
+            reference_name = _safe_filename(reference.filename)
+            if Path(reference_name).suffix.casefold() not in REFERENCE_SUFFIXES:
+                raise HTTPException(
+                    status_code=400,
+                    detail="参考材料只支持 .txt/.md；图片或扫描件请直接放进合同正文",
+                )
+            raw_reference = reference.file.read(MAX_REFERENCE_BYTES + 1)
+            reference.file.close()
+            if len(raw_reference) > MAX_REFERENCE_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"参考材料超过 {MAX_REFERENCE_BYTES // 1024} KB 上限",
+                )
+            reference_text = raw_reference.decode("utf-8", errors="replace")
 
         review_id = uuid.uuid4().hex
         target_dir = upload_root / review_id
@@ -286,7 +666,21 @@ def create_app(
         finally:
             file.file.close()
 
-        run = _service_of(request).start(target, review_id=review_id)
+        composed = compose_focus(
+            user_focus=focus,
+            skill=skill,
+            reference_name=reference_name,
+            reference_text=reference_text,
+        )
+        run = _service_of(request).start(
+            target,
+            review_id=review_id,
+            focus=composed,
+            skill_id=skill.id if skill is not None else None,
+            skill_name=skill.name if skill is not None else None,
+            llm_runtime=llm_runtime_for(request),
+        )
+        record(request, run, user)
         return _summary_of(run)
 
     @app.get("/api/reviews/{review_id}", response_model=ReviewSummary)
@@ -294,7 +688,10 @@ def create_app(
         request: Request,
         review_id: str = ApiPath(pattern=REVIEW_ID_PATTERN),
     ) -> ReviewSummary:
-        return _summary_of(_service_of(request).get(review_id))
+        user = authorize(request, review_id)
+        run = _service_of(request).get(review_id)
+        record(request, run, user)
+        return _summary_of(run)
 
     @app.post("/api/reviews/{review_id}/decisions", response_model=ReviewSummary)
     def submit_decision(
@@ -302,7 +699,10 @@ def create_app(
         decision: HitlDecision,
         review_id: str = ApiPath(pattern=REVIEW_ID_PATTERN),
     ) -> ReviewSummary:
-        return _summary_of(_service_of(request).resume(review_id, decision))
+        user = authorize(request, review_id)
+        run = _service_of(request).resume(review_id, decision)
+        record(request, run, user)
+        return _summary_of(run)
 
     @app.get("/api/reviews/{review_id}/report")
     def get_report(
@@ -310,6 +710,7 @@ def create_app(
         review_id: str = ApiPath(pattern=REVIEW_ID_PATTERN),
         format: Literal["json", "markdown"] = "json",
     ) -> Response:
+        authorize(request, review_id)
         run = _service_of(request).get(review_id)
         report = run.report
         if report is None:
