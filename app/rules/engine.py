@@ -62,8 +62,8 @@ class RuleSet(BaseModel):
     rules: list[RuleDefinition] = Field(min_length=1)
 
 
-def load_rules(path: Path | str = DEFAULT_RULES_PATH) -> list[RuleDefinition]:
-    """加载并校验规则文件；任何问题都抛异常（启动期失败，不静默降级）。"""
+def load_rule_set(path: Path | str = DEFAULT_RULES_PATH) -> RuleSet:
+    """加载并校验规则文件（含集合级 `version`）；任何问题都抛异常（不静默降级）。"""
     rules_path = Path(path)
     if not rules_path.is_file():
         raise FileNotFoundError(f"规则文件不存在：{rules_path}")
@@ -74,7 +74,12 @@ def load_rules(path: Path | str = DEFAULT_RULES_PATH) -> list[RuleDefinition]:
         if rule.rule_id in seen:
             raise ValueError(f"规则 rule_id 重复：{rule.rule_id}")
         seen.add(rule.rule_id)
-    return rule_set.rules
+    return rule_set
+
+
+def load_rules(path: Path | str = DEFAULT_RULES_PATH) -> list[RuleDefinition]:
+    """只取规则列表（调用方不关心集合版本时使用）。"""
+    return load_rule_set(path).rules
 
 
 def _evidence_from_spans(

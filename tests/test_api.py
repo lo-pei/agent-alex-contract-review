@@ -181,3 +181,35 @@ def test_decision_requires_reviewer(client: TestClient) -> None:
         json={"action": "approve", "reviewer": ""},
     )
     assert response.status_code == 422
+
+
+def test_rule_catalog_matches_definitions(client: TestClient) -> None:
+    """前端规则集页的数据源：只暴露目录信息，不暴露正则/DSL 判定细节。"""
+    response = client.get("/api/rules")
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["ruleset_version"] == 5
+    assert body["count"] == 13
+    assert body["red_count"] == 5
+    assert body["yellow_count"] == 8
+    assert body["rule_engine_version"]
+    assert {rule["rule_id"] for rule in body["rules"]} == {
+        "R-TRD-001",
+        "R-PAY-001",
+        "R-PAY-002",
+        "R-DLV-001",
+        "R-INP-001",
+        "R-DIS-001",
+        "R-DIS-002",
+        "R-DIS-003",
+        "R-DIS-004",
+        "R-INS-001",
+        "R-INC-001",
+        "R-INC-002",
+        "R-INP-002",
+    }
+    for rule in body["rules"]:
+        assert rule["risk_level"] in {"red", "yellow"}
+        assert rule["title"] and rule["reason"] and rule["suggestion"]
+        assert "condition" not in rule and "source" not in rule

@@ -1,7 +1,7 @@
-# 开发交接文档（Handover）
+﻿# 开发交接文档（Handover）
 
-> 更新时间：2026-10-27（界面轮：原生 Web 前端；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
-> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI）；界面轮完成（原生 Web 前端 `app/web/` 由 FastAPI 托管，Streamlit 降为备用）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）；241 个测试通过**；检索评测与人工复核 gold 尚未完成
+> 更新时间：2026-10-27（界面轮 2：B 端审查工作台重设计；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
+> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI）；界面轮 2 完成（B 端审查工作台 `app/web/` 由 FastAPI 托管：侧栏 + 面包屑 + 四个 hash 路由视图 + 本地字体 + 只读 `GET /api/rules`，Streamlit 降为备用）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）；243 个测试通过**；检索评测与人工复核 gold 尚未完成
 > 交接原则：任何新接手的人只读本文件 + `00_PROJECT_STATE.md` + `02_ARCHITECTURE_DECISIONS/README.md`，就能继续开发。
 
 ---
@@ -15,9 +15,9 @@
 - Python 规则引擎唯一决定 `red / yellow / pass`；
 - 红色风险触发 LangGraph `interrupt()`，人工确认后才出最终报告；
 - 报告每条风险都有 `rule_id + reason + 原文引用 + 文件:页码:字符偏移`；
-- 交付：原生 Web 前端（FastAPI 托管）+ 命令行 + FastAPI 接口；Streamlit 备用。
+- 交付：B 端审查工作台（FastAPI 托管）+ 命令行 + FastAPI 接口；Streamlit 备用。
 
-硬约束来自根目录 `开发提示词.md`：技术栈 Python / LangGraph / Streamlit / FastAPI / Pydantic；规则决定等级，LLM 只抽取与解释；HITL 必须暂停/恢复；全部代码要解释清、能测试、边界明确。**2026-10-27 用户明确放开 RAG 与多智能体（ADR-007）**：允许 RAG、专家节点与 Supervisor 路由，但判级仍只由 Python 规则产生、HITL 仍必须真中断、证据仍必须可追溯；RAG/多智能体默认关闭（`RAG_ENABLED=false`、`AGENTS_ENABLED=false`）。训练模型、Docker、前端框架仍禁止——**原生 Web 前端用 HTML/CSS/JS 手写，未引入 React/Vue/npm/CDN**（ADR-009 第 2 轮补充）。
+硬约束来自根目录 `开发提示词.md`：技术栈 Python / LangGraph / Streamlit / FastAPI / Pydantic；规则决定等级，LLM 只抽取与解释；HITL 必须暂停/恢复；全部代码要解释清、能测试、边界明确。**2026-10-27 用户明确放开 RAG 与多智能体（ADR-007）**：允许 RAG、专家节点与 Supervisor 路由，但判级仍只由 Python 规则产生、HITL 仍必须真中断、证据仍必须可追溯；RAG/多智能体默认关闭（`RAG_ENABLED=false`、`AGENTS_ENABLED=false`）。训练模型、Docker、前端框架仍禁止——**B 端审查工作台用 HTML/CSS/JS 手写，未引入 React/Vue/npm/CDN，字体随包离线**（ADR-009 第 3 轮补充）。
 
 ---
 
@@ -32,8 +32,8 @@
 | HITL（第 4 步） | ✅ 条件边 + `interrupt()` + checkpointer | `app/nodes/hitl.py`、`app/review_service.py`、`app/services/checkpointer.py` |
 | 解释 / RAG（第 5 步） | ✅ 质量门 + BM25 + 真实语料 | `app/nodes/explain.py`、`app/services/rag.py`、`data/knowledge/` |
 | API / UI（第 6 步） | ✅ FastAPI + pending 落盘 + Streamlit 备用 | `app/api.py`、`app/ui.py`、`app/report_markdown.py`、`app/services/pending_store.py` |
-| 原生 Web 前端（界面轮） | ✅ 单页四步 + FastAPI 托管 | `app/web/index.html`、`app/web/styles.css`、`app/web/app.js`；`GET /`、`GET /static/*`；`tests/test_web.py` |
-| 测试 | ✅ 241 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
+| B 端审查工作台（界面轮 2） | ✅ 四视图 + 本地字体 + 只读规则目录 | `app/web/index.html`、`app/web/styles.css`、`app/web/app.js`、`app/web/fonts/`；`GET /`、`GET /static/*`、`GET /api/rules`；`tests/test_web.py`（6 项）、`tests/test_api.py::test_rule_catalog_matches_definitions` |
+| 测试 | ✅ 243 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
 | 规则集 | ✅ 13 条 | `app/rules/definitions.yaml`（`version: 5`，三类措辞 + 保额邻近判定）；6 条新规则各有语料命中集合回归（ADR-010） |
 | 评测集 / 指标 | ⏳ 主集完成、四批留出完成、待复核 | `data/eval/gold_rules.json`（21 现象，silver）+ `gold_holdout{,2,3,4}.json`（7/9/7/9 现象）+ `eval/results/rules-*.json`；**silver gold 未经人工复核**，检索评测未做 |
 | Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`、`e41d235`、`c7f24a9`、`6eaff8c`、`5dc05bd`、`c540259`，以及后续每步提交 |
@@ -52,7 +52,7 @@
 | 006 环境 | Python 3.12 + LangGraph 1.2.17 等最新稳定依赖；OpenAI 兼容接口；无 Docker/Redis/Postgres | **已接受** |
 | 007 范围变更 | 允许 RAG/多智能体/Supervisor（仅路由）；判级/HITL/证据边界不变；默认开关关闭 | **已接受**（2026-10-27；RAG 已实现，多智能体仍未实现） |
 | 008 RAG/质量门 | 本地 BM25 + 中文二元组；`source_id#section` 白名单；Python 质量门拦截越权；无命中/配置错误降级 | **已接受**（第 5 步已实现） |
-| 009 API/UI | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘；上传校验；Markdown 纯渲染；**第 2 轮补充：原生 Web 前端（`app/web/`，无框架/无 CDN/无构建，FastAPI 托管 `/` + `/static`），Streamlit 降为备用** | **已接受**（第 6 步已实现；第 2 轮补充已实现） |
+| 009 API/UI | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘；上传校验；Markdown 纯渲染；**第 2 轮补充：原生 Web 前端；第 3 轮补充：B 端工作台（framed-sheet + hash 路由四视图 + 本地 IBM Plex 字体 + 只读 `GET /api/rules`，`API_VERSION` 0.8.0）**，Streamlit 降为备用 | **已接受**（第 6 步已实现；第 2、3 轮补充均已实现） |
 | 010 规则扩充/评测 | 规则 7 → 13 条；新规则准入四关；模拟合同拆入 `data/contracts/`；评测只报触发情况 | **已接受**（2026-10-27 第 1 轮已实现） |
 | 011 评测方法 | gold 三层（检索期望 / silver 规则 gold / 留出 gold）；三组指标；留出集发现漏报也不回改规则；**留出集一旦被用于定位缺陷即视为“已消耗”，只能作回归守卫**；报数纪律；第 4 轮补“保额邻近判定”与“测试钉住已知漏报” | **已接受**（2026-10-27 第 2–4 轮已实现） |
 
@@ -246,7 +246,7 @@ Agent_Alex外贸合同智审助手/
 | 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
 | 恢复人工决定 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision approve --reviewer zhangsan` | ✅ 可用（SQLite 跨进程） |
 | 超时语义 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision timeout` | ✅ 可用 → `unreviewed_red_risk` |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 241 个通过 |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 243 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行（统一入口） | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` | ✅ 可用（`/docs` 可试；默认 SQLite + 文件 pending） |
@@ -363,6 +363,12 @@ Agent_Alex外贸合同智审助手/
 | 79 | 前端若把后端文本直接塞进 `innerHTML`，合同里的 `<script>` 会被执行 | 所有字段先过 `esc()` 再拼模板；新增渲染点必须复用同一个转义函数（`tests/test_web.py` 会检查外链与判级，但 XSS 靠代码评审） |
 | 80 | 浏览器里“顺手”算等级或拼 `Command(resume=...)` 会绕过 HITL/判级边界 | 等级只来自 `ReviewSummary`；审批只 POST `/api/reviews/{id}/decisions`；测试用正则钉住不得给 `risk_level` / `overall_level` 赋值 |
 | 81 | Streamlit 提示“已运行”但浏览器打不开（8501 未监听/端口被占/`--server.address` 不对） | 显式 `--server.port 8501 --server.address 127.0.0.1 --server.headless true`，再用 `GET /_stcore/health` 验证；主界面已改为 FastAPI `/`（8000），Streamlit 仅备用 |
+| 82 | 工作台需要“规则集”页，但正则 / `condition` / DSL 绝不能下发浏览器 | 只读 `GET /api/rules` 返回 `RuleSummary` 白名单（`rule_id/title/category/risk_level/reason/suggestion/requires_extraction` + 集合版本），Pydantic `extra="forbid"`；新增展示字段要同步改模型与前端，禁止把 YAML 直接序列化给前端 |
+| 83 | Windows 下 `mimetypes` 可能没有 `.woff2` 映射，字体被当 `application/octet-stream` 送出去 | `app/api.py` 启动时 `mimetypes.add_type("font/woff2", ".woff2")`；`tests/test_web.py::test_local_fonts_are_served` 断言 `content-type` 以 `font/` 开头 + `OFL.txt` 可读 |
+| 84 | Google Fonts 的“静态字重” latin 子集可能返回同一个可变字体文件（三份 SHA256 相同） | 先用哈希比对再落盘；本项目只保留 `ibm-plex-sans-var.woff2`（`font-weight: 100 700`）+ Mono 400/500，避免仓库里堆三份同样的二进制 |
+| 85 | `@font-face` 少了 `font-display` / 权重范围写错，会让离线环境回落到系统字体且“看不出错” | 可变字体显式写 `font-weight: 100 700`；`font-display: swap`；`tests/test_web.py` 断言 CSS 里存在 `/static/fonts/` 与 `@font-face`，防止有人误改回 CDN |
+| 86 | 窄屏抽屉只用 `transform: translateX(-102%)` 收起时，链接仍在可访问树里，键盘能 Tab 到屏幕外 | 收起态同时 `visibility: hidden`，`[data-open="true"]` 再 `visible`；这个真实缺陷是被 taste-skill 的 `ragged-row` 告警“顺带”暴露出来的（它把屏幕外侧栏当成了同排卡片） |
+| 87 | 规则目录表在 390px 五列并排会挤成一字一换行 | `@media (max-width: 900px)` 把 `.rules-table` 改成堆叠条目（`display: block` + 首行三元信息 + “处理建议”小标题），不做横向滚动；“窄屏堆叠 + 宽屏表格”要用同一个 DOM，别复制两份 |
 
 ---
 
@@ -403,7 +409,8 @@ Agent_Alex外贸合同智审助手/
    - **第四阶段第 2 轮（已完成，2026-10-27）**：`data/eval/gold_rules.json`（21 现象，silver）+ `data/contracts_holdout/H01–H08` + `data/eval/gold_holdout.json`；`eval/metrics.py` 三组指标；`run_eval.py` 支持 `--tag`；**留出集 P=1.00 / R=0.714 / F1=0.833，暴露 2 个漏报**；220 个测试通过（ADR-011）。
    - **第四阶段第 3 轮（已完成，2026-10-27）**：规则 `version: 4` 补英文/同义改写（`R-DIS-003/004`、`R-INC-001`、`R-INS-001`、`R-INP-002`），并修掉“子串误命中（Pacific→CIF）”与“运费窗口截断”两处缺陷；新写 `holdout2`（H09–H20，12 份）与 `holdout3`（H21–H28，8 份）；**holdout3 盲测 P=1.00 / R=0.571 / F1=0.727**，暴露 3 个措辞漏报；228 个测试通过。
    - **第四阶段第 4 轮（已完成，2026-10-27）**：规则 `version: 5` 修三类措辞（“亦可”类并列、“卖方负责支付…运费”、英文数词 `thirty-six (36) hours`）+ `R-INS-001` 保额从全文级收窄为**保险语境邻近**；新写 `holdout4`（H29–H40，12 份）；**holdout4 盲测 P=1.00 / R=0.889 / F1=0.941**，仅剩 H39 漏报（modal 与动词间插时间状语，**故意不修**，测试已钉住）；holdout3 回归 7/0/0；236 个测试通过。
-   - **界面轮（已完成，2026-10-27）**：`app/web/`（`index.html` + `styles.css` + `app.js`）原生单页，FastAPI 托管 `GET /` 与 `/static`；四步（上传 → 审查 → 人工确认 → 报告）；无框架/无 CDN/无构建；`tests/test_web.py` 5 项；Streamlit 降为备用；241 个测试通过。
+   - **界面轮 1（已完成，2026-10-27）**：`app/web/`（`index.html` + `styles.css` + `app.js`）原生单页，FastAPI 托管 `GET /` 与 `/static`；四步（上传 → 审查 → 人工确认 → 报告）；无框架/无 CDN/无构建；241 个测试通过。
+   - **界面轮 2（已完成，2026-10-27）**：按外部方法论 `Leonxlnx/taste-skill`（`references/app-screens.md`）重做成 **B 端审查工作台**——`aside.sidebar`（工作台 / 当前审查 / 复核报告 / 规则集 + 运行环境块）+ `header.topbar`（面包屑 + 服务在线）+ `main.sheet`（framed-sheet 画布）；hash 路由四视图；本地 IBM Plex 字体（`app/web/fonts/`，含 `OFL.txt`，零 CDN）；新增只读 `GET /api/rules`（`API_VERSION` 0.7.0 → 0.8.0，`RuleSummary/RuleCatalog` 白名单投影，不返回正则/DSL）；`tests/test_web.py` 6 项 + `tests/test_api.py::test_rule_catalog_matches_definitions`；真实浏览器 1440/768/390 四页 **0 FAIL / 0 WARN**；243 个测试通过。
    - **下一步（第四阶段）**：
      - 修 H39（`R-DIS-004` modal 与动词之间放宽为 `[^.]{0,80}?`），**另写 holdout5（8–12 份）再报数**（ISSUE-021）；
      - 人工复核 21 个 silver 现象 + 32 个留出现象，silver 升 gold（ISSUE-020）；

@@ -1,7 +1,7 @@
-# 架构决策记录（ADR）索引
+﻿# 架构决策记录（ADR）索引
 
-> 更新时间：2026-10-27（第四阶段第 4 轮 + 原生 Web 前端：规则 version 5、holdout4 盲测、ADR-009 第 2 轮补充）
-> 阶段：**第三阶段代码实现已打通 CLI + FastAPI + 原生 Web 前端（Streamlit 备用）；第四阶段进行中（规则 13 条 + 三组评测指标 + 四批留出集）**
+> 更新时间：2026-10-27（第四阶段第 4 轮 + B 端审查工作台：规则 version 5、holdout4 盲测、ADR-009 第 3 轮补充）
+> 阶段：**第三阶段代码实现已打通 CLI + FastAPI + B 端审查工作台（Streamlit 备用）；第四阶段进行中（规则 13 条 + 三组评测指标 + 四批留出集）**
 > 说明：ADR-001 ~ ADR-011 全部为“已接受”。后续如需变更，写新 ADR 并在原 ADR 标注“已替代”，不直接改写历史结论。
 
 ## 为什么需要 ADR
@@ -25,7 +25,7 @@
 | ADR-006 | 运行环境与依赖策略 | **已接受** | Python 3.12；LangGraph 1.2.17 等最新稳定依赖；OpenAI 兼容接口；无 Docker/Redis/Postgres | [ADR-006-运行环境与依赖策略.md](./ADR-006-运行环境与依赖策略.md) |
 | ADR-007 | 范围变更：RAG 与多智能体 | **已接受** | 允许 RAG/多智能体/Supervisor（仅路由）；判级、HITL、证据边界不变；默认开关关闭 | [ADR-007-范围变更-RAG与多智能体.md](./ADR-007-范围变更-RAG与多智能体.md) |
 | ADR-008 | RAG MVP 与解释质量门 | **已接受（已实现）** | 本地 BM25 + 中文二元组；`source_id#section` 引用白名单；Python 质量门拦截越权表述；无命中/配置错误降级为规则解释 | [ADR-008-RAG检索与解释质量门.md](./ADR-008-RAG检索与解释质量门.md) |
-| ADR-009 | API/UI 接入与 pending 持久化 | **已接受（已实现；第 2 轮补充：原生 Web 前端）** | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘 `.data/pending/`；上传后缀/大小/文件名校验；报告 Markdown 纯渲染；**第 2 轮**：`app/web/` 原生 HTML/CSS/JS 单页由 FastAPI 托管（无框架、无 CDN、无构建），Streamlit 保留为备用 | [ADR-009-API与UI接入及待审批状态持久化.md](./ADR-009-API与UI接入及待审批状态持久化.md) |
+| ADR-009 | API/UI 接入与 pending 持久化 | **已接受（已实现；第 2 轮补充：原生 Web 前端；第 3 轮补充：B 端工作台）** | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘 `.data/pending/`；上传后缀/大小/文件名校验；报告 Markdown 纯渲染；**第 2 轮**：`app/web/` 原生 HTML/CSS/JS 由 FastAPI 托管（无框架、无 CDN、无构建）；**第 3 轮**：按 taste-skill `app-screens` 规则重做成 B 端工作台（侧栏 + 面包屑 + sheet + 四个 hash 路由视图 + 本地 IBM Plex 字体），新增只读 `GET /api/rules`（白名单投影，不返回正则/DSL，`API_VERSION` 0.8.0），Streamlit 保留为备用 | [ADR-009-API与UI接入及待审批状态持久化.md](./ADR-009-API与UI接入及待审批状态持久化.md) |
 | ADR-010 | 规则扩充与合同级评测基线 | **已接受（已实现）** | 规则 7 → 13 条（新增 6 条确定性文本规则）；新规则准入四关（DSL 可判定 / 正反 fixture / 语料命中集合可复现 / 样例零误报）；模拟合同拆入 `data/contracts/`，评测结果落 `eval/results/` | [ADR-010-规则扩充与合同级评测基线.md](./ADR-010-规则扩充与合同级评测基线.md) |
 | ADR-011 | 评测方法、silver gold 与留出验证口径 | **已接受（已实现）** | gold 分三层（检索期望 / silver 规则 gold / 留出 gold）；三组指标（rule_level / contract_level / coverage）；留出集未参与规则设计，**发现漏报也不回改规则**；**留出集一旦用于定位缺陷即“已消耗”，只能作回归守卫，对外报数须换新样本**；报数纪律（样本+版本+命令+日期） | [ADR-011-评测方法silver-gold与留出验证.md](./ADR-011-评测方法silver-gold与留出验证.md) |
 
@@ -43,7 +43,7 @@ ingest → segment → extract(LLM) → validate → rules(Python)
 - 证据可定位到 `文件:页码:字符偏移`；知识引用可定位到 `source_id#section`（已实现，BM25）；
 - LLM/解析/规则失败都有降级路径，不崩溃、不静默通过；
 - RAG 与多智能体默认关闭，只做解释/建议增强，不参与判级（ADR-007/008）；
-- 交付形态：CLI（`app/graph_demo.py`）+ FastAPI（`app/api.py`）+ 原生 Web 前端（`app/web/`）+ Streamlit 备用（`app/ui.py`），全部只依赖 `ReviewService`（ADR-009）。
+- 交付形态：CLI（`app/graph_demo.py`）+ FastAPI（`app/api.py`）+ B 端审查工作台（`app/web/`）+ Streamlit 备用（`app/ui.py`），全部只依赖 `ReviewService`（ADR-009）。
 
 ## 建议的 ADR 模板
 

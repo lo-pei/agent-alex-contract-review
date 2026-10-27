@@ -158,3 +158,62 @@
 - 后端托管：`app/api.py`（`WEB_DIR` / `INDEX_FILE` / `/` / `/static`）
 - 测试：`tests/test_web.py`（5 项）
 - 验证：`pytest` 241 passed；`ruff check .` 通过；`node --check app/web/app.js` 通过；HTTP 冒烟 `POST /api/reviews → 201（3 条红色）→ decisions 200 → markdown 200（3482 B）`
+
+---
+
+## 第 3 轮补充（2026-10-27）：B 端审查工作台重设计（taste-skill / framed-sheet / 本地字体 / `GET /api/rules`）
+
+### 背景
+
+第 2 轮的原生前端能用，但形态是“单页 + 分步向导”：没有导航、没有面包屑、没有运行环境信息，规则与判级口径只出现在文案里。用户明确要求按外部设计方法论 `github.com/Leonxlnx/taste-skill` 重做，并改成 **B 端（企业后台/工作台）** 形态。
+
+约束不变：**禁止前端框架、禁止 npm 构建、禁止 CDN**；浏览器不判级、不拼 `Command`。
+
+### 选项
+
+| 方案 | 结论 | 原因 |
+|---|---|---|
+| A. 引 Tailwind / 组件库 + 构建链 | 否 | 违反无框架/无 npm/无 CDN；离线演示会失效 |
+| B. 沿用单页向导，只换配色 | 否 | 没有信息架构，仍是“C 端问卷”，不是 B 端工作台 |
+| C. 手写 framed-sheet 工作台（左导航 + topbar + sheet 画布 + hash 路由 + 只读规则目录接口）（采用） | 是 | 零依赖前提下得到后台形态：多视图、稳定导航、可审计的运行环境信息 |
+
+### 决策
+
+1. **信息架构**（`app/web/index.html`）：`aside.sidebar`（品牌块 + 四个 `nav-item`：工作台 / 当前审查 / 复核报告 / 规则集；底部“运行环境”四行 = 接口版本、规则集版本与条数、checkpoint 后端、RAG 开关 + `/docs` 外链）+ `header.topbar`（抽屉按钮、面包屑、服务在线 pill）+ `main.sheet` 画布 + `#scrim` + `#toast`；窄屏（≤900px）侧栏收为抽屉。
+2. **路由**：hash 路由 `#/workbench`、`#/review/{id}`、`#/report/{id}`、`#/rules`；`review` 与 `rules` 带数字徽章；刷新后仍从 `localStorage` 的 `review_id` 恢复。
+3. **视觉系统**（`styles.css`，framed-sheet）：石色工作区 `#f3f3f1` + 白色 sheet（16px 圆角、1px border）、228px 侧栏、48px topbar、24px 间距；border 只作“耳语”（浅一档），不用玻璃拟态与重阴影；标题 18–32px、正文 13–14px、数字 `tabular-nums`；四种视图共用一套 panel / kpi / table / ledger / notice / empty 组件。
+4. **字体随包离线**：IBM Plex Sans 可变字体（`font-weight: 100 700`）+ IBM Plex Mono 400/500，放 `app/web/fonts/`，附 `OFL.txt`；`@font-face` 本地引用，**不请求 fonts.googleapis.com**；`app/api.py` 增加 `mimetypes.add_type("font/woff2", ".woff2")`，避免 Windows registry 缺 woff2 时返回 `application/octet-stream`。
+5. **新增只读契约 `GET /api/rules`**（`API_VERSION` 0.7.0 → **0.8.0**）：
+   - 响应 `RuleCatalog{ruleset_version, rule_engine_version, count, red_count, yellow_count, rules[]}`；
+   - 每条 `RuleSummary{rule_id, title, category, risk_level, reason, suggestion, requires_extraction}`，`extra="forbid"`；
+   - **不返回 `condition` / 正则 / DSL**，浏览器拿不到判级实现；`risk_level` 只是规则定义里的静态等级，不是运行时判定；
+   - `app/rules/engine.py` 拆出 `load_rule_set()`（返回含集合级 `version` 的 `RuleSet`），`load_rules()` 退化为只取列表，行为不变。
+6. **视图职责**：
+   - 工作台：标题 + 边界 notice + 上传面板（拖拽/点选、类型/大小/空文件校验、5 步流水线说明）+ 右栏“本次会话 / 规则集预览 / 判级口径”；
+   - 当前审查：等待人工确认时展示审批载荷（红色风险逐条 + 引文 + 解释来源）、复核要点三步、决策表单（三选一 + 复核人 + 意见 + 标记超时）；
+   - 复核报告：结论块 + 4 个 KPI + 风险清单 + 抽取要素 + “复核记录与版本/已知限制”；
+   - 规则集：KPI + 规则目录表（编号 / 等级 / 主题 / 检查项与理由 / 处理建议）+ 评测口径 + 已知边界。
+7. **可访问性与打印**：跳转链接、`aria-expanded` / `aria-current`、抽屉收起时 `visibility: hidden`（不在可访问树里，也不能被 Tab 到）、`prefers-reduced-motion`、打印时隐藏侧栏/topbar 并展开所有 `details`。
+
+### 后果
+
+**正面**
+
+- 从“分步问卷”变成可常驻的工作台：导航、面包屑、运行环境、规则目录都在同一壳层里，符合 B 端审查产品的使用方式；
+- 规则口径第一次对用户可见（只读接口 + 规则页），但仍不泄露判级实现，也不让前端参与判级；
+- 字体本地化后，断网、内网、答辩现场都不会掉回系统默认字体；
+- 视觉与排版经真实浏览器测量（1440/768/390）逐条修正，四页均 0 FAIL / 0 WARN。
+
+**代价 / 风险**
+
+- 手写路由与视图渲染，`app.js` 从约 28 KB 增至约 60 KB，复杂度上升；新增视图必须复用既有组件类，否则样式会漂；
+- `RuleSummary` 是规则定义的白名单投影：新增规则字段若要展示，必须同步改 Pydantic 模型与前端，**不能直接把 YAML 丢给浏览器**；
+- 本地字体给仓库增加约 200 KB 二进制（含 OFL 许可证），随包分发的合规性依赖保留 `OFL.txt`；
+- 设计测量工具（taste-skill `inspect.mjs`）在 768 会误把“屏幕外抽屉里的块”当成同排卡片；本轮以 CDP 实测 `scrollWidth == clientWidth` + 截图复核为准，并用 `visibility` 修正真实的可访问性问题后告警消失。
+
+### 证据
+
+- 前端：`app/web/index.html`、`app/web/styles.css`、`app/web/app.js`、`app/web/fonts/`（3 个 woff2 + `OFL.txt`）
+- 后端：`app/api.py`（`API_VERSION 0.8.0`、`RuleSummary` / `RuleCatalog`、`GET /api/rules`、woff2 MIME）、`app/rules/engine.py`（`load_rule_set()`）
+- 测试：`tests/test_web.py` 6 项（新增本地字体与 `font/` content-type）、`tests/test_api.py::test_rule_catalog_matches_definitions`（13 条、5 红 / 8 黄、不返回 `condition` / `source`）
+- 验证：`pytest` 243 passed；`ruff check .` 通过；`node --check app/web/app.js` 通过；真实浏览器 1440/768/390 逐页测量 0 FAIL / 0 WARN；HTTP 冒烟 `/health` v0.8.0、`/api/rules` 13 条、上传 C47 → 201 → decisions 200 → 报告可渲染

@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import mimetypes
 import shutil
 import uuid
 from contextlib import asynccontextmanager
@@ -30,6 +31,7 @@ from app.config import settings
 from app.graph import build_graph
 from app.report_markdown import render_report_markdown
 from app.review_service import ReviewRun, ReviewService, ReviewStateError
+from app.rules.engine import RULE_ENGINE_VERSION, load_rule_set
 from app.schemas import (
     ApprovalPayload,
     HitlDecision,
@@ -41,11 +43,14 @@ from app.services.checkpointer import sqlite_checkpointer
 from app.services.pending_store import FilePendingStore
 
 API_TITLE = "Agent Alex · 外贸合同智审助手"
-API_VERSION = "0.7.0"
+API_VERSION = "0.8.0"
 
 #: 原生前端资源目录（无框架、无 CDN；见 ADR-009 第 2 轮补充）
 WEB_DIR = Path(__file__).resolve().parent / "web"
 INDEX_FILE = WEB_DIR / "index.html"
+
+# 部分 Windows 环境的 mime.types 不认识 woff2；显式登记，避免静态资源被当作 octet-stream
+mimetypes.add_type("font/woff2", ".woff2")
 
 #: 与 `app/nodes/ingest.py` 保持一致；`.doc` 明确拒绝并提示转换
 UPLOAD_SUFFIXES = frozenset({".txt", ".md", ".markdown", ".pdf", ".docx"})
@@ -71,6 +76,33 @@ class ReviewSummary(BaseModel):
     errors: list[str] = []
     extraction_status: Literal["ok", "degraded", "skipped"] = "skipped"
     explanation_status: Literal["ok", "fallback", "skipped"] = "skipped"
+
+
+class RuleSummary(BaseModel):
+    """规则集目录项：只读展示用，不含正则/DSL（避免把判定细节泄露给客户端）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule_id: str
+    title: str
+    category: str
+    risk_level: Literal["red", "yellow"]
+    reason: str
+    suggestion: str
+    requires_extraction: bool
+
+
+class RuleCatalog(BaseModel):
+    """规则集目录 + 集合版本，供前端“规则集”页与工作台摘要展示。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ruleset_version: int
+    rule_engine_version: str
+    count: int
+    red_count: int
+    yellow_count: int
+    rules: list[RuleSummary]
 
 
 def _summary_of(run: ReviewRun) -> ReviewSummary:
@@ -171,6 +203,34 @@ def create_app(
             "rag_enabled": settings.rag_enabled,
             "time": datetime.now(UTC).isoformat(),
         }
+
+    @app.get("/api/rules", response_model=RuleCatalog)
+    def list_rules() -> RuleCatalog:
+        """规则集目录（只读）。等级仍只由规则引擎在服务端判定，前端只展示。"""
+        try:
+            rule_set = load_rule_set()
+        except (FileNotFoundError, ValueError) as exc:  # 启动期问题，运行期不静默
+            raise HTTPException(status_code=500, detail=f"规则集加载失败：{exc}") from exc
+        rules = [
+            RuleSummary(
+                rule_id=rule.rule_id,
+                title=rule.title,
+                category=rule.category,
+                risk_level=rule.risk_level,
+                reason=rule.reason,
+                suggestion=rule.suggestion,
+                requires_extraction=rule.requires_extraction,
+            )
+            for rule in rule_set.rules
+        ]
+        return RuleCatalog(
+            ruleset_version=rule_set.version,
+            rule_engine_version=RULE_ENGINE_VERSION,
+            count=len(rules),
+            red_count=sum(1 for rule in rules if rule.risk_level == "red"),
+            yellow_count=sum(1 for rule in rules if rule.risk_level == "yellow"),
+            rules=rules,
+        )
 
     @app.post("/api/reviews", status_code=201, response_model=ReviewSummary)
     def create_review(

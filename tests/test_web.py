@@ -47,6 +47,23 @@ def test_frontend_assets_are_served(client: TestClient) -> None:
     assert script.status_code == 200
     assert "javascript" in script.headers["content-type"]
     assert "/api/reviews" in script.text
+    assert "/api/rules" in script.text
+
+
+def test_local_fonts_are_served(client: TestClient) -> None:
+    """字体随包发布：不走 fonts.googleapis.com，断网也能保持排版。"""
+    styles = client.get("/static/styles.css").text
+    assert "/static/fonts/" in styles
+    assert "@font-face" in styles
+
+    font = client.get("/static/fonts/ibm-plex-sans-var.woff2")
+    assert font.status_code == 200
+    assert font.headers["content-type"].startswith("font/")
+    assert len(font.content) > 10_000
+
+    license_file = client.get("/static/fonts/OFL.txt")
+    assert license_file.status_code == 200
+    assert "SIL OPEN FONT LICENSE" in license_file.text.upper()
 
 
 def test_frontend_has_no_external_dependency(client: TestClient) -> None:

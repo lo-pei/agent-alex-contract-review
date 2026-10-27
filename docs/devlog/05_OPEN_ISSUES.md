@@ -33,6 +33,7 @@
 | ISSUE-019 | OPEN | P2 | 并发锁仅进程内、上传/报告文件无清理策略 | 单机演示可接受；多进程部署前需换文件锁/数据库并加保留期 |
 | ISSUE-020 | OPEN | P1 | 规则级 gold、留出合同集与模拟合同数量不符 | silver gold（21 现象）+ 四批留出集（40 份）已就位；**待人工复核**，且用户所称 60 份实为 50 份 |
 | ISSUE-021 | OPEN | P1 | 规则对英文条款与同义改写漏报 | 已修两轮（version 4 → 5）：英文/同义改写、子串误命中、窗口截断、保额全文级判定、3 类措辞写法；holdout4 仍剩 H39 一个漏报（modal 与动词间插时间状语），下轮修 + 另写 holdout5 |
+| ISSUE-022 | OPEN | P2 | B 端工作台交互无自动化测试、`RuleSummary` 需双端同步 | `tests/test_web.py` 覆盖加载/无外链/本地字体/不判级；表单、轮询、下载仍靠真实浏览器冒烟；新增规则展示字段时必须同时改 Pydantic 模型与前端，暂以测试断言钉住 |
 
 ---
 
@@ -396,6 +397,23 @@
   2. 若要做“英文合同”专项，建议另建 5–8 份**纯英文**合同（当前留出集是中英混排）；
   3. 保额邻近窗口是启发式（60/40 字符），如遇跨句/长条款写法仍可能失效，需在 holdout5 里继续覆盖。
 - **影响**：英文合同（外贸主力场景）的检出率；对外指标的可信度。
+
+---
+
+## ISSUE-022 · B 端工作台：交互无自动化测试、规则目录需双端同步
+
+- **状态**：OPEN
+- **优先级**：P2
+- **背景**：界面轮 2 把前端重做成 B 端审查工作台（侧栏 + 面包屑 + sheet + hash 路由四视图），并新增只读 `GET /api/rules` 供“规则集”页使用。
+- **问题**：
+  1. 项目禁止 npm/前端框架，因此没有 Playwright/Vitest 一类工具；`tests/test_web.py` 只能做静态断言（入口与静态资源 200、无外链、本地字体 `font/*` + OFL、不判级/不拼 `Command`、资源文件存在）；
+  2. 真正的交互（拖拽上传、1.5s 轮询、审批表单校验、409 重拉、下载 JSON/Markdown、抽屉开合）目前只靠真实浏览器（Chrome/Edge headless + CDP）手工冒烟；
+  3. `RuleSummary` 是规则定义的白名单投影：新增规则字段若要展示，必须同时改 `app/api.py` 模型与 `app/web/app.js` 渲染，否则前端拿不到；反向若直接把 YAML 下发，会泄露判级实现。
+- **默认建议**：
+  - 用零依赖的 CDP 脚本（同 `taste-skill/scripts/lib/cdp.mjs` 的做法）写一到两条**冒烟回归**：上传 C47 → 停在审批 → 提交 approve → 报告页出现总体等级与“已批准”；脚本只在本地 `pytest` 之外的 `scripts/smoke_web.mjs` 里跑，不进 CI 阻塞；
+  - `RuleSummary` 的字段变更流程写进交接文档（改模型 → 改 `test_rule_catalog_matches_definitions` → 改前端渲染 → 同步规则页截图）；
+  - 若未来确需做批量审查/趋势图，仍须遵守无框架约束（手写 SVG），不得引入图表库。
+- **证据**：`app/web/app.js`、`app/api.py`、`tests/test_web.py`、`tests/test_api.py::test_rule_catalog_matches_definitions`、ADR-009 第 3 轮补充。
 
 ---
 
