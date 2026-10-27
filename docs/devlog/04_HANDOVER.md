@@ -34,7 +34,7 @@
 | API / UI（第 6 步） | ✅ FastAPI + pending 落盘 + Streamlit 备用 | `app/api.py`、`app/ui.py`、`app/report_markdown.py`、`app/services/pending_store.py` |
 | B 端审查工作台（界面轮 2） | ✅ 四视图 + 本地字体 + 只读规则目录 | `app/web/index.html`、`app/web/styles.css`、`app/web/app.js`、`app/web/fonts/`；`GET /`、`GET /static/*`、`GET /api/rules`；`tests/test_web.py`（6 项）、`tests/test_api.py::test_rule_catalog_matches_definitions` |
 | 文档类型闸门（界面轮 3） | ✅ 先判断是不是合同，不是就停 | `app/services/document_type.py`、`app/nodes/precheck.py`、`app/graph.py`（`ingest → precheck → segment | report`）；`status=not_contract`；`tests/test_document_type.py`（11 项）、`tests/test_api.py::test_non_contract_upload_is_not_reviewed`、`tests/test_web.py::test_runtime_internals_stay_out_of_the_ui` |
-| 测试 | ✅ 257 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
+| 测试 | ✅ 259 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
 | 规则集 | ✅ 13 条 | `app/rules/definitions.yaml`（`version: 5`，三类措辞 + 保额邻近判定）；6 条新规则各有语料命中集合回归（ADR-010） |
 | 评测集 / 指标 | ⏳ 主集完成、四批留出完成、待复核 | `data/eval/gold_rules.json`（21 现象，silver）+ `gold_holdout{,2,3,4}.json`（7/9/7/9 现象）+ `eval/results/rules-*.json`；**silver gold 未经人工复核**，检索评测未做 |
 | Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`、`e41d235`、`c7f24a9`、`6eaff8c`、`5dc05bd`、`c540259`，以及后续每步提交 |
@@ -247,7 +247,7 @@ Agent_Alex外贸合同智审助手/
 | 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
 | 恢复人工决定 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision approve --reviewer zhangsan` | ✅ 可用（SQLite 跨进程） |
 | 超时语义 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision timeout` | ✅ 可用 → `unreviewed_red_risk` |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 257 个通过 |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 259 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行（统一入口） | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` | ✅ 可用（`/docs` 可试；默认 SQLite + 文件 pending） |
@@ -378,6 +378,7 @@ Agent_Alex外贸合同智审助手/
 | 93 | 内容少的页面（“不是合同”页）会让 sheet 只占半屏、浮在中间 | `.app` 用 `grid-template-rows: auto minmax(min-content, 1fr)` + `align-items: stretch`，让 `main` 撑满剩余高度；不要用 `min-height` 硬编码 |
 | 94 | PowerShell 里用 `-replace` / `Replace()` 改中文与多行 Markdown，容易产生字面 `\n` 或引号解析错误 | 改文档优先用 Edit 工具做**精确整行替换**；改完用 `Select-String` 复核目标行，避免出现 `\n   -` 这类脏字符 |
 | 95 | 动态渲染出来的 `<input type="file">` 在脚本启动时还不存在，缓存成 `dom.fileInput` 会是 `undefined`，点“选择合同”直接抛错、按钮像坏了一样 | 事件里现取：`dom.view.querySelector("#file-input")?.click()`；凡是“渲染后才存在的节点”都不要缓存进 `dom`（`test_web.py::test_header_pick_button_targets_rendered_input` 已钉住） |
+| 96 | 检索写在 `get_llm()` 成功之后，没配 Key 时直接 return——RAG 开着也永远看不到引用，用户以为知识库没生效 | `explain_risks` 必须**先加载知识库、再判断 LLM**；LLM 不可用时也检索，把 `source_id#section` 挂到规则兜底（`source="rule"`，等级与正文不变），并在摘要写明“未参与解释与判级” |
 
 ---
 
@@ -421,7 +422,7 @@ Agent_Alex外贸合同智审助手/
    - **界面轮 1（已完成，2026-10-27）**：`app/web/`（`index.html` + `styles.css` + `app.js`）原生单页，FastAPI 托管 `GET /` 与 `/static`；四步（上传 → 审查 → 人工确认 → 报告）；无框架/无 CDN/无构建；241 个测试通过。
    - **界面轮 2（已完成，2026-10-27）**：按外部方法论 `Leonxlnx/taste-skill`（`references/app-screens.md`）重做成 **B 端审查工作台**——`aside.sidebar`（工作台 / 当前审查 / 复核报告 / 规则集 + 运行环境块）+ `header.topbar`（面包屑 + 服务在线）+ `main.sheet`（framed-sheet 画布）；hash 路由四视图；本地 IBM Plex 字体（`app/web/fonts/`，含 `OFL.txt`，零 CDN）；新增只读 `GET /api/rules`（`API_VERSION` 0.7.0 → 0.8.0，`RuleSummary/RuleCatalog` 白名单投影，不返回正则/DSL）；`tests/test_web.py` 6 项 + `tests/test_api.py::test_rule_catalog_matches_definitions`；真实浏览器 1440/768/390 四页 **0 FAIL / 0 WARN**；243 个测试通过。
    - **界面轮 3（已完成，2026-10-27）**：用户上传论文被当成合同跑完整审查 → 新增**文档类型闸门**（ADR-012）：`ingest_document` 后插 `precheck_document`，`classify_document` 用“抬头 / 合同编号 / 买卖双方 / 编号条款 / 交易要素 / 签署语”打分（阈值 4），叠加论文与法规反向信号；不是合同 → `status=not_contract` → 直接 `build_report`，**不切条款、不抽取、不判级、不触发 HITL**。契约侧 `DocumentCheck{is_contract, confidence, reasons, hints}` + `ReviewSummary.document_check` + `API_VERSION` 0.9.0 + `ReviewService.FINAL_STATUSES` 纳入 `not_contract`；前端新增“不是合同”页（判定依据 / 下一步 / 重新选择文件），工作台流水线 5 → 6 步。同时按用户要求**移除侧栏“运行环境”块**（接口版本 / 规则集 / checkpoint / RAG 开关），只留 `/docs` 入口。实测：论文 PDF 判否（0.98、0 findings）；5 个语料目录 90 份合同 0 误杀；257 个测试通过。
-   - **界面轮 3 补充（已完成，2026-10-27）**：修复顶部“选择合同”按钮点了没反应（`#file-input` 是渲染时生成的，启动时缓存 `dom.fileInput` 为 `undefined`，改为 `dom.view.querySelector("#file-input")?.click()`，并加静态回归测试）；按用户要求在本机 `.env` 开启 RAG（`RAG_ENABLED=true`，知识库 1834 个片段可检索；注意 RAG 只在 LLM 可用时随解释返回，未配 Key 时解释先降级为规则理由）。
+   - **界面轮 3 补充（已完成，2026-10-27）**：修复顶部“选择合同”按钮点了没反应（`#file-input` 是渲染时生成的，启动时缓存 `dom.fileInput` 为 `undefined`，改为 `dom.view.querySelector("#file-input")?.click()`，并加静态回归测试）；按用户要求在本机 `.env` 开启 RAG（`RAG_ENABLED=true`，知识库 1834 个片段可检索），并把检索移到 LLM 判断之前——**没配 Key 也能在报告里看到“知识引用”**（解释正文仍回退规则理由、`source="rule"`、等级不变），见 ADR-008 §6。
    - **下一步（第四阶段）**：
      - 修 H39（`R-DIS-004` modal 与动词之间放宽为 `[^.]{0,80}?`），**另写 holdout5（8–12 份）再报数**（ISSUE-021）；
      - 人工复核 21 个 silver 现象 + 32 个留出现象，silver 升 gold（ISSUE-020）；
@@ -447,4 +448,4 @@ Agent_Alex外贸合同智审助手/
 
 **为什么默认关闭**（用户界面轮 3 问过）：RAG 只增强**解释**、不参与判级；知识库没就绪时开启，会让“检索不到”被误读成“没有风险”。开启方式：`.env` 里 `RAG_ENABLED=true`（本机 `.env` 已开启，`GET /health` 的 `rag_enabled` 为 true）；查当前值：`GET /health` 的 `rag_enabled`。界面轮 3 已按用户要求把该开关从侧栏移除，业务界面不再展示实现细节。
 
-> 注意：`explain_risks` 在 `LLMNotConfigured` 时**先**降级为规则理由，不会进入检索；因此没配 `LLM_API_KEY` 时，RAG 虽已开启也看不到知识引用。要验证知识引用，先填 Key（或看 `tests/test_explain.py` 的 RAG 用例）。
+> 注意：`explain_risks` **先检索、再判断 LLM**。模型不可用时解释正文仍回退规则理由（`source="rule"`），但该条风险会带上检索到的 `source_id#section`（界面显示为“知识引用”），并在摘要里写明“知识引用仅按检索结果列出，未参与解释与判级”。没配 `LLM_API_KEY` 也能看到引用，只是没有模型生成的解释文字。

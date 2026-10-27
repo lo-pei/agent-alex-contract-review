@@ -12,7 +12,7 @@
 |---|---|---|
 | 1. GitHub 调研 | ✅ | 8 个开源项目源码级分析，产出借鉴/不借鉴清单 |
 | 2. 架构设计 | ✅ | ADR-001 ~ ADR-012 全部已接受 |
-| 3. 代码实现 | ✅ 第 6 步完成 | 环境、9 节点图（含文档类型闸门）、规则引擎（13 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭，真实语料 14 篇）、FastAPI + B 端审查工作台 + Streamlit、257 个测试 |
+| 3. 代码实现 | ✅ 第 6 步完成 | 环境、9 节点图（含文档类型闸门）、规则引擎（13 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭；本机 `.env` 已开启，真实语料 14 篇：模型不可用时解释回退规则理由，但仍列出检索到的 `source_id#section`）、FastAPI + B 端审查工作台 + Streamlit、259 个测试 |
 | 4. 测试与评测 | ⏳ 第 4 轮完成 | 50 份模拟合同 + 21 个 silver gold 现象 + 四批留出集 40 份；三组指标（rule/contract/coverage）；**holdout4（唯一未消耗）P=1.00 / R=0.889 / F1=0.941，silver gold 待人工复核**；检索评测未做 |
 | 5. 文档与交付 | ⏳ 进行中 | 开发日志、ADR、交接文档、评测结果与 RAG 资料清单已建立 |
 
@@ -65,7 +65,7 @@ py -3.12 -m venv .venv
 
 # 6) 测试与静态检查
 .\.venv\Scripts\python.exe -m pytest
-# 257 passed
+# 259 passed
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
@@ -121,7 +121,7 @@ RAG_MIN_SCORE=1.0
 
 > HITL 状态：红色风险 → `running`（等待审批，`snapshot.next == ("human_review",)`）→ `approved / rejected / changes_requested / unreviewed_red_risk`。审批前不会生成最终报告；超时只能落到 `unreviewed_red_risk`。待审批时间戳落盘 `.data/pending/<review_id>.json`，进程重启后惰性超时仍生效。
 >
-> 解释状态：`approved`（或无需审批的 `running`）才调用解释；`rejected / changes_requested / unreviewed_red_risk` 一律 `skipped`。LLM 不可用或质量门拦截时标 `fallback`，报告使用规则理由兜底。
+> 解释状态：`approved`（或无需审批的 `running`）才调用解释；`rejected / changes_requested / unreviewed_red_risk` 一律 `skipped`。LLM 不可用或质量门拦截时标 `fallback`，报告使用规则理由兜底；RAG 开启时即使回退，也会列出检索到的 `source_id#section`（标明“未参与解释与判级”）。
 >
 > API 错误码：400（类型/空文件）、404（未知 review_id）、409（状态冲突或报告未生成）、413（超过 `MAX_UPLOAD_MB`）、422（字段校验/非法 review_id）。
 
@@ -196,7 +196,7 @@ data/contracts_holdout3/ # 8 份留出合同（H21–H28）→ 第 4 轮已消�
 data/contracts_holdout4/ # 12 份留出合同（H29–H40）→ 唯一未消耗，对外报数用这一批
 data/eval/               # gold_contracts.json（105 条检索期望）/ gold_rules.json（21 个 silver 现象）/ gold_holdout{,2,3,4}.json
 data/knowledge/          # 真实语料 14 篇 + manifest（RAG 默认关闭）；模拟合同1..6.md 为评测来源，不进 manifest
-tests/                   # 257 个测试（API 17 / 前端 8 / 文档类型 11 / pending 11 / RAG 22 / 解释 13 / HITL 17 / 指标 11 / 规则含四批留出回归，无需 Key）
+tests/                   # 259 个测试（API 17 / 前端 8 / 文档类型 11 / pending 11 / RAG + 解释 24 / HITL 17 / 指标 11 / 规则含四批留出回归，无需 Key）
 tests/fakes.py           # Fake LLM（实现 StructuredLLM 协议）
 docs/devlog/             # 项目状态、调研、ADR、开发日志、交接、待决事项、RAG 资料清单
 ```

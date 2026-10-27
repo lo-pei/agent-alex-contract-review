@@ -272,6 +272,62 @@ def test_clean_contract_skips_explanation_without_llm(
 # ---------- RAG 引用 ----------
 
 
+def test_rule_fallback_still_lists_retrieved_knowledge(
+    sample_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """LLM 不可用时，RAG 已开启仍应检索并列出引用（解释正文仍是规则理由）。"""
+
+    def boom():
+        raise LLMNotConfigured("未配置测试 Key")
+
+    monkeypatch.setattr(explain_module, "get_llm", boom)
+    monkeypatch.setattr(
+        explain_module,
+        "settings",
+        replace(settings, rag_enabled=True, rag_knowledge_dir=str(KNOWLEDGE_DIR)),
+    )
+
+    state = run_review(sample_path, decision=APPROVE)
+    assert state.report is not None
+    assert state.explanation_status == "fallback"
+
+    # 等级、正文、来源都不变：知识只提供“可追溯的引用”
+    assert all(item.source == "rule" for item in state.explanations)
+    pay_explanations = [
+        item for item in state.explanations if item.rule_id == "R-PAY-001"
+    ]
+    assert pay_explanations and all(item.knowledge_citations for item in pay_explanations)
+    assert all(
+        citation.startswith("EX-") for item in state.explanations
+        for citation in item.knowledge_citations
+    )
+
+    findings = {finding.rule_id: finding for finding in state.report.findings}
+    assert findings["R-PAY-001"].risk_level == "red"
+    assert findings["R-PAY-001"].knowledge_citations
+    assert findings["R-PAY-001"].explanation_source == "rule"
+
+    # 用了知识库就不能说“未使用知识库”
+    assert KNOWLEDGE_NOT_USED_LIMITATION not in state.report.limitations
+    assert EXPLANATION_FALLBACK_LIMITATION in state.report.limitations
+    assert "知识引用仅按检索结果列出" in state.report.summary
+
+
+def test_rule_fallback_without_rag_has_no_knowledge(
+    sample_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom():
+        raise LLMNotConfigured("未配置测试 Key")
+
+    monkeypatch.setattr(explain_module, "get_llm", boom)
+    monkeypatch.setattr(
+        explain_module, "settings", replace(settings, rag_enabled=False)
+    )
+
+    state = run_review(sample_path, decision=APPROVE)
+    assert all(item.knowledge_citations == [] for item in state.explanations)
+
+
 def test_rag_citations_must_be_retrieved_and_registered(
     sample_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

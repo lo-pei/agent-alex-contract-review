@@ -106,6 +106,11 @@ def _explanation_note(state: ContractReviewState) -> str:
     if state.explanation_status == "ok":
         return "风险解释由模型生成，引用已核验。"
     if state.explanation_status == "fallback":
+        if any(explanation.knowledge_citations for explanation in state.explanations):
+            return (
+                "风险解释已回退为规则理由（模型不可用或未通过质量门）；"
+                "知识引用仅按检索结果列出，未参与解释与判级。"
+            )
         return "风险解释已回退为规则理由（模型不可用或未通过质量门）。"
     return ""
 

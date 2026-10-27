@@ -94,6 +94,23 @@ ADR-007 允许 RAG，但约束很硬：
 ## 5. 证据
 
 - `app/services/rag.py`、`app/nodes/explain.py`
-- `tests/test_rag.py`（15 个）、`tests/test_explain.py`（13 个）
+- `tests/test_rag.py`（15 个）、`tests/test_explain.py`（15 个）
 - `data/knowledge/manifest.yaml` + 3 份示例语料
 - 实测：`R-DIS-002` → `EX-CN-CONTRACT#s3`（仲裁与管辖）、`R-TRD-001` → `EX-INCOTERMS#s2`（贸易术语与版本）
+
+## 6. 第 2 轮补充（2026-10-27）：先检索、再判断 LLM
+
+**问题**：第 5 步实现里检索发生在 `get_llm()` 成功之后。没有 `LLM_API_KEY` 时直接回退规则理由，**RAG 开了也永远看不到任何引用**，用户无法判断知识库是否生效。
+
+**决策**：把知识库加载与逐条检索提到 `get_llm()` 之前。
+
+- LLM 可用：行为不变（检索 → 提示词 → 质量门白名单 → 引用）；
+- LLM 不可用：解释正文仍是规则 `reason`、`source="rule"`、等级不变，但把检索到的 `source_id#section` 挂到该条风险（`ExplanationResult.knowledge_citations`），报告与界面显示为“知识引用”；
+- 检索不到时**不**谎称用过知识库：仍写“知识库未命中”并标 `explain:knowledge_no_hit`；
+- 摘要增加限定语“知识引用仅按检索结果列出，未参与解释与判级”。
+
+**理由**：`knowledge_citations` 是“检索事实”，不是“模型结论”，所以在没有模型的路径上列出它不会越界；反而能让用户离线验证知识库、语料与阈值是否工作。判级仍只由 Python 规则决定，HITL 与证据可追溯边界不变。
+
+**测试**：`tests/test_explain.py::test_rule_fallback_still_lists_retrieved_knowledge`（RAG 开 + LLM 不可用 → 有引用、`source="rule"`、无“未使用知识库”限制）、`::test_rule_fallback_without_rag_has_no_knowledge`（RAG 关 → 引用为空）；全量 `pytest` 259 passed。
+
+**遗留**：引用只到 `source_id#section`，不展示片段正文；检索质量评测（ISSUE-018）仍未做。

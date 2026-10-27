@@ -7,6 +7,8 @@
 - 解释必须引用条款原文；quote 必须能在原文定位，否则丢弃并回退规则理由；
 - 拦截“合同无效/有效/已批准/已签署/无风险”等越权表述；
 - RAG 默认关闭；无命中或配置错误都退化为“规则理由 + 合同原文”，不阻塞报告；
+- RAG 开启时**先检索再判断 LLM**：模型不可用时解释正文仍回退规则理由，但会把检索到的
+  `source_id#section` 挂到该条风险上（`source="rule"`，不改等级、不改结论）；
 - 单条解释失败只影响该条，整体不崩溃；报告仍生成并标注 `explanation_status`。
 """
 
@@ -221,8 +223,16 @@ def _locate_in_clauses(
     return None
 
 
-def _rule_fallback(evaluation: RuleEvaluation, filename: str) -> ExplanationResult:
-    """质量门/模型失败时的兜底：只用规则自己的理由与证据，绝不保留 LLM 结论。"""
+def _rule_fallback(
+    evaluation: RuleEvaluation,
+    filename: str,
+    hits: list[KnowledgeChunk] | None = None,
+) -> ExplanationResult:
+    """质量门/模型失败时的兜底：只用规则自己的理由与证据，绝不保留 LLM 结论。
+
+    `hits` 只保留**检索到的事实**（`source_id#section`），用于让读者知道“规则理由可以
+    对应到哪份知识”；解释正文仍然是规则理由，且 `source="rule"`，不改变等级。
+    """
     evidence = next(
         (
             item
@@ -231,6 +241,10 @@ def _rule_fallback(evaluation: RuleEvaluation, filename: str) -> ExplanationResu
         ),
         None,
     )
+    citations: list[str] = []
+    for hit in hits or []:
+        if hit.citation not in citations:
+            citations.append(hit.citation)
     return ExplanationResult(
         rule_id=evaluation.rule_id,
         summary=evaluation.reason,
@@ -239,6 +253,7 @@ def _rule_fallback(evaluation: RuleEvaluation, filename: str) -> ExplanationResu
         recommendation=evaluation.suggestion,
         grounded=evidence is not None,
         source="rule",
+        knowledge_citations=citations,
     )
 
 
@@ -343,20 +358,8 @@ def explain_risks(state: ContractReviewState) -> dict:
     warnings: list[str] = list(state.warnings)
     degraded: list[str] = list(state.degraded_steps)
 
-    try:
-        llm = get_llm()
-    except LLMNotConfigured as exc:
-        results = [_rule_fallback(evaluation, state.source_filename) for evaluation in findings]
-        if "explain:not_configured" not in degraded:
-            degraded.append("explain:not_configured")
-        warnings.append(f"风险解释未生成（{exc}），已回退为规则理由。")
-        return finish(
-            explanation_status="fallback",
-            explanations=results,
-            degraded_steps=degraded,
-            warnings=warnings,
-        )
-
+    # 知识库先加载：即使 LLM 不可用、解释回退为规则理由，也要让读者看到“规则理由
+    # 对应到哪份知识”。检索只产出 citation，不改变 summary / 等级。
     knowledge: KnowledgeBase | None = None
     if settings.rag_enabled:
         try:
@@ -365,6 +368,39 @@ def explain_risks(state: ContractReviewState) -> dict:
             warnings.append(f"知识库不可用，解释仅依据规则与合同原文：{exc}")
             if "explain:knowledge_unavailable" not in degraded:
                 degraded.append("explain:knowledge_unavailable")
+
+    try:
+        llm = get_llm()
+    except LLMNotConfigured as exc:
+        results: list[ExplanationResult] = []
+        fallback_hits = 0
+        for evaluation in findings:
+            clauses = _clauses_for(state, evaluation)
+            hits = (
+                knowledge.search(
+                    _knowledge_query(evaluation, clauses),
+                    top_k=settings.rag_top_k,
+                    min_score=settings.rag_min_score,
+                )
+                if knowledge is not None
+                else []
+            )
+            if hits:
+                fallback_hits += 1
+            results.append(_rule_fallback(evaluation, state.source_filename, hits))
+        if "explain:not_configured" not in degraded:
+            degraded.append("explain:not_configured")
+        warnings.append(f"风险解释未生成（{exc}），已回退为规则理由。")
+        if knowledge is not None and fallback_hits == 0:
+            warnings.append("知识库未命中，已按规则理由与合同原文解释。")
+            if "explain:knowledge_no_hit" not in degraded:
+                degraded.append("explain:knowledge_no_hit")
+        return finish(
+            explanation_status="fallback",
+            explanations=results,
+            degraded_steps=degraded,
+            warnings=warnings,
+        )
 
     results: list[ExplanationResult] = []
     llm_failures = 0
