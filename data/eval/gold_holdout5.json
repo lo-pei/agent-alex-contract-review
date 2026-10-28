@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "created_at": "2026-10-28",
+  "provenance": "holdout5：规则 version 5（含已知漏报 H39）状态下新写的 12 份合同（H41–H52），与 C01–C50 及 holdout1–4 均不重复；先写合同与 gold、再跑一次基线、最后才修 H39（ADR-011 留出纪律：基线数字是盲测结论，修复后同批数据只作回归守卫）；gold 为 AI 初标，待人工复核",
+  "annotation_protocol": [
+    "按业务事实标注“该合同是否存在该风险”，标注时不参考规则能否命中",
+    "刻意换一批措辞与语种结构：H41 英文“may, within forty-five (45) days …, bring an action”（时间状语插在情态动词与动词之间，与 holdout4 H39 同型不同写法）；H42 中文“仲裁裁决作出后，任何一方仍可…提起诉讼”；H46 英文“At the option of the Buyer … or … the courts”；H47 英文“within forty-eight (48) hours after discharge”",
+    "刻意包含反例（应当判 pass）：H43“仅可依法申请撤销裁决”的英文写法（may apply to the competent court to set aside）；H52 全条款合规的对照合同",
+    "等级口径与 gold_rules.json 一致：red=可能致重大损失或权利落空；yellow=条款缺失/口径矛盾"
+  ],
+  "scored_rules": {
+    "R-TRD-001": "yellow",
+    "R-PAY-001": "red",
+    "R-PAY-002": "yellow",
+    "R-DIS-001": "red",
+    "R-DIS-002": "red",
+    "R-DIS-003": "red",
+    "R-DIS-004": "red",
+    "R-INS-001": "yellow",
+    "R-INC-001": "yellow",
+    "R-INC-002": "yellow",
+    "R-INP-002": "yellow"
+  },
+  "unscored_rules": {
+    "R-DLV-001": "依赖 LLM 抽取字段，评测不调用 LLM",
+    "R-INP-001": "依赖 LLM 抽取字段，评测不调用 LLM"
+  },
+  "contract_ids": [
+    "H41",
+    "H42",
+    "H43",
+    "H44",
+    "H45",
+    "H46",
+    "H47",
+    "H48",
+    "H49",
+    "H50",
+    "H51",
+    "H52"
+  ],
+  "phenomena": [
+    {
+      "contract_id": "H41",
+      "phenomenon": "约定仲裁裁决为终局，但仍允许当事人在裁决作出后一定期限内向法院起诉（先裁后审），且时间状语插在情态动词与动词之间",
+      "level": "red",
+      "rule_id": "R-DIS-004",
+      "evidence": "第9.3条 The arbitral award shall be final and binding, but either party may, within forty-five (45) days after the award is issued, bring an action before the Intermediate People's Court of Shanghai"
+    },
+    {
+      "contract_id": "H42",
+      "phenomenon": "约定仲裁裁决作出后当事人仍可就同一争议向法院起诉，削弱仲裁终局性",
+      "level": "red",
+      "rule_id": "R-DIS-004",
+      "evidence": "第8.3条 仲裁裁决作出后，任何一方仍可向有管辖权的人民法院提起诉讼"
+    },
+    {
+      "contract_id": "H44",
+      "phenomenon": "FOB 术语下约定海运费与订舱由卖方承担，与本应由买方负责的主运费冲突",
+      "level": "yellow",
+      "rule_id": "R-INC-001",
+      "evidence": "第4.1条 卖方承担自上海港至釜山港的海运费，并负责订舱（第3.2条为 FOB Shanghai Incoterms 2020）"
+    },
+    {
+      "contract_id": "H45",
+      "phenomenon": "CIF 下约定投保一切险，未写明保险金额或投保比例（合同另有 30% 预付款比例，不能当作保额）",
+      "level": "yellow",
+      "rule_id": "R-INS-001",
+      "evidence": "第5.1条 卖方应就货物投保一切险（无金额/比例）；第7.1条另有“合同价的 30%”预付比例"
+    },
+    {
+      "contract_id": "H46",
+      "phenomenon": "争议解决条款把仲裁与诉讼并列成可选路径，选择权归买方，未约定先后顺序（或裁或审）",
+      "level": "red",
+      "rule_id": "R-DIS-003",
+      "evidence": "第8.2条 At the option of the Buyer, any dispute … may be referred to arbitration in London under the LCIA Rules, or the Buyer may commence proceedings before the courts of England and Wales"
+    },
+    {
+      "contract_id": "H47",
+      "phenomenon": "检验/索赔通知期限仅 48 小时，非易腐货物下难以执行",
+      "level": "yellow",
+      "rule_id": "R-INP-002",
+      "evidence": "第5.1条 notifies the Seller of any claim within forty-eight (48) hours after discharge"
+    },
+    {
+      "contract_id": "H48",
+      "phenomenon": "合同未约定适用法律，仅有仲裁条款",
+      "level": "red",
+      "rule_id": "R-DIS-001",
+      "evidence": "第9条仅约定仲裁机构与终局性，全文无适用法律/准据法约定"
+    },
+    {
+      "contract_id": "H49",
+      "phenomenon": "使用 CIF 术语但未注明 Incoterms 版本，风险转移节点与费用划分可能歧义",
+      "level": "yellow",
+      "rule_id": "R-TRD-001",
+      "evidence": "第3.2条 Trade term: CIF Rotterdam（无 Incoterms 年份）"
+    },
+    {
+      "contract_id": "H50",
+      "phenomenon": "FOB 起草却用于整箱集装箱（FCL）货物，卖方难以控制装船节点",
+      "level": "yellow",
+      "rule_id": "R-INC-002",
+      "evidence": "第3.2条 FOB Ningbo Incoterms 2020；第3.3条 stuffed into full container load (FCL) containers at the Ningbo container yard"
+    },
+    {
+      "contract_id": "H51",
+      "phenomenon": "要求买方在装运前全额预付货款，买方承担卖方不履约的全部资金风险",
+      "level": "red",
+      "rule_id": "R-PAY-001",
+      "evidence": "第6.1条 买方应在装运前全额预付货款，卖方收到款项后安排装运"
+    }
+  ]
+}

@@ -216,7 +216,7 @@ def test_rule_catalog_matches_definitions(client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()
 
-    assert body["ruleset_version"] == 5
+    assert body["ruleset_version"] == 6
     assert body["count"] == 13
     assert body["red_count"] == 5
     assert body["yellow_count"] == 8

@@ -561,6 +561,25 @@ def test_footer_disclaimer_and_legal_dialogs() -> None:
     assert ".legal-no" in styles
 
 
+def test_report_guide_dialog_explains_what_report_means() -> None:
+    """ISSUE-024：结果页要有“这份报告怎么读”，说明等级来源、专家不判级与覆盖边界。"""
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    # 入口：逐条审查的动作区与仅下载报告的分支都要有
+    assert script.count("data-guide") >= 2
+    assert "这份报告怎么读" in script
+
+    # 内容必须讲清四件事，且不能把专家意见说成等级
+    assert "等级只有规则能给" in script
+    assert "“参考 · 专家”不是等级" in script
+    assert "这份报告不能说明什么" in script
+    assert "52.4%" in script
+    assert "openGuide()" in script
+    # 报告里的 limitations 由后端提供，不在前端写死
+    guide_body = script.split("function openGuide", 1)[1].split("function bindLegal", 1)[0]
+    assert "/report?format=json" in guide_body
+
+
 def test_pending_review_shows_rule_findings_before_confirmation() -> None:
     """上传后立刻看到风险点：待确认状态用审批载荷里的规则结果渲染。
 

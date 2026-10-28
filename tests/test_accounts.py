@@ -742,6 +742,44 @@ def test_history_edit_requires_login(client: TestClient) -> None:
     assert client.delete("/api/reviews/r-1").status_code == 401
 
 
+def test_clearing_history_is_single_request_and_scoped_to_owner(client: TestClient) -> None:
+    """清空审查记录：一次 DELETE /api/reviews 只删本账号，另一账号的记录保持不动。"""
+    register(client)
+    _record_one(client)
+    _record_one(client)
+    client.post("/api/auth/logout")
+
+    register(client, "seller@example.com")
+    other = _record_one(client)
+
+    # 未登录不能清空
+    client.post("/api/auth/logout")
+    assert client.delete("/api/reviews").status_code == 401
+
+    # 回到 buyer 账号清空：只删自己的 2 条
+    login = client.post(
+        "/api/auth/login",
+        json={"email": "buyer@example.com", "password": "secret123"},
+    )
+    assert login.status_code == 200, login.text
+    cleared = client.delete("/api/reviews")
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json() == {"deleted": 2}
+    assert client.get("/api/reviews").json()["total"] == 0
+
+    # 另一个账号的记录仍在，且仍能按 id 读到
+    client.post("/api/auth/logout")
+    client.post(
+        "/api/auth/login",
+        json={"email": "seller@example.com", "password": "secret123"},
+    )
+    assert client.get("/api/reviews").json()["total"] == 1
+    assert client.get(f"/api/reviews/{other}").status_code == 200
+
+    # 再清一次是幂等的：返回 0，不报错
+    assert client.delete("/api/reviews").json() == {"deleted": 1}
+
+
 def test_other_account_cannot_read_review(client: TestClient) -> None:
     register(client)
     review_id = client.post(

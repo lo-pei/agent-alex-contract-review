@@ -1,0 +1,415 @@
+{
+  "generated_at": "2026-10-28T17:45:21.146469+00:00",
+  "rule_engine_version": "0.1.0",
+  "rule_count": 13,
+  "contract_count": 8,
+  "contracts_with_hits": 6,
+  "contracts_without_hits": [
+    "H27",
+    "H28"
+  ],
+  "level_counts": {
+    "red": 2,
+    "yellow": 4,
+    "pass": 2
+  },
+  "hit_counts": {
+    "R-DIS-003": 1,
+    "R-INC-001": 1,
+    "R-INS-001": 1,
+    "R-INP-002": 1,
+    "R-INC-002": 1,
+    "R-PAY-002": 1,
+    "R-DIS-004": 1
+  },
+  "note": "规则级评测只反映确定性规则的触发情况；“未命中”不等于无风险，gold 的 expected_recall 是检索期望，不是规则判级标签。",
+  "contracts": [
+    {
+      "contract_id": "H21",
+      "scenario": null,
+      "status": "running",
+      "awaiting_human": true,
+      "overall_level": "red",
+      "extraction_status": "degraded",
+      "clause_count": 11,
+      "rule_hits": [
+        {
+          "rule_id": "R-DIS-003",
+          "risk_level": "red",
+          "clause_ids": [
+            "C009"
+          ]
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "H22",
+      "scenario": null,
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "yellow",
+      "extraction_status": "degraded",
+      "clause_count": 11,
+      "rule_hits": [
+        {
+          "rule_id": "R-INC-001",
+          "risk_level": "yellow",
+          "clause_ids": [
+            "C002"
+          ]
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "H23",
+      "scenario": null,
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "yellow",
+      "extraction_status": "degraded",
+      "clause_count": 3,
+      "rule_hits": [
+        {
+          "rule_id": "R-INS-001",
+          "risk_level": "yellow",
+          "clause_ids": [
+            "C001"
+          ]
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "H24",
+      "scenario": null,
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "yellow",
+      "extraction_status": "degraded",
+      "clause_count": 3,
+      "rule_hits": [
+        {
+          "rule_id": "R-INP-002",
+          "risk_level": "yellow",
+          "clause_ids": [
+            "C001"
+          ]
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "H25",
+      "scenario": null,
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "yellow",
+      "extraction_status": "degraded",
+      "clause_count": 10,
+      "rule_hits": [
+        {
+          "rule_id": "R-INC-002",
+          "risk_level": "yellow",
+          "clause_ids": [
+            "C002"
+          ]
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "H26",
+      "scenario": null,
+      "status": "running",
+      "awaiting_human": true,
+      "overall_level": "red",
+      "extraction_status": "degraded",
+      "clause_count": 3,
+      "rule_hits": [
+        {
+          "rule_id": "R-PAY-002",
+          "risk_level": "yellow",
+          "clause_ids": []
+        },
+        {
+          "rule_id": "R-DIS-004",
+          "risk_level": "red",
+          "clause_ids": [
+            "C002"
+          ]
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "H27",
+      "scenario": null,
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 4,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "H28",
+      "scenario": null,
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 10,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    }
+  ],
+  "metrics": {
+    "gold_provenance": "holdout3：规则 version 4 修复精度后新写的 8 份合同（H21–H28），与前两批留出集及模拟合同均不重复；写完后只跑一次，未按结果改规则（ADR-011 留出纪律）；gold 为 AI 初标，待人工复核",
+    "gold_version": 1,
+    "scored_rules": {
+      "R-TRD-001": "yellow",
+      "R-PAY-001": "red",
+      "R-PAY-002": "yellow",
+      "R-DIS-001": "red",
+      "R-DIS-002": "red",
+      "R-DIS-003": "red",
+      "R-DIS-004": "red",
+      "R-INS-001": "yellow",
+      "R-INC-001": "yellow",
+      "R-INC-002": "yellow",
+      "R-INP-002": "yellow"
+    },
+    "unscored_rules": {
+      "R-DLV-001": "依赖 LLM 抽取字段，评测不调用 LLM",
+      "R-INP-001": "依赖 LLM 抽取字段，评测不调用 LLM"
+    },
+    "rule_level": {
+      "scored_rule_count": 11,
+      "micro": {
+        "tp": 7,
+        "fp": 0,
+        "fn": 0,
+        "tn": 81,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "level_agreement": 1.0
+      },
+      "per_rule": {
+        "R-TRD-001": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 8,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "level_agreement": null
+        },
+        "R-PAY-001": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 8,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "level_agreement": null
+        },
+        "R-PAY-002": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 7,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-DIS-001": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 8,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "level_agreement": null
+        },
+        "R-DIS-002": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 8,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "level_agreement": null
+        },
+        "R-DIS-003": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 7,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-DIS-004": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 7,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-INS-001": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 7,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-INC-001": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 7,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-INC-002": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 7,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-INP-002": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 7,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        }
+      },
+      "false_positives": [],
+      "false_negatives": [],
+      "true_positives": [
+        {
+          "contract_id": "H26",
+          "rule_id": "R-PAY-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "H21",
+          "rule_id": "R-DIS-003",
+          "gold_level": "red",
+          "predicted_level": "red"
+        },
+        {
+          "contract_id": "H26",
+          "rule_id": "R-DIS-004",
+          "gold_level": "red",
+          "predicted_level": "red"
+        },
+        {
+          "contract_id": "H23",
+          "rule_id": "R-INS-001",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "H22",
+          "rule_id": "R-INC-001",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "H25",
+          "rule_id": "R-INC-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "H24",
+          "rule_id": "R-INP-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        }
+      ]
+    },
+    "contract_level": {
+      "tp": 6,
+      "fp": 0,
+      "fn": 0,
+      "tn": 2,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "level_agreement": 1.0,
+      "false_positive_contracts": [],
+      "false_negative_contracts": []
+    },
+    "coverage": {
+      "phenomena_total": 7,
+      "phenomena_covered": 7,
+      "phenomena_uncovered": 0,
+      "coverage_rate": 1.0,
+      "covered_by_rule": {
+        "R-DIS-003": 1,
+        "R-DIS-004": 1,
+        "R-INC-001": 1,
+        "R-INC-002": 1,
+        "R-INP-002": 1,
+        "R-INS-001": 1,
+        "R-PAY-002": 1
+      },
+      "note": "覆盖率=有对应规则的现象数/现象总数；识别能力看 rule_level.recall，两者不能混读。",
+      "uncovered": []
+    },
+    "note": "silver gold（AI 初标、待人工复核），规则与 gold 同源阅读，rule_level 指标主要用于回归守卫，不代表独立准确率；contract_level 与 coverage 用于暴露规则覆盖缺口。"
+  }
+}

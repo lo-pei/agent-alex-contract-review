@@ -838,17 +838,13 @@
     const kind = pendingClear;
     try {
       if (kind === "reviews") {
-        const data = await api("/api/reviews?limit=500");
-        const items = (data && data.reviews) || [];
-        for (const item of items) {
-          await api("/api/reviews/" + encodeURIComponent(item.review_id), {
-            method: "DELETE",
-          });
-        }
+        /* 一次请求清空当前账号的全部记录（服务端顺手清 checkpoint 与上传目录） */
+        const result = await api("/api/reviews", { method: "DELETE" });
+        const deleted = (result && result.deleted) || 0;
         state.reviewId = null;
         state.history = [];
         if (historySubOpen()) await loadHistory();
-        showAccountStatus("已清空 " + items.length + " 条审查记录。");
+        showAccountStatus("已清空 " + deleted + " 条审查记录。");
       } else {
         try {
           localStorage.removeItem(PREFS_KEY);
@@ -2596,6 +2592,40 @@
         ],
       ],
     },
+    guide: {
+      title: "这份报告怎么读",
+      updated: "2026-10-28",
+      sections: [
+        [
+          "等级只有规则能给",
+          "红 / 黄 / 未见问题三档来自 Python 规则（app/rules/definitions.yaml，当前 13 条规则），模型只负责把理由讲清楚，专家意见只作参考。任何模型输出都不能改动等级。",
+        ],
+        [
+          "三档等级的含义",
+          "红色：可能造成重大损失或权利落空（例如仲裁与诉讼并存、装运前全额预付）；黄色：条款缺失或口径矛盾，需要补写或确认；未见问题：这条规则没有发现需要修改的地方，不等于没有风险。",
+        ],
+        [
+          "证据怎么读",
+          "每条风险都带条款编号与原文片段（引用必须能在原文精确找到，找不到就不展示）；知识引用写成 source_id#section，只列“真正检索到”的片段，且不参与判级。",
+        ],
+        [
+          "“参考 · 专家”不是等级",
+          "付款 / 交付 / 争议三个专家给出的是阅读提示，用中性色标出；它们既不给风险等级，也不会改变结论。若写着“参考意见 0 条”，说明本轮专家都降级了，旁边会写明原因（未配置模型 / 执行失败 / 引文未能在原文定位）。",
+        ],
+        [
+          "Agent 轨迹与工具调用",
+          "轨迹里是工具调用的次数、耗时与失败原因；工具只读（查条款目录、知识检索等），不写文件、不改结论。失败不会影响报告，只会被记录。",
+        ],
+        [
+          "这份报告不能说明什么",
+          "只覆盖 13 条规则（评测主集覆盖率 52.4%，仍有 10 类风险没有规则）；未命中不代表合规；图片 PDF 的 OCR 文本只用于定位条款，需人工核对；检索指标只对评测题库成立，不能当成“线上召回率”。",
+        ],
+        [
+          "建议的使用顺序",
+          "先看红色再看黄色；逐条采用修改后导出 DOCX / PDF 修订稿；发现红色时系统会暂停等待人工确认，确认只表示“已经看过”，不会降低等级；未确认的报告不能当作通过结论。",
+        ],
+      ],
+    },
   };
 
   function openLegal(kind) {
@@ -2624,6 +2654,30 @@
           .join("");
     }
     openDialog("legal-dialog");
+  }
+
+  function openGuide() {
+    openLegal("guide");
+    // 后半段不写死：把本次报告真实的 limitations 追加进来（未生成报告时忽略）
+    if (!state.reviewId) return;
+    api("/api/reviews/" + encodeURIComponent(state.reviewId) + "/report?format=json")
+      .then((report) => {
+        const items = (report && report.limitations) || [];
+        const body = document.getElementById("legal-body");
+        if (!items.length || !body) return;
+        const index = body.querySelectorAll(".legal-section").length + 1;
+        const section = document.createElement("section");
+        section.className = "legal-section";
+        section.innerHTML =
+          "<h3><span class=\"legal-no\">" +
+          String(index).padStart(2, "0") +
+          "</span>本次报告的限定说明（来自后端报告）</h3>" +
+          items.map((item) => "<p>" + esc(item) + "</p>").join("");
+        body.appendChild(section);
+      })
+      .catch(() => {
+        /* 报告还没生成（待确认）时没有 limitations，保持静态说明即可 */
+      });
   }
 
   function bindLegal() {
@@ -3025,6 +3079,7 @@
         '<span class="workbench-meta" id="clause-meta"></span>',
         "</div>",
         '<div class="workbench-actions">',
+        '<button class="link" type="button" data-guide>这份报告怎么读</button>',
         revised
           ? '<button class="btn btn-compact" type="button" data-apply-all>全部采用建议</button>'
           : "",
@@ -3055,6 +3110,7 @@
           '<a href="/api/reviews/' +
           encodeURIComponent(review.review_id) +
           '/report?format=markdown">Markdown</a>' +
+          '<button class="link" type="button" data-guide>这份报告怎么读</button>' +
           "</div>",
       );
     }
@@ -3622,6 +3678,11 @@
   /** 逐条审查的交互只绑一次：切条款 / 一键更正 / 撤销 / 全部更正 / 导出。 */
   function bindWorkbenchEvents() {
     dom.view.addEventListener("click", (event) => {
+      const guide = event.target.closest("[data-guide]");
+      if (guide) {
+        openGuide();
+        return;
+      }
       const pane = event.target.closest("[data-pane]");
       if (pane) {
         state.paneMode = pane.dataset.pane === "fulltext" ? "fulltext" : "clauses";

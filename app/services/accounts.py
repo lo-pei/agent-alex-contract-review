@@ -829,6 +829,23 @@ class AccountsStore:
             owner_id, review_id, "DELETE FROM review_records WHERE review_id = ?", (review_id,)
         )
 
+    def delete_reviews(self, owner_id: str) -> list[str]:
+        """清空该账号的全部历史记录，返回被删的 `review_id`（供调用方清本机文件）。
+
+        只删本账号的行：另一个账号的记录不会被碰到，也不需要逐个 `DELETE` 请求。
+        """
+        with self._lock:
+            rows = self._connection.execute(
+                "SELECT review_id FROM review_records WHERE owner_id = ?", (owner_id,)
+            ).fetchall()
+            review_ids = [row["review_id"] for row in rows]
+            if review_ids:
+                self._connection.execute(
+                    "DELETE FROM review_records WHERE owner_id = ?", (owner_id,)
+                )
+                self._connection.commit()
+        return review_ids
+
     def _update_review(
         self, owner_id: str, review_id: str, statement: str, params: tuple
     ) -> None:

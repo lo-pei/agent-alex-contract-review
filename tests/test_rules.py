@@ -752,14 +752,15 @@ def test_holdout3_hits_are_stable() -> None:
 
 HOLDOUT4_DIR = PROJECT_ROOT / "data" / "contracts_holdout4"
 
-#: holdout4（H29–H40，12 份）在规则 version 5 下的命中集合（当前对外报数用的盲测集）。
-#: H39“award shall be final, but either party may, within 30 days …, commence proceedings”
-#: 是**已知漏报**：modal 与动词之间插入了时间状语。修好那天本测试会失败，届时
-#: 应把 H39 加进本表、把 holdout4 降级为回归集，并另写 holdout5 再对外报数。
+#: holdout4（H29–H40，12 份）的命中集合。
+#: 阶段 4 第 5 轮（规则 version 6）修掉了 H39 漏报——英文情态动词与动词之间插入时间状语
+#: （“may, within 30 days …, commence proceedings”），因此 H39 已进表；
+#: holdout4 自此**降级为回归集**，对外报数改用新写的 data/contracts_holdout5（见下）。
 EXPECTED_HOLDOUT4_HITS: dict[str, set[str]] = {
     "R-INS-001": {"H29"},
     "R-INC-001": {"H30", "H40"},
     "R-DIS-003": {"H31", "H38"},
+    "R-DIS-004": {"H39"},
     "R-INP-002": {"H33"},
     "R-INC-002": {"H35"},
     "R-PAY-002": {"H37"},
@@ -788,7 +789,7 @@ def test_holdout4_hits_are_stable() -> None:
         )
         assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == [], name
 
-    # H39 是已知漏报（见上），先钉住现状：不允许它被“假命中”掩盖
+    # H39 已修复（规则 version 6）：modal 与动词之间插时间状语仍要判 red
     h39 = _load_state(HOLDOUT4_DIR / "H39.md")
     evaluations = evaluate_rules(
         [rule for rule in load_rules() if rule.rule_id == "R-DIS-004"],
@@ -796,6 +797,47 @@ def test_holdout4_hits_are_stable() -> None:
         h39.raw_text,
         extraction_available=False,
     )
-    assert evaluations[0].risk_level == "pass", (
-        "H39 已修复，请更新 EXPECTED_HOLDOUT4_HITS 并另写 holdout5"
-    )
+    assert evaluations[0].risk_level == "red", "H39 回归：时间状语插入后又被漏报"
+
+
+HOLDOUT5_DIR = PROJECT_ROOT / "data" / "contracts_holdout5"
+
+#: holdout5（H41–H52，12 份）是阶段 4 第 5 轮**修 H39 之前**写下的盲测集，
+#: 盲测基线为 P=1.00 / R=0.90 / F1=0.947（唯一漏报 H41，与 H39 同型不同写法）。
+#: 修复后本表变成回归守卫；对外报数一律引用基线文件
+#: `eval/results/rules-holdout5-baseline-20261028.json`，不引用修复后的 1.0。
+EXPECTED_HOLDOUT5_HITS: dict[str, set[str]] = {
+    "R-DIS-004": {"H41", "H42"},
+    "R-INC-001": {"H44"},
+    "R-INS-001": {"H45"},
+    "R-DIS-003": {"H46"},
+    "R-INP-002": {"H47"},
+    "R-DIS-001": {"H48"},
+    "R-TRD-001": {"H49"},
+    "R-INC-002": {"H50"},
+    "R-PAY-001": {"H51"},
+}
+
+
+def test_holdout5_hits_are_stable() -> None:
+    if not HOLDOUT5_DIR.is_dir():
+        pytest.skip("缺少 data/contracts_holdout5 目录")
+    rules = [rule for rule in load_rules() if rule.rule_id in EXPECTED_HOLDOUT5_HITS]
+    hits = {rule_id: set() for rule_id in EXPECTED_HOLDOUT5_HITS}
+    for path in sorted(HOLDOUT5_DIR.glob("H*.md")):
+        state = _load_state(path)
+        for evaluation in evaluate_rules(
+            rules, state.clauses, state.raw_text, extraction_available=False
+        ):
+            if evaluation.risk_level != "pass":
+                hits[evaluation.rule_id].add(path.stem)
+    assert hits == EXPECTED_HOLDOUT5_HITS
+
+    # H43（英文“仅可依法申请撤销裁决”）/ H52（全条款合规）是干净对照：
+    # 修复 H39 时不能让“裁决的法定救济”被误判成“先裁后审”。
+    for name in ("H43", "H52"):
+        state = _load_state(HOLDOUT5_DIR / f"{name}.md")
+        evaluations = evaluate_rules(
+            load_rules(), state.clauses, state.raw_text, extraction_available=False
+        )
+        assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == [], name

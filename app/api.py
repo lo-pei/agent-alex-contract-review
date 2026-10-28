@@ -232,6 +232,14 @@ class ReviewHistory(BaseModel):
     total: int
 
 
+class ReviewPurgeResult(BaseModel):
+    """批量清空审查记录的结果：只回条数，不回列表（避免误把删除当导出）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    deleted: int
+
+
 class ReviewPatch(BaseModel):
     """审查记录的改名 / 置顶（字段缺省表示不改）。"""
 
@@ -551,6 +559,21 @@ def create_app(
             if payload.title is None:
                 return record
         return store.rename_review(user.id, review_id, payload.title or "")
+
+    @app.delete("/api/reviews", response_model=ReviewPurgeResult)
+    def clear_reviews(request: Request) -> ReviewPurgeResult:
+        """清空当前账号的全部历史记录（一次请求，替代前端逐条 DELETE）。
+
+        只删归属该账号的记录；顺手清掉本机 checkpoint 与上传目录。返回删除条数，
+        便于界面回显“已清空 N 条”。
+        """
+        user = require_user(request)
+        review_ids = store_of(request).delete_reviews(user.id)
+        service = _service_of(request)
+        for review_id in review_ids:
+            service.discard(review_id)
+            shutil.rmtree(upload_root / review_id, ignore_errors=True)
+        return ReviewPurgeResult(deleted=len(review_ids))
 
     @app.delete("/api/reviews/{review_id}", status_code=204)
     def delete_review(

@@ -18,8 +18,12 @@
 #   （中文并列“亦可”、运费条款“卖方负责支付”、英文数词“thirty-six (36) hours”），
 #   并把 R-INS-001 的“已写保额”判定从全文级收窄为“保险关键字邻近”（不再被付款比例压制）。
 #   验收改用新写的 data/contracts_holdout4（H29–H38），holdout3 同时降级为回归集。
+# - version 6（阶段 4 第 5 轮，ISSUE-021 第 3 步）：修 holdout4 暴露的 H39 漏报——
+#   英文情态动词与动词之间插入时间状语（“may, within 30 days …, commence proceedings”），
+#   允许 80 字符以内的间隔；同时保留“裁决的法定执行/撤销救济”不误报。
+#   验收改用新写的 data/contracts_holdout5（H41–H52），holdout4 同时降级为回归集。
 
-version: 5
+version: 6
 
 rules:
   - rule_id: R-TRD-001
@@ -194,10 +198,13 @@ rules:
         - type: regex_match
           # 英文：裁决之后仍可 bring/file/commence/appeal/litigate/submit … court。
           # 刻意不收 “may be enforced in any court”（裁决的法定执行，属正常条款），
-          # 也不收 “may be set aside”（撤销裁决的法定救济）。
-          pattern: "award[^.]{0,140}?\\s+(?:may|shall|can|could)\\s+(?:bring\\s+(?:an\\s+)?(?:action|suit|proceedings?)|file\\s+(?:a\\s+)?(?:lawsuit|suit|claim)|commence\\s+(?:an\\s+)?(?:action|proceedings?|litigation)|appeal[a-z]*|sue\\b|litigat[a-z]*|submit[a-z]*[^.]{0,40}?\\s+to\\s+(?:the\\s+)?(?:competent\\s+)?court)"
+          # 也不收 “may be set aside / apply to set aside”（撤销裁决的法定救济）。
+          # 情态动词后可插时间状语（“may, within forty-five (45) days after the award is issued,
+          # bring an action”）：holdout4 H39 与 holdout5 H41 都是这一写法，故允许 80 字符以内的间隔
+          # （用 \\s* 而非 \\s+，因为状语前通常是逗号而不是空白）。
+          pattern: "award[^.]{0,140}?\\s+(?:may|shall|can|could)\\s*[^.]{0,80}?(?:bring\\s+(?:an\\s+)?(?:action|suit|proceedings?)|file\\s+(?:a\\s+)?(?:lawsuit|suit|claim)|commence\\s+(?:an\\s+)?(?:action|proceedings?|litigation)|appeal[a-z]*|sue\\b|litigat[a-z]*|submit[a-z]*[^.]{0,40}?\\s+to\\s+(?:the\\s+)?(?:competent\\s+)?court)"
     source: 国际货物销售合同常见争议点：仲裁终局性与后续诉讼（业务规则）
-    version: "1.1"
+    version: "1.2"
 
   - rule_id: R-INS-001
     title: CIF/CIP 约定投保但未写明保险金额或比例
