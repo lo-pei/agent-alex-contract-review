@@ -22,8 +22,14 @@
 #   英文情态动词与动词之间插入时间状语（“may, within 30 days …, commence proceedings”），
 #   允许 80 字符以内的间隔；同时保留“裁决的法定执行/撤销救济”不误报。
 #   验收改用新写的 data/contracts_holdout5（H41–H52），holdout4 同时降级为回归集。
+# - version 7（阶段 4 第 6 轮，ISSUE-021 第 4 步）：修 holdout6（H53–H64，纯英文）暴露的
+#   3 个英文写法缺口——FOB 下“Seller shall arrange and pay for the ocean freight”倒装、
+#   “or, at the Buyer's option, by proceedings …”连接词后带逗号、
+#   “pay the entire contract price before shipment”未写“in advance”。
+#   盲测基线（改规则之前）= P=1.00 / R=0.727 / F1=0.842；修后本批降级为回归集，
+#   另写 holdout7 才能再对外报数（ADR-011 第 5/6 轮补充）。
 
-version: 6
+version: 7
 
 rules:
   - rule_id: R-TRD-001
@@ -58,13 +64,20 @@ rules:
     suggestion: 改为分阶段付款（如 30% 预付 + 70% 见提单副本），或改用信用证（L/C）。
     requires_fields: []
     condition:
-      type: contains_any
-      keywords:
-        - "100% advance payment"
-        - "payment in advance"
-        - "full payment in advance"
-        - "全额预付"
-        - "预付全款"
+      type: any_of
+      conditions:
+        - type: contains_any
+          keywords:
+            - "100% advance payment"
+            - "payment in advance"
+            - "full payment in advance"
+            - "全额预付"
+            - "预付全款"
+        - type: regex_match
+          # 英文同义写法（holdout6 H61）：“pay the entire contract price before shipment”。
+          # 只收 entire/full/whole/100% of the 这种“全部”限定，避免把
+          # “the balance shall be paid before shipment”（分期付款的正常约定）误判为全额预付。
+          pattern: "(?:entire|full|whole|100\\s*%\\s*of\\s*the)\\s+(?:contract\\s+)?(?:price|value|amount|payment)[^.]{0,80}?(?:in\\s+advance|before\\s+(?:shipment|delivery|dispatch)|prior\\s+to\\s+(?:shipment|delivery)|upon\\s+signing)"
     source: 国际贸易付款风险控制惯例（业务规则）
     version: "1.0"
 
@@ -174,8 +187,10 @@ rules:
           pattern: "仲裁[^。]{0,60}(?:或|或者|亦可|也可以|仍有权|亦有权|有权|可选择)[^。]{0,40}(?:人民法院|法院|诉讼)"
         - type: regex_match
           # 英文：“arbitration … or … court/litigate”同一句内的并列结构。
-          # 用 \\s+or\\s+ 而不是裸 or，避免误吃 arbitrator / order / for 等词。
-          pattern: "arbitrat[a-z]*[^.]{0,120}?\\s+or\\s+[^.]{0,80}?(?:court|litigat[a-z]*)"
+          # 用 \\s+or[,\\s] 而不是裸 or，避免误吃 arbitrator / order / for 等词；
+          # 连接词后允许逗号（holdout6 H55：“the SIAC Rules or, at the Buyer's option,
+          # by proceedings in the courts of Singapore”）。
+          pattern: "arbitrat[a-z]*[^.]{0,120}?\\s+or[,\\s]\\s*[^.]{0,80}?(?:court|litigat[a-z]*)"
     source: 国际货物销售合同常见争议点：“或裁或审”条款效力（业务规则）
     version: "1.1"
 
@@ -253,15 +268,23 @@ rules:
       若坚持 FOB/EXW/FCA，则删除“运费由卖方承担”的约定。
     requires_fields: []
     condition:
-      type: regex_match
-      # [\s\S] 允许跨行/跨句（真实合同里术语与运费条款常分处两条），距离上限 260 字符
-      # （H03 实测 134；H19 因“Freight and Charges”小标题插在中间，实测 210）。
-      # 术语前后排除英文字母（允许紧跟中文），避免 “specification / Pacific” 之类的子串误命中。
-      # 中文侧允许“海运费及舱位订舱费用由卖方承担 / 卖方承担至鹿特丹的主运费 / 卖方负责支付…主运费”三种语序；
-      # 只收运费类费用（运费/海运费/运输费用/订舱费），不收“报关费用”等本就应由卖方负担的费用；
-      # 倒装语序的间隔里排除中英文逗号/句号，避免把“卖方承担，主运费由买方承担”误读为卖方付运费；
-      # 情态/动词前缀（负责/应/须/将/同意）允许出现（holdout3 H22“卖方负责支付”）。
-      pattern: "(?<![A-Za-z])(?:FOB|EXW|FCA)(?![A-Za-z])[\\s\\S]{0,260}(?:(?:海运费|运费|运输费用|订舱费用|订舱费)[^。]{0,20}?由(?:the )?卖方(?:承担|预付|支付)|卖方(?:负责|应|须|将|同意)?(?:承担|预付|支付)[^。，,]{0,14}?(?:海运费|运费|订舱费用|订舱费)|freight[^.]{0,60}?(?:prepaid|paid|borne) by (?:the )?seller)"
+      type: any_of
+      conditions:
+        - type: regex_match
+          # [\s\S] 允许跨行/跨句（真实合同里术语与运费条款常分处两条），距离上限 260 字符
+          # （H03 实测 134；H19 因“Freight and Charges”小标题插在中间，实测 210）。
+          # 术语前后排除英文字母（允许紧跟中文），避免 “specification / Pacific” 之类的子串误命中。
+          # 中文侧允许“海运费及舱位订舱费用由卖方承担 / 卖方承担至鹿特丹的主运费 / 卖方负责支付…主运费”三种语序；
+          # 只收运费类费用（运费/海运费/运输费用/订舱费），不收“报关费用”等本就应由卖方负担的费用；
+          # 倒装语序的间隔里排除中英文逗号/句号，避免把“卖方承担，主运费由买方承担”误读为卖方付运费；
+          # 情态/动词前缀（负责/应/须/将/同意）允许出现（holdout3 H22“卖方负责支付”）。
+          pattern: "(?<![A-Za-z])(?:FOB|EXW|FCA)(?![A-Za-z])[\\s\\S]{0,260}(?:(?:海运费|运费|运输费用|订舱费用|订舱费)[^。]{0,20}?由(?:the )?卖方(?:承担|预付|支付)|卖方(?:负责|应|须|将|同意)?(?:承担|预付|支付)[^。，,]{0,14}?(?:海运费|运费|订舱费用|订舱费)|freight[^.]{0,60}?(?:prepaid|paid|borne) by (?:the )?seller)"
+        - type: regex_match
+          # 英文倒装语序（holdout6 H53）：“The Seller shall arrange and pay for the ocean freight
+          # from Qingdao to Bremen”。只认“卖方 + 付运费的动词”，且动词与运费名词之间不跨句；
+          # 不收裸 “pay”，避免把“Seller shall arrange shipment and the Buyer shall pay the freight”
+          # 误读成卖方付运费（买方付运费的 FOB 是正常约定）。
+          pattern: "(?<![A-Za-z])(?:FOB|EXW|FCA)(?![A-Za-z])[\\s\\S]{0,260}(?:seller|卖方)[^.]{0,40}?(?:arrange\\s+and\\s+pay\\s+for|pay\\s+for|prepay|bear|defray)[^.]{0,24}?(?:ocean\\s+freight|sea\\s+freight|freight|carriage)"
     source: Incoterms® 2020 术语与费用条款一致性（业务规则）
     version: "1.2"
 

@@ -1,0 +1,122 @@
+{
+  "version": 1,
+  "created_at": "2026-10-29",
+  "provenance": "holdout6：规则 version 6 状态下新写的 12 份**纯英文**合同（H53–H64），与 C01–C50 及 holdout1–5 均不重复；先写合同与 gold、再跑一次基线（ADR-011 留出纪律：基线是盲测结论，之后若按基线修规则，本批即降级为回归集）；gold 为 AI 初标，待人工复核",
+  "annotation_protocol": [
+    "按业务事实标注“该合同是否存在该风险”，标注时不参考规则能否命中",
+    "使用纯英文写作，并刻意避开 holdout1–5 与 50 份设计集里出现过的句式：H53 运费写作“Seller shall arrange and pay for the ocean freight”（动词在前、宾语在后）；H55 并列写成“or, at the Buyer's option, by proceedings in the courts”；H56 写“either party shall be entitled to appeal the award”；H61 写“pay the entire contract price before shipment”",
+    "刻意包含反例（应当判 pass）：H62（CIF + 110% 保额 + 德国法 + DIS 仲裁，全条款合规）、H63（FCA + 20% 预付 + 10 天检验，全条款合规）",
+    "等级口径与 gold_rules.json 一致：red=可能致重大损失或权利落空；yellow=条款缺失/口径矛盾",
+    "R-PAY-002 / R-DIS-002 属“条款缺失型”，H64 是只有货物、价格、交货、保险、检验与准据法的简式销售确认书"
+  ],
+  "scored_rules": {
+    "R-TRD-001": "yellow",
+    "R-PAY-001": "red",
+    "R-PAY-002": "yellow",
+    "R-DIS-001": "red",
+    "R-DIS-002": "red",
+    "R-DIS-003": "red",
+    "R-DIS-004": "red",
+    "R-INS-001": "yellow",
+    "R-INC-001": "yellow",
+    "R-INC-002": "yellow",
+    "R-INP-002": "yellow"
+  },
+  "unscored_rules": {
+    "R-DLV-001": "依赖 LLM 抽取字段，评测不调用 LLM",
+    "R-INP-001": "依赖 LLM 抽取字段，评测不调用 LLM"
+  },
+  "contract_ids": [
+    "H53",
+    "H54",
+    "H55",
+    "H56",
+    "H57",
+    "H58",
+    "H59",
+    "H60",
+    "H61",
+    "H62",
+    "H63",
+    "H64"
+  ],
+  "phenomena": [
+    {
+      "contract_id": "H53",
+      "phenomenon": "FOB 术语下约定海运费由卖方承担并计入价格，与本应由买方负责的主运费冲突",
+      "level": "yellow",
+      "rule_id": "R-INC-001",
+      "evidence": "第3.2条 FOB Qingdao, Incoterms 2020；第3.3条 The Seller shall arrange and pay for the ocean freight from Qingdao to Bremen, and the freight cost is included in the price stated in Clause 3.1"
+    },
+    {
+      "contract_id": "H54",
+      "phenomenon": "CIF 下约定卖方投保 ICC(A)，未写明保险金额或投保比例",
+      "level": "yellow",
+      "rule_id": "R-INS-001",
+      "evidence": "第5.1条 The Seller shall effect marine insurance in favour of the Buyer under Institute Cargo Clauses (A), and shall hand the policy over to the Buyer together with the shipping documents（无金额/比例）"
+    },
+    {
+      "contract_id": "H55",
+      "phenomenon": "争议解决条款把仲裁与诉讼并列成可选路径，选择权归买方，未约定先后顺序（或裁或审）",
+      "level": "red",
+      "rule_id": "R-DIS-003",
+      "evidence": "第9.2条 shall be settled by arbitration in Singapore under the SIAC Rules or, at the Buyer's option, by proceedings in the courts of Singapore"
+    },
+    {
+      "contract_id": "H56",
+      "phenomenon": "约定仲裁裁决终局，但仍允许任一方向上诉法院上诉，削弱仲裁终局性",
+      "level": "red",
+      "rule_id": "R-DIS-004",
+      "evidence": "第9.3条 The award shall be final and binding on both parties, but either party shall be entitled to appeal the award to the Court of Appeal of Singapore within thirty (30) days after the award is issued"
+    },
+    {
+      "contract_id": "H57",
+      "phenomenon": "合同未约定适用法律，仅约定香港仲裁",
+      "level": "red",
+      "rule_id": "R-DIS-001",
+      "evidence": "第9条仅约定 HKIAC 仲裁与仲裁地，全文无适用法律/准据法约定"
+    },
+    {
+      "contract_id": "H58",
+      "phenomenon": "FOB 起草却用于整箱集装箱（FCL）货物，卖方难以控制装船节点",
+      "level": "yellow",
+      "rule_id": "R-INC-002",
+      "evidence": "第3.2条 FOB Xingang, Incoterms 2020；第3.3条 stuffed into full container load (FCL) containers … at the Xingang container yard"
+    },
+    {
+      "contract_id": "H59",
+      "phenomenon": "使用 CIF 术语但未注明 Incoterms 版本，风险转移节点与费用划分可能歧义",
+      "level": "yellow",
+      "rule_id": "R-TRD-001",
+      "evidence": "第3.2条 Trade term: CIF Antwerp（无 Incoterms 年份）"
+    },
+    {
+      "contract_id": "H60",
+      "phenomenon": "检验/索赔通知期限仅 24 小时，非易腐货物下难以执行",
+      "level": "yellow",
+      "rule_id": "R-INP-002",
+      "evidence": "第6.1条 The Buyer shall give written notice of any defect within 24 hours after delivery"
+    },
+    {
+      "contract_id": "H61",
+      "phenomenon": "要求买方在装运前支付全部货款，买方承担卖方不履约的全部资金风险",
+      "level": "red",
+      "rule_id": "R-PAY-001",
+      "evidence": "第7.1条 The Buyer shall pay the entire contract price before shipment（第7.3条另说明付款走电汇）"
+    },
+    {
+      "contract_id": "H64",
+      "phenomenon": "简式销售确认书未约定付款方式或付款节点",
+      "level": "yellow",
+      "rule_id": "R-PAY-002",
+      "evidence": "全文仅约定货物、价格、交货、保险、检验与准据法，无付款方式/比例/节点"
+    },
+    {
+      "contract_id": "H64",
+      "phenomenon": "未约定仲裁或诉讼管辖安排，争议时可能产生管辖权争议",
+      "level": "red",
+      "rule_id": "R-DIS-002",
+      "evidence": "第6条仅约定适用中华人民共和国法律，全文无仲裁/管辖/诉讼约定"
+    }
+  ]
+}

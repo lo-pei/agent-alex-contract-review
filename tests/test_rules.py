@@ -841,3 +841,52 @@ def test_holdout5_hits_are_stable() -> None:
             load_rules(), state.clauses, state.raw_text, extraction_available=False
         )
         assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == [], name
+
+
+HOLDOUT6_DIR = PROJECT_ROOT / "data" / "contracts_holdout6"
+
+#: holdout6（H53–H64，12 份**纯英文**）是阶段 4 第 6 轮**改规则之前**写下的盲测集。
+#: 盲测基线（规则 version 6）：`TP=8 FP=0 FN=3 TN=121` → P=1.00 / R=0.727 / F1=0.842，
+#: 漏报 H53（FOB 下“arrange and pay for the ocean freight”倒装写法）、
+#: H55（“or, at the Buyer's option, by proceedings …”连接词后带逗号）、
+#: H61（“pay the entire contract price before shipment”未写“in advance”）。
+#: 阶段 4 第 6 轮（规则 version 7）已修这三处，本表随之更新 → **holdout6 降级为回归集**；
+#: 对外数字只引基线文件 `eval/results/rules-holdout6-baseline-20261028.json`，
+#: 修复后的 `rules-holdout6-20261028.json`（11/0/0）只作回归，下一批对外数字须来自 holdout7。
+EXPECTED_HOLDOUT6_HITS: dict[str, set[str]] = {
+    "R-INS-001": {"H54"},
+    "R-DIS-004": {"H56"},
+    "R-DIS-001": {"H57"},
+    "R-INC-002": {"H58"},
+    "R-TRD-001": {"H59"},
+    "R-INP-002": {"H60"},
+    "R-PAY-002": {"H64"},
+    "R-DIS-002": {"H64"},
+    "R-INC-001": {"H53"},
+    "R-DIS-003": {"H55"},
+    "R-PAY-001": {"H61"},
+}
+
+
+def test_holdout6_hits_are_stable() -> None:
+    if not HOLDOUT6_DIR.is_dir():
+        pytest.skip("缺少 data/contracts_holdout6 目录")
+    rules = [rule for rule in load_rules() if rule.rule_id in EXPECTED_HOLDOUT6_HITS]
+    hits = {rule_id: set() for rule_id in EXPECTED_HOLDOUT6_HITS}
+    for path in sorted(HOLDOUT6_DIR.glob("H*.md")):
+        state = _load_state(path)
+        for evaluation in evaluate_rules(
+            rules, state.clauses, state.raw_text, extraction_available=False
+        ):
+            if evaluation.risk_level != "pass":
+                hits[evaluation.rule_id].add(path.stem)
+    assert hits == EXPECTED_HOLDOUT6_HITS
+
+    # H62（CIF + 110% 保额 + 德国法 + DIS 仲裁）/ H63（FCA + 20% 预付 + 10 天检验）
+    # 是全条款合规的干净对照：放宽英文写法时不得引入误报。
+    for name in ("H62", "H63"):
+        state = _load_state(HOLDOUT6_DIR / f"{name}.md")
+        evaluations = evaluate_rules(
+            load_rules(), state.clauses, state.raw_text, extraction_available=False
+        )
+        assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == [], name
