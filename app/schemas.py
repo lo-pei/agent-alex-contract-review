@@ -293,6 +293,60 @@ class ReportFinding(BaseModel):
     is_system_finding: bool = False
 
 
+class ClauseFinding(BaseModel):
+    """逐条审查视图中的一条风险：等级沿用规则结果，不重新判级。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule_id: str
+    title: str
+    risk_level: Literal["red", "yellow"]
+    reason: str
+    suggestion: str | None = None
+    explanation_summary: str | None = None
+    explanation_quote: str | None = None
+    explanation_citation: str | None = None
+    knowledge_citations: list[str] = Field(default_factory=list)
+    quotes: list[str] = Field(default_factory=list)
+
+
+class ClauseReview(BaseModel):
+    """单条款的审查视图：原文、命中的规则、可套用的修订示例。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    clause_id: str
+    index: int = Field(ge=1)
+    title: str = ""
+    text: str
+    page: int = Field(default=1, ge=1)
+    risk_level: Literal["red", "yellow", "pass"] = "pass"
+    findings: list[ClauseFinding] = Field(default_factory=list)
+    #: 规则给出的“修改后的条款”示例；没有命中规则时为 None
+    revised_text: str | None = None
+    revision_note: str | None = None
+
+
+class ClauseReviewList(BaseModel):
+    """`GET /api/reviews/{id}/clauses` 的响应。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    review_id: str
+    source_filename: str
+    status: ReviewStatus
+    overall_level: OverallLevel
+    awaiting_human: bool = False
+    clauses: list[ClauseReview] = Field(default_factory=list)
+    #: 不指向具体条款的风险（例如“未约定适用法律”），作为“全合同”一组展示
+    contract_findings: list[ClauseFinding] = Field(default_factory=list)
+    #: 针对合同级问题给出的“建议新增条款”示例
+    contract_revised_text: str | None = None
+    contract_revision_note: str | None = None
+    revised_count: int = 0
+    limitations: list[str] = Field(default_factory=list)
+
+
 class ReviewReport(BaseModel):
     """对外输出报告（规则结果 + 人工决定 + 可选 LLM 解释）。"""
 

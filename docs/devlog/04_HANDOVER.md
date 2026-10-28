@@ -427,6 +427,13 @@ Agent_Alex外贸合同智审助手/
 | 127 | 给 `users` 表加列后，老库（`.data/app.sqlite`）启动就报 `no such column: avatar` | 建表语句只对新库生效；必须写 `_ensure_user_columns()`：`PRAGMA table_info(users)` 取现有列 → 缺就 `ALTER TABLE users ADD COLUMN avatar TEXT NOT NULL DEFAULT ''`；`_user_from_row` 也按 `"avatar" in row.keys()` 容错。迁移函数要在 `commit()` 之前、`__init__` 里调用 |
 | 128 | 账户设置弹窗写了 `.account-dialog{width:min(760px,...)}` 仍然只有 460px 宽 | `.dialog{width:460px}` 在前、`.account-dialog` 在后，但**单类选择器优先级相同**，谁后写谁赢——这里实际是 `.dialog` 声明更靠后/更高优先级。改成 `.dialog.account-dialog` 提高特异性，并在 640px 媒体查询里同样带上 `.dialog`；改完用 CDP 断言 `rect.width >= 720` |
 | 129 | 字号“小/标准/大”要能全局生效，但样式表里全是写死的 `font-size: 12.5px` | 在 `:root` 加 `--ui-text-scale: 1`，用脚本把所有 `font-size: Npx` 批量改成 `calc(Npx * var(--ui-text-scale, 1))`（只动字号、不动 padding/宽度/图标），再用 `html[data-font="sm"|"lg"]` 改倍率；坑：别把 `font-size` 写进 `font:` 简写，否则倍率不生效 |
+| 130 | 弹窗里的 Skill 表单点了“保存”毫无反应 | 弹窗是 `index.html` 的静态节点，在 `#view` 之外；原来 `bindSkills()` 把 `click/submit/change/drop/keydown` 挂在 `dom.view` 上，根本收不到。凡静态弹窗的交互，委托必须挂 `document`（只绑一次，用 id / `data-*` 过滤），且不要随页面重渲染重复绑定 |
+| 131 | 自定义弹窗宽度写了也不生效（仍 460px） | `.dialog{width:460px}` 与 `.account-dialog` / `.skill-dialog` 都是单类选择器，特异性相同、后写者赢；必须写 `.dialog.skill-dialog`（两个类）才能压过默认宽度，媒体查询里也带上 `.dialog` |
+| 132 | 切换条款时整页被 `scrollIntoView` 顶跑 | 条款列表自身是滚动容器，`scrollIntoView` 会连带滚动外层页面；改成按 `getBoundingClientRect()` 差值直接调 `list.scrollTop`（只动列表） |
+| 133 | 合同级问题全部画成红标，明明只有 1 处黄色也显示红 | 组内等级要按最严重一条取（有 red 才 red，否则 yellow），并且这个等级只能来自 `finding.risk_level`，不能在 `renderWorkbench()` 里重新判断 |
+| 134 | 流式输出结束后，逐条审查分屏被对话挤到屏幕外，用户以为“没做逐条审查” | 流式回调里 `box.hidden = false` 后判断 `getBoundingClientRect().top > innerHeight - 120` 再 `scrollIntoView({block:"start"})`；不要无条件滚，否则短对话也会跳 |
+| 135 | 导出 PDF 中文变方块/乱码 | `reportlab` 默认 `Helvetica` 没有中文字形；必须 `pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))` 并给 Paragraph 设置 `fontName`，同时用 `escape()` 处理 `&<>`、把 `\n` 换成 `<br/>`；`requirements.txt` 里要写 `reportlab==4.4.4` |
+| 136 | 导出文件名中文被截断成乱码 | `Content-Disposition` 只写 `filename=中文.docx` 时多数浏览器按 latin-1 处理；要同时给 ASCII 兜底名与 RFC5987 形式 `filename*=UTF-8''<quote(name, safe="")>`，前端优先解 `filename*` |
 ---
 
 ## 8. 参考资料（按可信度排序）
@@ -499,6 +506,12 @@ Agent_Alex外贸合同智审助手/
      - 通用：主题色 5 套（松石绿 / 靛青 / 石墨 / 陶土 / 绛紫，只换 `--accent`，风险红黄绿不动；深色媒体查询里给同色系亮版），字号 小/标准/大（`--ui-text-scale` = 0.94/1/1.1，全量 `font-size` 换 `calc(... * var(--ui-text-scale))`，布局尺寸不变），保留“减少动效 / 自动聚焦”，新增“恢复默认外观”。
      - 数据管理：两个统计卡 + 两档清除（本机缓存 / 清空审查记录），清除仍先出红色确认条；个人信息补“注册时间”只读字段与姓名/邮箱摘要；关于区放版本、条款政策入口与数据位置。
      - 验证：`pytest` **308 通过**（`tests/test_web.py` 22 项，个人账户测试改为分区断言并断言侧栏不再有 `#account-line`）；`ruff` / `node --check` 通过；CDP 21 项全过、`exceptions: []`（弹窗 760×560、左侧导航 164px、4 分区切换、主题色切到靛青后 `--accent=#3a4f9b` 且写进 `alex.prefs`、字号大档标题 23→25.3px 且小字也同步、数据统计 0/0、空记录“不需要清除”、确认条可取消、关于版本 1.0.0、关窗后偏好保留、重开回到“个人信息”、480px 导航转横向且无横向溢出）。
+   - **界面轮 11（已完成，2026-10-28）**：推荐 Skill 方块 + 新建/导入弹窗 + 对话式逐条审查与修订导出 + 退出中断确认。
+     - Skill 仓库：`skillTile()` 生成 `.skill-tiles`（`repeat(auto-fill, minmax(122px,1fr))`、`aspect-ratio:1/1`、卡内 2 行名称 + 2 行说明 + 右下角“使用”胶囊），推荐区不再是一行长矩形；页头 `.skills-head` 右上角放 `#skill-new-open` / `#skill-import-open`，右栏 `.skills-grid` / `.skills-side` / `.skill-form` 全部删除；新建与导入改成 `index.html` 静态弹窗 `#skill-new-dialog` / `#skill-import-dialog`（编辑自建 Skill 复用同一弹窗走 `PATCH`，推荐“存为我的”只是预填）；因为弹窗在 `#view` 外，`bindSkills()` 的事件委托全部改到 `document`。
+     - 后端：`app/schemas.py` 加 `ClauseFinding` / `ClauseReview` / `ClauseReviewList`；新增 `app/services/clause_review.py`（`build_clause_reviews()` 只聚合图状态，条款等级 = `red > yellow > pass`，`pass` = 规则未命中；`REVISION_TEMPLATES` 14 条示例条款 + `REVISION_NOTE`，红前黄后、按 `rule_id` 去重；无条款归属的规则进 `contract_findings`）与 `app/services/clause_export.py`（DOCX 用 `python-docx`、PDF 用 `reportlab` 内置 `STSong-Light`，三节 + 免责声明，内存生成）；新增 `GET /api/reviews/{id}/clauses` 与 `POST /api/reviews/{id}/export`（`format: docx|pdf` + 已更正条款；`ExportError`→400；`Content-Disposition` 带 RFC5987 中文名；沿用 `authorize()` 归属校验）；`requirements.txt` 加 `reportlab==4.4.4`。
+     - 前端结果页：`.review-shell`（用户气泡 + 助手气泡 `#ai-stream` + `#approval-slot` + `#workbench`）；`chatNarrative()` 拼真实数据、`streamText()` 18ms/3 字逐段写入（`prefs.motion` 直出、`stopStream()` 清理），结束时展开工作台并（必要时）滚到分屏；`.workbench-grid` 左 `#clause-list`（序号 / 名称 / 等级 / 已更正✓ + 首行“※ 全合同”）、右 `#clause-detail`（原文 / 意见 / 建议 / 依据 / 引文 / 可编辑修订 / 一键更正 / 撤销）；`data-apply-all` 批量套用，`state.corrections` 只在前端；导出用 `blob` + `filenameFromDisposition()` 解中文名；`renderApproval()` 改成只返回 HTML，由 `#approval-slot` 挂载后 `bindConfirm()`。
+     - 退出确认：`hasActiveTask()` = `busy || taskActive || reviewStatus ∈ {awaiting_human, running}`，命中弹 `#logout-confirm`（“审查任务仍在进行 / 退出会中断这次任务…”），取消不退出；确认走 `doLogout()`（先停流式定时器再清状态）。
+     - 验证：`pytest` **323 通过**（新增 `tests/test_clause_review.py` 11 项，`tests/test_web.py` 26 项）；`ruff` / `node --check` 通过；Edge headless + CDP 复核（方块 130×130、右上角按钮与页头右边缘齐平、两个弹窗、450ms 仅 105/276 字符、分屏两栏 376/709、红条款建议与示例条款、更正/撤销、导出 DOCX 39,086 B / PDF 9,205 B、退出确认可取消）。
    - **下一步（第四阶段）**：
      - 修 H39（`R-DIS-004` modal 与动词之间放宽为 `[^.]{0,80}?`），**另写 holdout5（8–12 份）再报数**（ISSUE-021）；
      - 人工复核 21 个 silver 现象 + 32 个留出现象，silver 升 gold（ISSUE-020）；

@@ -22,6 +22,7 @@
 | 第三阶段第 4 步：HITL 真中断 | ✅ 100% | 条件边/`interrupt()`/审批载荷/checkpointer/幂等/惰性超时；15 个 HITL 测试 |
 | 第三阶段第 5 步：解释 + 质量门 + RAG MVP | ✅ 100% | `explain_risks` 节点/越权拦截/引用定位/BM25 检索/引用白名单；28 个新测试 |
 | 第三阶段第 6 步：FastAPI + Streamlit | ✅ 100% | 上传/审查/人工决定/下载 JSON+Markdown；pending 落盘；37 个新测试 |
+| 界面轮 11：方块 Skill + 弹窗化 + 对话式逐条审查 | ✅ 100% | 推荐 Skill 改 1:1 方块网格（`aspect-ratio`，7 个 130×130）；新建/导入移到页头右上角、改静态弹窗（`#skill-new-dialog` / `#skill-import-dialog`，委托挂到 `document`）；上传后先对话式逐段输出审查结论（`#ai-stream`，18ms/3 字），再左右分屏逐条审查（`#clause-list` / `#clause-detail`），有问题条款给建议 + 示例条款 + 一键更正/撤销/全部更正，并可导出 DOCX/PDF（`GET /clauses`、`POST /export`）；任务未结束时退出登录先弹“会中断任务”二次确认；全量 **323 测试** + CDP 复核 |
 | 界面轮 10：账户设置 B 端弹窗 + 侧栏收口 | ✅ 100% | 左下角只留“退出登录 + 头像”，不再显示昵称/邮箱；`#account-dialog` 改为左侧分区导航（个人信息 / 通用 / 数据管理 / 关于）+ 右侧面板；通用区含主题色 5 套（只换 `--accent`）、界面字号 小/标准/大（`--ui-text-scale`）、减少动效 / 自动聚焦 / 恢复默认；数据区含统计卡与两档清除（仍二次确认）；关于区显示版本、政策入口与数据位置；全量 **308 测试** + CDP 21 项 |
 | 界面轮 9：个人账户 / Skill 编辑 / 紧凑 / 厂商扩容 | ✅ 100% | 侧栏“退出登录”右侧 26px 圆形头像 → `#account-dialog`（头像 128px JPEG、昵称、系统设置、清除本机缓存 / 清空审查记录均二次确认）；仓库列表一行折叠、自建可编辑（`PATCH /api/skills/{id}`）、推荐可“存为我的”；右栏面板收紧；厂商 10→20；API Key 输入 `autocomplete=new-password` 等属性阻止浏览器快捷填入；全量 **308 测试** + CDP 冒烟 |
 | 界面轮 8：注册 not found + Skill 导入 | ✅ 100% | 注册失败根因是 8000 端口跑着旧进程（`openapi` 0.9.0，无 `/api/auth/*`）→ 重启为 `API_VERSION 1.0.0` 后 `/api/auth/me` 200；Skill 仓库新增“从 Markdown 导入”：拖拽文件/文件夹 + 两个选择入口，前端解析 frontmatter/标题/首段后逐条 `POST /api/skills`（同名跳过、超长截断、单次 30 个 / 单文件 200 KB）；全量 **298 测试** + CDP 10 项 |
@@ -34,7 +35,33 @@
 | 第四阶段：测试与评测 | ⏳ 85% | 规则 13 条（`version: 5`：三类措辞 + 保额邻近判定）；50 份合同 + 21 个 silver gold 现象 + 四批留出集 40 份；**当前唯一未消耗的 holdout4：P=1.00 / R=0.889 / F1=0.941**（漏报 H39，故意不修）；检索评测（ISSUE-018）与人工复核 gold 仍未做 |
 | 第五阶段：文档与交付 | ⏳ 45% | README/状态/交接/ADR/资料清单/开发日志已同步；答辩材料未做 |
 
-## 最新产出（2026-10-28 界面轮 10：账户设置 B 端分区弹窗、主题色与字号、侧栏不再显示昵称/邮箱）
+## 最新产出（2026-10-28 界面轮 11：推荐 Skill 方块、新建/导入弹窗、对话式逐条审查 + 修订导出、退出中断确认）
+
+- **起因（用户原话 4 条）**：
+  1. 推荐 Skill 组件不喜欢**长矩形**，改成**正方形小方块排列**；
+  2. 新建 Skill 和导入 Skill 需要放在**右上角的按钮**，点击后**弹窗**使用；
+  3. 上传合同后以**对话形式流式输出**审查结果与报告；判为合同则**逐条拆分**、**左右分屏**逐条审查并给意见；有问题的条款给**修改建议 + 修改后的条款**，提供**一键更正**；可**一键导出 DOCX / PDF**；
+  4. 审查任务进行中点退出，必须**弹窗提示会中断任务**并再次确认。
+- **Skill 仓库（`app/web/app.js`、`index.html`、`styles.css`）**：
+  - `skillTile()` → `.skill-tiles` 网格（`repeat(auto-fill, minmax(122px, 1fr))`），卡片 `aspect-ratio: 1/1`，卡内“名称 2 行 + 说明 2 行 + 右下角‘使用’胶囊”；实测 7 个 130×130；
+  - 页头改为 `.skills-head`（左标题 + 右 `.skills-head-actions`），`#skill-new-open` / `#skill-import-open` 固定在右上角；右栏 `.skills-grid` / `.skills-side` / `.skill-form` 全部删除；
+  - 新建与导入改成 `index.html` 里的静态弹窗（`#skill-new-dialog` / `#skill-import-dialog`），编辑自建 Skill 复用同一弹窗（`PATCH /api/skills/{id}`），推荐 Skill “存为我的”只是预填；
+  - 弹窗在 `#view` 外，`bindSkills()` 的事件委托**全部改到 `document`**（click / submit / change / drop / keydown 按 id 过滤）。
+- **后端（新增 2 接口 + 2 服务，不新增判级）**：
+  - `app/schemas.py`：`ClauseFinding` / `ClauseReview` / `ClauseReviewList`（条款原文 + 命中规则 + 示例修订 + 合同级问题 + `limitations`）；
+  - `app/services/clause_review.py`：从图状态聚合，**等级只搬规则结果**（`red > yellow > pass`，`pass` = 规则未命中），`skipped` 与非红/黄不入视图；`REVISION_TEMPLATES` 14 条示例条款（带 `___` 占位）、按“红在前”拼接且按 `rule_id` 去重；无条款归属的规则进 `contract_findings`；
+  - `app/services/clause_export.py`：DOCX（`python-docx`）+ PDF（`reportlab` 内置 `STSong-Light`，不下载字体/不联网），三节“逐条意见 / 全合同问题 / 修订稿”+ 免责声明，内存生成不落临时文件；
+  - `GET /api/reviews/{id}/clauses`、`POST /api/reviews/{id}/export`（`format: docx|pdf` + 已更正条款数组；`ExportError`→400；`filename*=UTF-8''…` + ASCII 兜底名；沿用 `authorize()` 的归属校验，越权/不存在统一 404）。
+- **前端审查结果页**：
+  - `.review-shell` = 用户气泡 + 助手气泡（`#ai-stream`）+ `#approval-slot` + `#workbench`；`chatNarrative()` 用真实数据拼句，`streamText()` 18ms/3 字逐段写入（`prefs.motion` 时整段直出，`stopStream()` 负责清理）；
+  - 流式结束才展开工作台；`.workbench-grid` 左 `#clause-list`（序号 / 名称 / 等级 / 已更正✓，首行“全合同”）、右 `#clause-detail`（原文 / 意见 / 建议 / 依据 / 原文引文 / 知识引用 / 可编辑修订 / 一键更正 / 撤销）；
+  - “全部更正”批量套用，`state.corrections` 只在前端保存；导出把最终文本 POST 给 `/export`，`Content-Disposition` 解中文名后 `blob` 下载；
+  - `renderApproval()` 改为**只返回 HTML**（保留 `approval.findings` / `findings_total` / “待您确认”），由 `#approval-slot` 挂载后 `bindConfirm()`。
+- **退出确认**：`hasActiveTask()` = `busy || taskActive || reviewStatus ∈ {awaiting_human, running}`；命中则 `#logout-confirm`（“审查任务仍在进行 / 退出会中断这次任务…”），取消不退出，确认走 `doLogout()`（先 `stopStream()` 再清状态）。这是**前端拦截**，后端没有“取消任务”接口（ISSUE-028）。
+- **验证**：`pytest` **323 passed**（`tests/test_clause_review.py` 11 项新增 + `tests/test_web.py` 26 项）；`ruff check .` 通过；`node --check app/web/app.js` 通过；Edge headless + CDP 复核：方块 130×130、右上角按钮右边缘与页头齐平、两个弹窗可开可关、上传后 450ms 仅 105/276 字符（确为流式）、结束后分屏两栏 376/709 并排、红条款有意见/建议/示例条款、一键更正与撤销生效、导出 DOCX 39,086 B / PDF 9,205 B、任务中退出弹确认且取消不退出。
+- **仍未做**：不是真 SSE（后端同步跑图，前端按时序铺开真实内容，ISSUE-027）；更正不落库（导出才是交付物）；修订文本是示例条款（未覆盖的规则只给建议）；退出中断没有后端清理接口（ISSUE-028）。
+
+## 上一轮产出（2026-10-28 界面轮 10：账户设置 B 端分区弹窗、主题色与字号、侧栏不再显示昵称/邮箱）
 
 - **起因（用户原话 2 条）**：
   1. 左下角**不用显示**“王勃森 / 2650406850@qq.com”；
@@ -470,8 +497,9 @@ START → ingest → precheck(是不是合同?) ─否→ report(not_contract)
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
-# 308 个用例：247 基础 + 前端（test_web.py 22）+ 规则目录 + 文档类型闸门 11
+# 323 个用例：247 基础 + 前端（test_web.py 26）+ 规则目录 + 文档类型闸门 11
 #   + 账号/记录/Skill/BYOK（test_accounts.py 35）+ RAG 兜底
+#   + 逐条审查与修订导出（test_clause_review.py 11）
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
@@ -536,6 +564,9 @@ START → ingest → precheck(是不是合同?) ─否→ report(not_contract)
 # Skill：GET /api/skills（未登录只给内置 7 个）、POST /api/skills、DELETE /api/skills/{id}
 # BYOK：GET /api/llm/providers、GET|PUT|DELETE /api/llm（只回 has_key + 尾号）、POST /api/llm/test
 # 只读规则目录（页面不消费）：GET /api/rules（13 条、5 红 / 8 黄；不返回正则/DSL）
+# 逐条审查（界面轮 11）：GET /api/reviews/{id}/clauses → 条款原文 + 命中规则 + 示例修订 + 合同级问题
+# 修订稿导出：POST /api/reviews/{id}/export {"format":"docx|pdf","clauses":[{"clause_id","text"}]}
+#   → attachment（RFC5987 中文名）；未传 clauses 时保留原文；空条款/未知格式 400
 # 前端资源：GET /、GET /static/styles.css、GET /static/app.js、GET /static/fonts/*.woff2（均 200，无外链）
 
 # 前端语法检查（可选，需本机 node）

@@ -22,6 +22,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Literal
+from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi import Path as ApiPath
@@ -36,6 +37,7 @@ from app.review_service import ReviewRun, ReviewService, ReviewStateError
 from app.rules.engine import RULE_ENGINE_VERSION, load_rule_set
 from app.schemas import (
     ApprovalPayload,
+    ClauseReviewList,
     DocumentCheck,
     HitlDecision,
     OverallLevel,
@@ -52,6 +54,8 @@ from app.services.accounts import (
     User,
 )
 from app.services.checkpointer import sqlite_checkpointer
+from app.services.clause_export import ExportError, export_clause_review
+from app.services.clause_review import build_clause_reviews
 from app.services.llm import LLMNotConfigured, LLMRuntime, probe_llm
 from app.services.llm_providers import provider_payload, resolve_provider
 from app.services.pending_store import FilePendingStore
@@ -113,6 +117,24 @@ class Credentials(BaseModel):
     email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=1, max_length=128)
     display_name: str = Field(default="", max_length=40)
+
+
+class ClauseExportItem(BaseModel):
+    """用户点过“一键更正”的一条条款：`clause_id -> 最终采用的文本`。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    clause_id: str = Field(min_length=1, max_length=64)
+    text: str = Field(min_length=1, max_length=20_000)
+
+
+class ClauseExportRequest(BaseModel):
+    """导出修订稿：DOCX / PDF；`clauses` 为空时导出原文 + 意见。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    format: Literal["docx", "pdf"]
+    clauses: list[ClauseExportItem] = Field(default_factory=list, max_length=500)
 
 
 class ProfileUpdate(BaseModel):
@@ -801,5 +823,58 @@ def create_app(
                 },
             )
         return JSONResponse(content=report.model_dump(mode="json"))
+
+    # ---------- 逐条审查 / 修订稿导出 ----------
+
+    @app.get("/api/reviews/{review_id}/clauses", response_model=ClauseReviewList)
+    def get_clauses(
+        request: Request,
+        review_id: str = ApiPath(pattern=REVIEW_ID_PATTERN),
+    ) -> ClauseReviewList:
+        """逐条审查视图：条款原文 + 命中的规则 + 示例修订文本。
+
+        等级直接沿用规则结果，不在这里重新判定；待人工确认时同样可读（预览）。
+        """
+        authorize(request, review_id)
+        run = _service_of(request).get(review_id)
+        state = run.state
+        if state is None:  # pragma: no cover - ReviewRun 总会带 state
+            raise HTTPException(status_code=404, detail=f"审查不存在：{review_id}")
+        return build_clause_reviews(state, awaiting_human=run.awaiting_human)
+
+    @app.post("/api/reviews/{review_id}/export")
+    def export_review(
+        request: Request,
+        payload: ClauseExportRequest,
+        review_id: str = ApiPath(pattern=REVIEW_ID_PATTERN),
+    ) -> Response:
+        """导出“审查意见汇总 + 修订稿”。
+
+        `clauses` 里是用户点过“一键更正”的条款文本；未点过的条款保留原文。
+        只在服务端内存里生成字节，不落临时文件，也不联网取字体。
+        """
+        authorize(request, review_id)
+        run = _service_of(request).get(review_id)
+        state = run.state
+        if state is None:  # pragma: no cover - ReviewRun 总会带 state
+            raise HTTPException(status_code=404, detail=f"审查不存在：{review_id}")
+        view = build_clause_reviews(state, awaiting_human=run.awaiting_human)
+        accepted = {item.clause_id: item.text for item in payload.clauses}
+        try:
+            content, filename, media_type = export_clause_review(
+                view, accepted, payload.format
+            )
+        except ExportError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        ascii_name = f"review-{review_id}.{payload.format}"
+        disposition = (
+            f'attachment; filename="{ascii_name}"; '
+            f"filename*=UTF-8''{quote(filename, safe='')}"
+        )
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={"Content-Disposition": disposition},
+        )
 
     return app

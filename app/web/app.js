@@ -66,6 +66,16 @@
     editingSkillId: "",
     /** 右侧表单预填来源（推荐 Skill 的“存为我的”会填进来，但仍按新建提交） */
     skillFormSource: "",
+    /** 有审查任务没结束（上传中 / 待人工确认）：退出时要二次确认 */
+    taskActive: false,
+    /** 最近一次审查的状态（awaiting_human / running 也算任务未结束） */
+    reviewStatus: "",
+    /** 逐条审查视图：条款数据、当前选中、已点“一键更正”的条款 */
+    clauseView: null,
+    selectedClause: "",
+    corrections: {},
+    /** 对话式流式输出的定时器（切页/退出时要清掉） */
+    streamTimer: 0,
   };
 
   /* ---------- 基础工具 ---------- */
@@ -827,28 +837,53 @@
       tab.addEventListener("click", () => setAuthMode(tab.dataset.authTab));
     });
     if (dom.authLogout) {
-      dom.authLogout.addEventListener("click", async () => {
-        try {
-          await api("/api/auth/logout", { method: "POST" });
-        } catch (error) {
-          /* 退出失败也要把本地状态清掉 */
+      dom.authLogout.addEventListener("click", () => {
+        if (hasActiveTask()) {
+          openDialog("logout-confirm");
+          return;
         }
-        state.user = null;
-        state.llm = null;
-        state.history = [];
-        closeDialog("account-dialog");
-        cancelClear();
-        renderAccount();
-        updateLlmState();
-        renderUploadIfIdle();
-        await loadSkills();
-        if (historySubOpen()) loadHistory();
-        closeDrawer();
+        doLogout();
       });
     }
+    on("logout-cancel", "click", () => closeDialog("logout-confirm"));
+    on("logout-confirm-yes", "click", () => {
+      closeDialog("logout-confirm");
+      doLogout();
+    });
     on("auth-form", "submit", submitAuth);
     on("auth-consent-terms", "click", () => openLegal("terms"));
     on("auth-consent-privacy", "click", () => openLegal("privacy"));
+  }
+
+  /** 有没有“正在进行”的审查：上传/读取中，或停在人工确认（都算未结束）。 */
+  function hasActiveTask() {
+    if (state.busy || state.taskActive) return true;
+    const review = state.reviewStatus;
+    if (!review) return false;
+    return review === "awaiting_human" || review === "running";
+  }
+
+  async function doLogout() {
+    stopStream();
+    try {
+      await api("/api/auth/logout", { method: "POST" });
+    } catch (error) {
+      /* 退出失败也要把本地状态清掉 */
+    }
+    state.user = null;
+    state.llm = null;
+    state.history = [];
+    state.taskActive = false;
+    state.clauseView = null;
+    state.corrections = {};
+    closeDialog("account-dialog");
+    cancelClear();
+    renderAccount();
+    updateLlmState();
+    renderUploadIfIdle();
+    await loadSkills();
+    if (historySubOpen()) loadHistory();
+    closeDrawer();
   }
 
   async function submitAuth(event) {
@@ -1048,9 +1083,7 @@
       '<span class="skill-name">' +
       esc(skill.name) +
       "</span>" +
-      '<span class="skill-tag">' +
-      (skill.builtin ? "推荐" : "我的") +
-      "</span>" +
+      '<span class="skill-tag">我的</span>' +
       '<svg class="skill-caret" viewBox="0 0 24 24" width="11" height="11" aria-hidden="true">' +
       '<path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" ' +
       'stroke-linecap="round" stroke-linejoin="round"/></svg>' +
@@ -1069,16 +1102,36 @@
       '<div class="skill-actions">' +
       '<button class="chip chip-mini chip-quiet" type="button" data-edit-skill="' +
       id +
+      '">编辑</button>' +
+      '<button class="chip chip-mini chip-quiet" type="button" data-delete-skill="' +
+      id +
+      '">删除</button>' +
+      "</div>" +
+      "</div>" +
+      "</li>"
+    );
+  }
+
+  /** 推荐 Skill：正方形小方块（名称 + 两句说明 + 使用），点方块看详情或另存。 */
+  function skillTile(skill) {
+    const id = esc(skill.id);
+    return (
+      '<li class="skill-tile">' +
+      '<button class="skill-tile-open" type="button" data-edit-skill="' +
+      id +
+      '" aria-label="查看 ' +
+      esc(skill.name) +
       '">' +
-      (skill.builtin ? "存为我的" : "编辑") +
+      '<span class="skill-tile-name">' +
+      esc(skill.name) +
+      "</span>" +
+      '<span class="skill-tile-desc">' +
+      esc(skill.description || skill.instruction || "") +
+      "</span>" +
       "</button>" +
-      (skill.builtin
-        ? ""
-        : '<button class="chip chip-mini chip-quiet" type="button" data-delete-skill="' +
-          id +
-          '">删除</button>') +
-      "</div>" +
-      "</div>" +
+      '<button class="chip chip-mini" type="button" data-use-skill="' +
+      id +
+      '">使用</button>' +
       "</li>"
     );
   }
@@ -1087,14 +1140,14 @@
     const builtinBox = document.getElementById("skill-builtin");
     const ownBox = document.getElementById("skill-own");
     if (builtinBox) {
-      builtinBox.innerHTML = state.skills.filter((skill) => skill.builtin).map(skillRow).join("");
+      builtinBox.innerHTML = state.skills.filter((skill) => skill.builtin).map(skillTile).join("");
     }
     if (ownBox) {
       const own = state.skills.filter((skill) => !skill.builtin);
       ownBox.innerHTML = own.length
         ? own.map(skillRow).join("")
         : '<li class="skill-empty">' +
-          (state.user ? "还没有自建 Skill，可以在下面写一个。" : "登录后可以创建自己的 Skill。") +
+          (state.user ? "还没有自建 Skill，点右上角“新建 Skill”写一个。" : "登录后可以创建自己的 Skill。") +
           "</li>";
     }
     const submit = document.getElementById("skill-submit");
@@ -1110,56 +1163,21 @@
     state.skillFormSource = "";
     dom.view.innerHTML =
       '<section class="skills-page">' +
+      '<header class="skills-head">' +
+      '<div class="skills-head-text">' +
       '<h1 class="headline">Skill 仓库</h1>' +
-      '<div class="skills-grid">' +
+      '<p class="skills-sub">推荐 Skill 可直接使用；点方块可查看审查重点或另存为我的 Skill。</p>' +
+      "</div>" +
+      '<div class="skills-head-actions">' +
+      '<button class="btn btn-compact" type="button" id="skill-import-open">导入</button>' +
+      '<button class="btn btn-primary btn-compact" type="button" id="skill-new-open">+ 新建 Skill</button>' +
+      "</div>" +
+      "</header>" +
       '<div class="skills-column">' +
       '<h2 class="panel-title">推荐 Skill</h2>' +
-      '<ul class="skill-list" id="skill-builtin"></ul>' +
+      '<ul class="skill-tiles" id="skill-builtin"></ul>' +
       '<h2 class="panel-title">我的 Skill</h2>' +
       '<ul class="skill-list" id="skill-own"></ul>' +
-      "</div>" +
-      '<div class="skills-column skills-side">' +
-      '<form class="panel skill-form" id="skill-form">' +
-      '<div class="panel-head">' +
-      '<h2 class="panel-title" id="skill-form-title">新建 Skill</h2>' +
-      '<button class="link" type="button" id="skill-form-cancel" hidden>取消</button>' +
-      "</div>" +
-      '<label class="field field-compact"><span>名称</span>' +
-      '<input id="skill-name" type="text" maxlength="40" required placeholder="例如：信用证付款" /></label>' +
-      '<label class="field field-compact"><span>一句话说明</span>' +
-      '<input id="skill-desc" type="text" maxlength="160" placeholder="主要看什么（可留空）" /></label>' +
-      '<label class="field field-compact"><span>审查重点</span>' +
-      '<textarea id="skill-instruction" rows="4" maxlength="1000" required ' +
-      'placeholder="例如：重点核对信用证开立时间、议付单据与最迟装运期是否匹配"></textarea></label>' +
-      '<p class="alert" id="skill-error" role="alert" hidden></p>' +
-      '<p class="field-note" id="skill-login-note" hidden>登录后即可保存自己的 Skill。</p>' +
-      '<button class="btn btn-primary btn-block btn-compact" type="submit" id="skill-submit">保存 Skill</button>' +
-      "</form>" +
-      '<section class="panel skill-import">' +
-      '<div class="panel-head">' +
-      '<h2 class="panel-title">从 Markdown 导入</h2>' +
-      '<span class="panel-meta">.md / 文件夹</span>' +
-      "</div>" +
-      '<p class="field-note">' +
-      "文件名或 <code>name:</code> 作名称，首段作说明，正文作审查重点（超过 " +
-      SKILL_INSTRUCTION_MAX +
-      " 字截断）。" +
-      "</p>" +
-      '<div class="dropzone" id="skill-drop" tabindex="0" role="button" ' +
-      'aria-label="拖入 Markdown 文件或文件夹，或按回车选择文件">' +
-      "<span>拖入 .md 或文件夹</span>" +
-      '<span class="dropzone-hint">或点击选择</span>' +
-      "</div>" +
-      '<div class="import-actions">' +
-      '<button class="btn btn-compact" type="button" id="skill-import-files">选择 .md</button>' +
-      '<button class="btn btn-compact" type="button" id="skill-import-folder">选择文件夹</button>' +
-      "</div>" +
-      '<input id="skill-import-input" type="file" accept=".md,.markdown,text/markdown" multiple hidden />' +
-      '<input id="skill-import-dir" type="file" webkitdirectory directory multiple hidden />' +
-      '<p class="alert" id="skill-import-error" role="alert" hidden></p>' +
-      '<ul class="import-log" id="skill-import-log" hidden></ul>' +
-      "</section>" +
-      "</div>" +
       "</div>" +
       "</section>";
     renderSkillList();
@@ -1167,7 +1185,7 @@
     loadSkills();
   }
 
-  /** 右侧表单的“新建 / 编辑”状态（标题、按钮文案、取消按钮） */
+  /** 弹窗表单的“新建 / 编辑 / 存为我的”状态（标题、按钮文案、取消按钮） */
   function updateSkillFormMode() {
     const editing = !!state.editingSkillId;
     const title = document.getElementById("skill-form-title");
@@ -1177,11 +1195,17 @@
       title.textContent = editing
         ? "编辑我的 Skill"
         : state.skillFormSource
-          ? "新建 Skill（来自推荐）"
+          ? "存为我的 Skill"
           : "新建 Skill";
     }
-    if (submit) submit.textContent = editing ? "保存修改" : "保存 Skill";
-    if (cancel) cancel.hidden = !editing && !state.skillFormSource;
+    if (submit) {
+      submit.textContent = editing
+        ? "保存修改"
+        : state.skillFormSource
+          ? "存为我的"
+          : "保存 Skill";
+    }
+    if (cancel) cancel.hidden = false;
   }
 
   function resetSkillForm() {
@@ -1198,7 +1222,7 @@
     updateSkillFormMode();
   }
 
-  /** 点 Skill 的“编辑 / 存为我的”：把内容填进右侧表单。 */
+  /** 点 Skill 的“编辑 / 存为我的”：把内容填进弹窗表单并打开。 */
   function fillSkillForm(skill) {
     if (!state.user) {
       openAuth("login");
@@ -1223,19 +1247,46 @@
     const errorBox = document.getElementById("skill-error");
     if (errorBox) errorBox.hidden = true;
     updateSkillFormMode();
-    renderSkillList();
-    const form = document.getElementById("skill-form");
-    if (form && typeof form.scrollIntoView === "function") {
-      form.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }
+    openDialog("skill-new-dialog");
     name.focus({ preventScroll: true });
   }
 
+  /** 仓库页右上角“+ 新建 Skill”：清空表单后打开弹窗。 */
+  function openSkillCreate() {
+    if (!state.user) {
+      openAuth("login");
+      showSkillError("请先登录，再保存自己的 Skill。");
+      return;
+    }
+    resetSkillForm();
+    openDialog("skill-new-dialog");
+    const name = document.getElementById("skill-name");
+    if (name) name.focus({ preventScroll: true });
+  }
+
+  function openSkillImport() {
+    if (!state.user) {
+      openAuth("login");
+      return;
+    }
+    showSkillImportError("");
+    openDialog("skill-import-dialog");
+  }
+
   function bindSkills() {
-    // 仓库是独立页面，列表会重渲染：展开 / 使用 / 编辑 / 删除 / 导入走事件委托
-    dom.view.addEventListener("click", async (event) => {
+    // 列表在 #view 里、表单在静态弹窗里：统一在 document 上做事件委托
+    document.addEventListener("click", async (event) => {
+      if (event.target.closest("#skill-new-open")) {
+        openSkillCreate();
+        return;
+      }
+      if (event.target.closest("#skill-import-open")) {
+        openSkillImport();
+        return;
+      }
       if (event.target.closest("#skill-form-cancel")) {
         resetSkillForm();
+        closeDialog("skill-new-dialog");
         return;
       }
       const toggle = event.target.closest("[data-toggle-skill]");
@@ -1282,11 +1333,11 @@
       }
       if (event.target.closest("#skill-import-folder")) pickSkillFolder();
     });
-    dom.view.addEventListener("submit", (event) => {
+    document.addEventListener("submit", (event) => {
       if (event.target && event.target.id === "skill-form") submitSkill(event);
     });
-    // 文件夹 / 多选文件：input 在页面重渲染后仍由 view 代理
-    dom.view.addEventListener("change", (event) => {
+    // 文件夹 / 多选文件：input 在静态弹窗里，按 id 过滤
+    document.addEventListener("change", (event) => {
       const target = event.target;
       if (!target || !target.files) return;
       if (target.id !== "skill-import-input" && target.id !== "skill-import-dir") return;
@@ -1294,24 +1345,24 @@
       target.value = "";
       importSkillFiles(files);
     });
-    dom.view.addEventListener("dragover", (event) => {
+    document.addEventListener("dragover", (event) => {
       const zone = event.target.closest("#skill-drop");
       if (!zone) return;
       event.preventDefault();
       zone.classList.add("is-over");
     });
-    dom.view.addEventListener("dragleave", (event) => {
+    document.addEventListener("dragleave", (event) => {
       const zone = event.target.closest("#skill-drop");
       if (zone) zone.classList.remove("is-over");
     });
-    dom.view.addEventListener("drop", async (event) => {
+    document.addEventListener("drop", async (event) => {
       const zone = event.target.closest("#skill-drop");
       if (!zone) return;
       event.preventDefault();
       zone.classList.remove("is-over");
       importSkillFiles(await filesFromDataTransfer(event.dataTransfer));
     });
-    dom.view.addEventListener("keydown", (event) => {
+    document.addEventListener("keydown", (event) => {
       if (event.target.id !== "skill-drop") return;
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
@@ -1371,6 +1422,7 @@
       await loadSkills();
       renderSkillSelect();
       updateSkillFormMode();
+      closeDialog("skill-new-dialog");
     } catch (error) {
       if (error.status === 401) openAuth("login");
       showSkillError(error.message || "保存失败，请重试。");
@@ -2432,11 +2484,15 @@
     }
   }
 
-  function renderResult(review) {
+  async function renderResult(review) {
     state.busy = false;
     state.reviewId = review.review_id;
+    state.reviewStatus = review.status || "";
+    // 待人工确认 / 运行中都算“任务没结束”，退出登录需要二次确认
+    state.taskActive = review.status === "awaiting_human" || review.status === "running";
 
     if (review.status === "failed") {
+      state.taskActive = false;
       setBadge(0);
       failMessage(
         (review.errors && review.errors.join("；")) ||
@@ -2445,95 +2501,552 @@
       return;
     }
     if (review.status === "not_contract") {
+      state.taskActive = false;
       setBadge(0);
       renderNotContract(review);
-      return;
-    }
-    // 红色风险会让流程真暂停：报告还没生成，先展示规则已定位的高风险
-    if (review.awaiting_human && review.approval) {
-      renderApproval(review);
       return;
     }
 
     const report = review.report;
     const findings = (report && report.findings) || [];
     const reds = findings.filter((item) => item.risk_level === "red").length;
-    const yellows = findings.length - reds;
-    setBadge(reds);
-
-    let headline = "没有发现规则覆盖的风险点";
-    let sub = "规则只覆盖常见问题，签署前仍建议请专业人士复核。";
-    if (findings.length) {
-      headline = "发现 " + findings.length + " 处需要关注";
-      sub =
-        (reds ? reds + " 处高风险" : "") +
-        (reds && yellows ? " · " : "") +
-        (yellows ? yellows + " 处需关注" : "");
+    if (review.awaiting_human && review.approval) {
+      const total =
+        typeof review.approval.findings_total === "number"
+          ? review.approval.findings_total
+          : (review.approval.findings || []).length;
+      setBadge(total);
+    } else if (findings.length) {
+      setBadge(reds);
+    } else {
+      setBadge(0);
     }
+    await renderReviewWorkspace(review);
+  }
+
+  /* ---------- 审查结果：对话式流式输出 + 左右分屏逐条审查 ---------- */
+
+  /** 把已有结果整理成“助手说的话”；等页面跑过一次就逐句吐出来（内容都是真实数据）。 */
+  function chatNarrative(review, view) {
+    const lines = ["已读取《" + review.source_filename + "》，判定为国际货物销售合同，开始审查。"];
+    if (review.focus) lines.push("审查重点：" + review.focus + "。");
+    if (view && view.clauses.length) {
+      const red = view.clauses.filter((item) => item.risk_level === "red").length;
+      const yellow = view.clauses.filter((item) => item.risk_level === "yellow").length;
+      const pass = view.clauses.filter((item) => item.risk_level === "pass").length;
+      lines.push(
+        "已按标题与段落切分为 " +
+          view.clauses.length +
+          " 条条款：规则在其中命中 " +
+          red +
+          " 条高风险、" +
+          yellow +
+          " 条需关注，" +
+          pass +
+          " 条未见规则命中。",
+      );
+      if (view.contract_findings.length) {
+        lines.push(
+          "另有 " +
+            view.contract_findings.length +
+            " 处问题不指向具体条款（例如缺失的适用法律），已单独归类为“全合同”。",
+        );
+      }
+    } else {
+      lines.push("条款视图暂时读取失败，下面只展示风险清单。");
+    }
+    if (review.awaiting_human) {
+      lines.push("红色风险需要你确认后才会生成正式报告；右侧可以先逐条查看意见与示例条款。");
+    } else if (review.status === "rejected" || review.status === "changes_requested") {
+      lines.push("你已标记这份合同需要修改，可以按右侧建议逐条更正后再导出一份修订稿。");
+    } else {
+      lines.push("下面按“左原文、右意见”逐条展开；点“一键更正”即采用示例条款，可随时撤销。");
+    }
+    lines.push("风险等级只由规则判定，修改建议不构成法律意见。");
+    return lines;
+  }
+
+  function stopStream() {
+    if (state.streamTimer) {
+      clearInterval(state.streamTimer);
+      state.streamTimer = 0;
+    }
+  }
+
+  /** 逐段输出：内容来自真实审查结果，只是把一次性结果按句显示；减少动效时直接整段出现。 */
+  function streamText(lines, done) {
+    const target = document.getElementById("ai-stream");
+    if (!target) {
+      done();
+      return;
+    }
+    stopStream();
+    const full = lines.join("\n");
+    if (prefs.motion) {
+      target.textContent = full;
+      done();
+      return;
+    }
+    let index = 0;
+    state.streamTimer = setInterval(() => {
+      if (!document.body.contains(target)) {
+        stopStream();
+        return;
+      }
+      index += 3;
+      target.textContent = full.slice(0, index);
+      if (index >= full.length) {
+        stopStream();
+        done();
+      }
+    }, 18);
+  }
+
+  function statusChip(review) {
+    const label = STATUS_LABEL[review.status] || review.status || "";
+    return label ? '<span class="status-chip">' + esc(label) + "</span>" : "";
+  }
+
+  async function renderReviewWorkspace(review) {
+    state.clauseView = null;
+    state.corrections = {};
+    state.selectedClause = "";
+    stopStream();
+
+    let view = null;
+    try {
+      view = await api(
+        "/api/reviews/" + encodeURIComponent(review.review_id) + "/clauses",
+      );
+    } catch (error) {
+      view = null;
+    }
+    state.clauseView = view;
+    if (view && view.clauses.length) {
+      const first = view.clauses.find((item) => item.risk_level !== "pass") || view.clauses[0];
+      state.selectedClause = first.clause_id;
+    } else if (view && view.contract_findings.length) {
+      state.selectedClause = "__contract__";
+    }
+
+    const userLine = [
+      "合同：" + review.source_filename,
+      review.focus ? "审查重点：" + review.focus : "",
+      review.skill_name ? "Skill：" + review.skill_name : "",
+    ]
+      .filter(Boolean)
+      .map(esc)
+      .join("<br>");
 
     const parts = [
-      '<section class="result">',
+      '<section class="review-shell">',
+      '<div class="review-head">',
       backLink(),
-      '<p class="file-line">' + esc(review.source_filename) + "</p>",
-      '<h1 class="headline">' + esc(headline) + "</h1>",
-      '<p class="lead">' + esc(sub) + "</p>",
+      '<div class="review-head-main">',
+      '<p class="file-line">' + esc(review.source_filename) + statusChip(review) + "</p>",
+      "</div>",
+      "</div>",
+      '<div class="chat-thread" id="chat-thread">',
+      '<div class="msg is-user"><div class="msg-bubble">' + userLine + "</div></div>",
+      '<div class="msg is-ai"><div class="msg-bubble"><span id="ai-stream"></span>' +
+        '<span class="stream-caret" aria-hidden="true"></span></div></div>',
+      '<div id="approval-slot"></div>',
+      "</div>",
     ];
 
-    if (review.focus) {
+    if (view) {
+      const revised = view.revised_count || 0;
       parts.push(
-        '<p class="fine">审查重点：' +
-          esc(review.focus) +
-          (review.skill_name ? "（Skill：" + esc(review.skill_name) + "）" : "") +
-          "</p>",
+        '<div class="workbench" id="workbench" hidden>',
+        '<div class="workbench-bar">',
+        '<div class="workbench-title">逐条审查',
+        '<span class="workbench-meta" id="clause-meta"></span>',
+        "</div>",
+        '<div class="workbench-actions">',
+        revised
+          ? '<button class="btn btn-compact" type="button" data-apply-all>全部更正</button>'
+          : "",
+        '<span class="export-label">导出修订稿</span>',
+        '<button class="btn btn-compact" type="button" data-export="docx">DOCX</button>',
+        '<button class="btn btn-compact" type="button" data-export="pdf">PDF</button>',
+        "</div>",
+        "</div>",
+        '<div class="workbench-grid">',
+        '<ol class="clause-list" id="clause-list" aria-label="合同条款"></ol>',
+        '<div class="clause-detail" id="clause-detail"></div>',
+        "</div>",
+        '<p class="alert" id="export-error" role="alert" hidden></p>',
+        "</div>",
       );
-    }
-
-    if (review.status === "rejected" || review.status === "changes_requested") {
-      parts.push(
-        '<p class="banner">' +
-          esc(
-            review.status === "rejected"
-              ? "您已标记这份合同不能接受，下方问题清单可作为修改依据。"
-              : "您已标记这份合同需要修改，修改后请重新上传审查。",
-          ) +
-          "</p>",
-      );
-    } else if (review.status === "unreviewed_red_risk") {
-      parts.push(
-        '<p class="banner">人工确认已超时，这份报告没有获得确认，不能当作可签署的结论。</p>',
-      );
-    }
-
-    parts.push('<ol class="risks">');
-    findings.forEach((finding) => parts.push(riskCard(finding)));
-    parts.push("</ol>");
-
-    if (report) {
+    } else {
       parts.push(
         '<div class="down">' +
           '<span>下载报告</span>' +
           '<a href="/api/reviews/' +
           encodeURIComponent(review.review_id) +
-          '/report?format=markdown" data-format="markdown">Markdown</a>' +
+          '/report?format=markdown">Markdown</a>' +
           "</div>",
       );
     }
-
-    parts.push(
-      '<p class="fine">' +
-        esc(
-          report && report.overall_level
-            ? "风险等级由规则引擎判定，解释只做说明，不会改变等级。"
-            : "风险等级由规则引擎判定。",
-        ) +
-        "</p>",
-      "</section>",
-    );
-
+    parts.push("</section>");
     dom.view.innerHTML = parts.join("");
+
+    // 待确认面板跟着“助手说完”再出现，顺序像对话（先说结论，再让你确认）
+    const approvalHtml =
+      review.awaiting_human && review.approval ? renderApproval(review) : "";
+    const showApproval = () => {
+      if (!approvalHtml) return;
+      const slot = document.getElementById("approval-slot");
+      if (!slot) return;
+      slot.innerHTML = approvalHtml;
+      bindConfirm();
+    };
+
+    if (!view) {
+      const stream = document.getElementById("ai-stream");
+      if (stream) stream.textContent = chatNarrative(review, view).join("\n");
+      showApproval();
+      return;
+    }
+
+    streamText(chatNarrative(review, view), () => {
+      showApproval();
+      const box = document.getElementById("workbench");
+      if (box) {
+        box.hidden = false;
+        // 分屏是这一屏的重点；若被上面的对话挤出可视区，就把它带到视口顶部
+        const rect = box.getBoundingClientRect();
+        if (rect.top > window.innerHeight - 120) {
+          box.scrollIntoView({ block: "start", behavior: prefs.motion ? "auto" : "smooth" });
+        }
+      }
+      renderWorkbench();
+    });
   }
 
-  /* 待确认：规则结果已就绪（审批载荷），确认后才生成正式报告与解释 */
+  function clauseLevelLabel(level) {
+    if (level === "red") return "高风险";
+    if (level === "yellow") return "需关注";
+    return "未见问题";
+  }
+
+  function renderWorkbench() {
+    const view = state.clauseView;
+    if (!view) return;
+    const applied = Object.keys(state.corrections).length;
+    const meta = document.getElementById("clause-meta");
+    if (meta) {
+      meta.textContent =
+        "共 " + view.clauses.length + " 条 · 已更正 " + applied + " 条";
+    }
+    const list = document.getElementById("clause-list");
+    if (list) {
+      const items = [];
+      if (view.contract_findings.length) {
+        // “全合同”分组的颜色取组内最严重的等级（规则判定，不在这里重判）
+        const contractLevel = view.contract_findings.some(
+          (item) => item.risk_level === "red",
+        )
+          ? "red"
+          : "yellow";
+        items.push(
+          '<li class="clause-item clause-global' +
+            (state.selectedClause === "__contract__" ? " is-active" : "") +
+            '"><button class="clause-jump" type="button" data-clause="__contract__">' +
+            '<span class="clause-index">※</span>' +
+            '<span class="clause-name">全合同</span>' +
+            '<span class="clause-flag is-' +
+            contractLevel +
+            '">' +
+            view.contract_findings.length +
+            " 处</span>" +
+            "</button></li>",
+        );
+      }
+      view.clauses.forEach((clause) => {
+        const flag =
+          clause.risk_level === "pass"
+            ? '<span class="clause-dot is-pass" aria-label="未见问题"></span>'
+            : '<span class="clause-flag is-' +
+              clause.risk_level +
+              '">' +
+              clauseLevelLabel(clause.risk_level) +
+              "</span>";
+        items.push(
+          '<li class="clause-item' +
+            (state.selectedClause === clause.clause_id ? " is-active" : "") +
+            '"><button class="clause-jump" type="button" data-clause="' +
+            esc(clause.clause_id) +
+            '">' +
+            '<span class="clause-index">' +
+            String(clause.index).padStart(2, "0") +
+            "</span>" +
+            '<span class="clause-name">' +
+            esc(clause.title || "第 " + clause.index + " 条") +
+            "</span>" +
+            (state.corrections[clause.clause_id]
+              ? '<span class="clause-applied" aria-label="已更正">✓</span>'
+              : "") +
+            flag +
+            "</button></li>",
+        );
+      });
+      list.innerHTML = items.join("");
+      // 只滚动条款列表自身（不要用 scrollIntoView，否则整页会跟着跳）
+      const active = list.querySelector(".clause-item.is-active");
+      if (active) {
+        const listBox = list.getBoundingClientRect();
+        const itemBox = active.getBoundingClientRect();
+        const delta = itemBox.top - listBox.top;
+        list.scrollTop += delta - (list.clientHeight - itemBox.height) / 2;
+      }
+    }
+    renderClauseDetail();
+  }
+
+  function findingBlock(finding) {
+    const quotes = finding.quotes || [];
+    return [
+      '<article class="finding is-' + esc(finding.risk_level) + '">',
+      '<div class="finding-head">',
+      '<span class="tag">' + esc(clauseLevelLabel(finding.risk_level)) + "</span>",
+      '<h4 class="finding-title">' + esc(finding.title || finding.reason) + "</h4>",
+      "</div>",
+      '<p class="finding-reason">' + esc(finding.reason) + "</p>",
+      finding.explanation_summary && finding.explanation_summary !== finding.reason
+        ? '<p class="finding-note">' + esc(finding.explanation_summary) + "</p>"
+        : "",
+      finding.suggestion
+        ? '<p class="finding-fix"><span>建议</span>' + esc(finding.suggestion) + "</p>"
+        : "",
+      '<details class="why"><summary>原文依据与规则</summary>',
+      quotes.map((quote) => "<blockquote>" + esc(quote) + "</blockquote>").join(""),
+      finding.explanation_citation
+        ? '<p class="cite">位置：' + esc(finding.explanation_citation) + "</p>"
+        : "",
+      (finding.knowledge_citations || []).length
+        ? '<p class="cite">知识引用：' +
+          esc(finding.knowledge_citations.join("、")) +
+          "</p>"
+        : "",
+      '<p class="cite">规则编号：' + esc(finding.rule_id) + "</p>",
+      "</details>",
+      "</article>",
+    ].join("");
+  }
+
+  function renderClauseDetail() {
+    const view = state.clauseView;
+    const box = document.getElementById("clause-detail");
+    if (!view || !box) return;
+
+    if (state.selectedClause === "__contract__") {
+      box.innerHTML = [
+        '<div class="detail-head">',
+        '<h3 class="detail-title">全合同问题</h3>',
+        '<p class="detail-meta">这些规则不指向具体条款（例如缺失的适用法律），需要新增一段。</p>',
+        "</div>",
+        view.contract_findings.map(findingBlock).join(""),
+        view.contract_revised_text
+          ? '<div class="revision"><div class="revision-head"><span>建议新增条款</span>' +
+            '<span class="revision-note">' +
+            esc(view.contract_revision_note || "") +
+            "</span></div>" +
+            '<pre class="revision-text">' +
+            esc(view.contract_revised_text) +
+            "</pre></div>"
+          : "",
+      ].join("");
+      return;
+    }
+
+    const clause = view.clauses.find((item) => item.clause_id === state.selectedClause);
+    if (!clause) {
+      box.innerHTML = '<p class="detail-empty">从左侧选择一条条款查看审查意见。</p>';
+      return;
+    }
+    const corrected = state.corrections[clause.clause_id];
+    const draft = corrected || clause.revised_text || "";
+    const parts = [
+      '<div class="detail-head">',
+      "<div>",
+      '<h3 class="detail-title">' +
+        esc(clause.title || "第 " + clause.index + " 条") +
+        "</h3>",
+      '<p class="detail-meta">第 ' +
+        clause.index +
+        " 条 · 第 " +
+        clause.page +
+        " 页 · " +
+        clauseLevelLabel(clause.risk_level) +
+        (corrected ? " · 已更正" : "") +
+        "</p>",
+      "</div>",
+      "</div>",
+      '<h4 class="detail-sub">合同原文</h4>',
+      '<blockquote class="clause-text">' + esc(clause.text) + "</blockquote>",
+    ];
+
+    if (clause.findings.length) {
+      parts.push('<h4 class="detail-sub">审查意见</h4>');
+      clause.findings.forEach((finding) => parts.push(findingBlock(finding)));
+    } else {
+      parts.push('<p class="detail-empty is-pass">这条没有命中规则，可按原文保留。</p>');
+    }
+
+    if (clause.revised_text) {
+      parts.push(
+        '<div class="revision">',
+        '<div class="revision-head"><span>修改后的条款（可编辑）</span>',
+        '<span class="revision-note">' + esc(clause.revision_note || "") + "</span></div>",
+        '<textarea class="revision-input" id="revised-input" data-clause-input="' +
+          esc(clause.clause_id) +
+          '" rows="5">' +
+          esc(draft) +
+          "</textarea>",
+        '<div class="revision-actions">',
+        '<button class="btn btn-primary btn-compact" type="button" data-apply="' +
+          esc(clause.clause_id) +
+          '">一键更正</button>',
+        '<button class="btn btn-compact" type="button" data-revert="' +
+          esc(clause.clause_id) +
+          '"' +
+          (corrected ? "" : " hidden") +
+          '>撤销更正</button>',
+        "</div>",
+        "</div>",
+      );
+    } else if (clause.findings.length) {
+      parts.push('<p class="detail-empty">这条规则只给文字建议，没有可套用的示例条款。</p>');
+    }
+
+    box.innerHTML = parts.join("");
+  }
+
+  function showExportError(text) {
+    const box = document.getElementById("export-error");
+    if (!box) return;
+    box.textContent = text || "";
+    box.hidden = !text;
+  }
+
+  function applyCorrection(clauseId) {
+    const input = document.querySelector('[data-clause-input="' + clauseId + '"]');
+    const text = input ? input.value.trim() : "";
+    if (!text) {
+      showExportError("修订文本为空，无法更正。");
+      return;
+    }
+    state.corrections[clauseId] = text;
+    showExportError("");
+    renderWorkbench();
+  }
+
+  function revertCorrection(clauseId) {
+    delete state.corrections[clauseId];
+    showExportError("");
+    renderWorkbench();
+  }
+
+  function applyAllCorrections() {
+    const view = state.clauseView;
+    if (!view) return;
+    view.clauses.forEach((clause) => {
+      if (clause.revised_text) state.corrections[clause.clause_id] = clause.revised_text;
+    });
+    showExportError("");
+    renderWorkbench();
+  }
+
+  function filenameFromDisposition(header, fallback) {
+    if (!header) return fallback;
+    const star = /filename\*=UTF-8''([^;]+)/i.exec(header);
+    if (star) {
+      try {
+        return decodeURIComponent(star[1].trim());
+      } catch (error) {
+        /* 回退到普通 filename */
+      }
+    }
+    const plain = /filename="([^"]+)"/i.exec(header);
+    return plain ? plain[1] : fallback;
+  }
+
+  async function exportRevised(fmt) {
+    if (!state.reviewId) return;
+    showExportError("");
+    const clauses = Object.keys(state.corrections).map((clauseId) => ({
+      clause_id: clauseId,
+      text: state.corrections[clauseId],
+    }));
+    try {
+      const response = await fetch(
+        "/api/reviews/" + encodeURIComponent(state.reviewId) + "/export",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ format: fmt, clauses: clauses }),
+        },
+      );
+      if (!response.ok) {
+        let detail = "导出失败，请重试。";
+        try {
+          const data = await response.json();
+          detail = data.detail || detail;
+        } catch (error) {
+          /* 非 JSON 错误体 */
+        }
+        throw new Error(detail);
+      }
+      const blob = await response.blob();
+      const fallback = "审查稿." + fmt;
+      const name = filenameFromDisposition(
+        response.headers.get("Content-Disposition"),
+        fallback,
+      );
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch (error) {
+      showExportError(error.message || "导出失败，请重试。");
+    }
+  }
+
+  /** 逐条审查的交互只绑一次：切条款 / 一键更正 / 撤销 / 全部更正 / 导出。 */
+  function bindWorkbenchEvents() {
+    dom.view.addEventListener("click", (event) => {
+      const jump = event.target.closest("[data-clause]");
+      if (jump) {
+        state.selectedClause = jump.dataset.clause;
+        renderWorkbench();
+        return;
+      }
+      const apply = event.target.closest("[data-apply]");
+      if (apply) {
+        applyCorrection(apply.dataset.apply);
+        return;
+      }
+      const revert = event.target.closest("[data-revert]");
+      if (revert) {
+        revertCorrection(revert.dataset.revert);
+        return;
+      }
+      if (event.target.closest("[data-apply-all]")) {
+        applyAllCorrections();
+        return;
+      }
+      const exportButton = event.target.closest("[data-export]");
+      if (exportButton) exportRevised(exportButton.dataset.export);
+    });
+  }
+
+  /* 待确认：规则结果已就绪（审批载荷），确认后才生成正式报告与解释。
+   * 只返回 HTML，由调用方挂进对话流（#approval-slot）后再 bindConfirm()。 */
   function renderApproval(review) {
     const approval = review.approval || {};
     const findings = approval.findings || [];
@@ -2545,11 +3058,9 @@
     setBadge(total);
 
     const parts = [
-      '<section class="result">',
-      backLink(),
-      '<p class="file-line">' + esc(review.source_filename) + "</p>",
-      '<h1 class="headline">发现 ' + total + " 处高风险，待您确认</h1>",
-      '<p class="lead">规则已经定位到以下条款。请先核对；确认后生成完整报告' +
+      '<div class="approval">',
+      '<h3 class="approval-title">发现 ' + total + " 处高风险，待您确认</h3>",
+      '<p class="approval-lead">规则已经定位到以下条款。请先核对；确认后生成完整报告' +
         "（含修改建议与原文依据）。</p>",
       '<ol class="risks">',
     ];
@@ -2562,10 +3073,8 @@
       );
     }
 
-    parts.push(confirmPanel(total), "</section>");
-
-    dom.view.innerHTML = parts.join("");
-    bindConfirm();
+    parts.push(confirmPanel(total), "</div>");
+    return parts.join("");
   }
 
   /* 审批载荷只含规则判定与证据，没有 LLM 解释 */
@@ -2754,6 +3263,7 @@
   bindAuth();
   bindAccount();
   bindSkills();
+  bindWorkbenchEvents();
   bindLlm();
   bindHistory();
   bindLegal();

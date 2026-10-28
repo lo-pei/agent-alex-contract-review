@@ -504,6 +504,40 @@
 
 ---
 
+## ISSUE-027 · 审查结果页的“流式输出”是前端时序，不是真事件流
+
+- **状态**：OPEN
+- **优先级**：P2
+- **背景**：界面轮 11 用户要求“以对话框对话的形式流式输出返回审查结果和审查报告”。当前实现是：先 `POST /api/reviews`（同步跑完图，遇 HITL 暂停）拿到真实结果，再 `GET /clauses` / `/report`，最后由前端 `streamText()` 每 18ms 写 3 个字符铺开。
+- **问题**：
+  1. 内容真实（全部来自后端），**节奏是前端造的**；后端仍在同步阻塞，用户看动画时任务其实已经结束；
+  2. 合同越大、规则越多，`POST /api/reviews` 的等待越长，期间只有一个“审查中”状态，没有真实的阶段进度（解析 / 抽取 / 判级 / 解释）；
+  3. `prefs.motion` 关闭动画时整段直出，观感与“流式”完全不同——说明它本质是展示层。
+- **默认建议**：
+  - 若要真流式：把 `POST /api/reviews` 拆成“提交任务（返回 review_id + 202）+ 事件流”，用 SSE（`text/event-stream`，FastAPI `StreamingResponse`）按节点推 `stage` / `clause` / `finding` / `done`，前端 `EventSource` 消费；HITL 仍走 `interrupt()`，事件流只推“等待人工确认”；
+  - 若要最小改动：保留前端节奏，但把文案里的“正在读取/抽取/判定”与真实 `timings` 对齐，并在任务结束后补一句“以上为已完成结果的逐条展示”；
+  - 不要把前端动画当进度上报（会误导用户“还在跑”）。
+- **证据**：`app/web/app.js`（`streamText` / `stopStream` / `chatNarrative`）、`app/api.py`（`POST /api/reviews` 同步）、ADR-013 第 7 轮补充第 5 条。
+
+---
+
+## ISSUE-028 · 退出登录只做前端拦截，后端没有“取消审查任务”接口
+
+- **状态**：OPEN
+- **优先级**：P2
+- **背景**：界面轮 11 要求“审查任务进行中退出要提示会中断任务并二次确认”。当前 `hasActiveTask()`（`busy || taskActive || reviewStatus ∈ {awaiting_human, running}`）命中时弹 `#logout-confirm`，确认后前端 `stopStream()` 并清本地状态、`POST /api/auth/logout`。
+- **问题**：
+  1. 后端没有任何“取消/清理”的动作：checkpoint 记录仍在，`pending/<review_id>.json` 仍在，上传目录也保留；用户重新登录后该记录仍显示“待确认”；
+  2. 若退出时正处在 `POST /api/reviews` 的同步阶段（浏览器会中断请求），服务端可能继续跑完写库，前端却已看不到结果；
+  3. 没有“放弃这次审查”的显式语义，用户无法主动清理未完成的记录（只能事后在审查历史里删除）。
+- **默认建议**：
+  - 新增 `POST /api/reviews/{id}/cancel`：先取进程内同 `review_id` 的可重入锁，置 `cancelled` 标记，删除 pending 文件与上传目录，checkpoint 保留只读（不物理删，便于追溯）；已 `approved` 的记录拒绝取消（409）；
+  - 前端确认退出时若 `reviewStatus ∈ {awaiting_human, running}`，调用该接口并提示“本次审查已取消”；
+  - 或在“审查历史”里给未完成记录加“放弃”入口，避免依赖退出动作。
+- **证据**：`app/web/app.js`（`hasActiveTask` / `doLogout` / `#logout-confirm`）、`app/review_service.py`（pending / checkpoint 生命周期）、ADR-013 第 7 轮补充第 7 条。
+
+---
+
 ## 本阶段不处理（DEFERRED）
 
 | 事项 | 原因 |

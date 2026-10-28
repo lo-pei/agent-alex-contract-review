@@ -195,3 +195,18 @@
 **边界**：偏好不随账号同步；没有手动深色开关（仍跟随系统）；字号三档不缩放布局尺寸；主题色不改变风险语义色；仍无“改密码 / 注销账号”。
 
 **验证补充（本轮）**：`pytest` **308 passed**（`tests/test_web.py` 22 项；个人账户测试改为分区断言，并断言侧栏不再有 `#account-line` / `accountLine` / `.account-line`）；`ruff check .`、`node --check app/web/app.js` 通过；CDP 21 项全过、`exceptions: []`（弹窗 760×560、导航 164px、四分区切换、主题落盘 `#3a4f9b`、字号大档标题 23→25.3px、统计 0/0、空记录提示、确认条可取消、关于版本 1.0.0、关窗保留偏好、重开回“个人信息”、480px 导航横向且无溢出）。
+
+## 第 7 轮补充（2026-10-28 界面轮 11）：逐条审查视图、修订稿导出、Skill 弹窗化、退出中断确认
+
+1. **逐条审查是“聚合视图”，不是第二次判级**：`app/services/clause_review.py: build_clause_reviews()` 只读图状态里的 `clauses` / `rule_evaluations` / `explanations`，把每条规则挂到它命中的条款上；条款级等级 = `red > yellow > pass`，`pass` 明确表示“规则未命中”而不是“安全”；`skipped`（抽取降级/未批准）与 `green` 结果不进入视图，避免把“没判”说成“没问题”。等级唯一来源仍是规则引擎（ADR-003）。
+2. **一条规则命中多条条款 → 每条都展示；无归属规则 → “全合同”**：多对多是数据事实，不能只挂第一条；这些规则不指向具体条款（如缺失的适用法律），单独进 `contract_findings` 并在左侧列表首行以“※ 全合同”呈现，前端对它们不提供“一键更正”（没有原文可替换），只给“建议新增条款”。
+3. **修订文本用固定模板，且必须带占位与免责**：`REVISION_TEMPLATES` 覆盖 14 个 `rule_id`，文本里留下 `___` 让用户填实际交易条件，统一附 `REVISION_NOTE`；未覆盖的规则不生成条款文本（只给 `suggestion`），避免模型凭空编造合同条款。同一条款命中多条规则时按“红在前、黄在后”拼接、按 `rule_id` 去重；展示顺序同样红前黄后（`_by_severity`），但只调顺序、不改等级。
+4. **导出是“意见汇总 + 修订稿”，在内存生成字节**：`POST /api/reviews/{id}/export` 接收用户点过“一键更正”的 `{clause_id, text}`，未点过的保留原文；DOCX 复用 `python-docx`，PDF 用 `reportlab` + 内置 `UnicodeCIDFont("STSong-Light")`（不联网取字体、不落临时文件），文末固定免责声明；`Content-Disposition` 同时给 ASCII 兜底名与 RFC5987 `filename*=UTF-8''…`，中文名才不会被截断；空条款 / 未知格式 → `ExportError` → 400。
+5. **对话式“流式”是前端时序，不是 SSE**：`POST /api/reviews` 同步跑图（遇 HITL 才暂停），没有可用的事件流；前端先取真实结果，再用 `streamText()` 每 18ms 写 3 个字符、`prefs.motion` 时整段直出。内容全部来自后端（`/report` + `/clauses`），只是按时序铺开——不伪造结论，也不把“动画”当作审查进度。要真流式需改成“提交任务 + 轮询/SSE”，属于后端架构改动（ISSUE-027）。
+6. **“一键更正”只改前端状态**：`state.corrections[clause_id] = 最终文本`，不新增“保存修订”接口、不写库。理由：用户未签署的改稿不是正式版本，存库会与 `ReviewRecord` / checkpoint 的语义混淆；导出文件才是交付物。关闭页面即丢，需重新点更正。
+7. **退出登录必须二次确认**：`hasActiveTask()` 覆盖“上传/读取中”“待人工确认（`awaiting_human`）”“`running`”，命中则开 `#logout-confirm` 说明“退出会中断这次任务”，取消不退出；确认后 `doLogout()` 先 `stopStream()` 再清状态。这是**前端拦截**：后端没有“取消任务并清理 checkpoint/pending/上传目录”的接口（要处理并发锁与幂等），记 ISSUE-028；退出后 `awaiting_human` 记录仍在，重新登录可从审查历史继续。
+8. **Skill 新建 / 导入改成静态弹窗，事件委托必须挂 `document`**：弹窗放在 `#view` 外（切页不丢输入、`showModal()` 自带焦点管理），因此 `bindSkills()` 的 `click/submit/change/drop/keydown` 全部从 `dom.view` 改到 `document` 并按 id 过滤；推荐 Skill 也从“长矩形行”改成 1:1 方块网格（`aspect-ratio: 1/1`），自建仍保留一行折叠（需要“编辑/删除”两个动作）。
+
+**边界（本轮）**：没有真 SSE（ISSUE-027）；更正不落库；示例条款只覆盖 14 条规则、未覆盖的只给建议；合同级问题不能“一键更正”；退出中断没有后端清理接口（ISSUE-028）；PDF 依赖 `reportlab` 内置 CID 字体（不嵌入字库，极少数阅读器可能替代字形）。
+
+**验证补充（本轮）**：`pytest` **323 passed**（新增 `tests/test_clause_review.py` 11 项：分组不重判 / 红前黄后 / 模板拼接与去重 / 合同级归类 / 降级提示 / DOCX+PDF 字节 / `ExportError` / 接口 200 与 404 / 导出两种格式 / 非法 format 422；`tests/test_web.py` 26 项）；`ruff check .`、`node --check app/web/app.js` 通过；Edge headless + CDP 复核（方块 130×130、右上角按钮、两个弹窗、450ms 时仅 105/276 字符确为流式、分屏两栏 376/709、红条款建议与示例条款、更正/撤销、导出 DOCX 39,086 B / PDF 9,205 B、退出确认可取消）。

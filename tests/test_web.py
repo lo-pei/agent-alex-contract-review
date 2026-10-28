@@ -199,34 +199,43 @@ def test_skill_select_defaults_to_repo_last_and_no_empty_option() -> None:
 
 
 def test_skill_repo_is_standalone_page_not_dialog() -> None:
-    """Skill 仓库改成独立页面：侧栏入口是 #/skills，页面内不再有仓库弹窗。"""
+    """Skill 仓库仍是独立页面；新建/导入改为右上角按钮 + 弹窗，不再占用右栏。"""
     page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
     assert 'id="skills-dialog"' not in page
     assert 'href="#/skills"' in page
-    assert 'renderSkillsPage' in script
+    assert "renderSkillsPage" in script
     assert 'hash === "#/skills"' in script
-    # 页面里有推荐 / 我的 / 新建三块，仍复用同一套 Skill API
-    assert 'id="skill-form"' in script
-    assert 'class="skill-list"' in script
+    # 页面只有“推荐 / 我的”两块；新建与导入是两个静态弹窗
+    assert 'class="skills-head-actions"' in script
+    assert 'id="skill-new-open"' in script
+    assert 'id="skill-import-open"' in script
+    assert 'id="skill-new-dialog"' in page
+    assert 'id="skill-import-dialog"' in page
+    assert 'id="skill-form"' in page
+    # 仍复用同一套 Skill API（不新增后端接口）
     assert '"/api/skills"' in script
-    assert ".skills-grid" in styles
+    # 右栏（.skills-grid）已删除，改成方块 + 弹窗
+    assert ".skill-tiles" in styles
+    assert ".skills-grid" not in styles
 
 
 def test_skill_repo_imports_markdown_files_and_folders() -> None:
     """Skill 仓库支持把 .md 文件或整个文件夹拖进来，自动建成 Skill。"""
+    page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
-    # 两个入口：多选 .md 与整目录（webkitdirectory）
-    assert 'id="skill-import-input"' in script
-    assert 'accept=".md,.markdown,text/markdown"' in script
-    assert 'id="skill-import-dir"' in script
-    assert "webkitdirectory" in script
+    # 导入弹窗里有两个入口：多选 .md 与整目录（webkitdirectory）
+    dialog = page.split('id="skill-import-dialog"', 1)[1].split("</dialog>", 1)[0]
+    assert 'id="skill-import-input"' in dialog
+    assert 'accept=".md,.markdown,text/markdown"' in dialog
+    assert 'id="skill-import-dir"' in dialog
+    assert "webkitdirectory" in dialog
     # 拖拽区 + 键盘可达（Enter / 空格也能选文件）
-    assert 'id="skill-drop"' in script
+    assert 'id="skill-drop"' in dialog
     assert "filesFromDataTransfer" in script
     assert "webkitGetAsEntry" in script
     assert 'event.key !== "Enter"' in script
@@ -246,18 +255,26 @@ def test_skill_repo_imports_markdown_files_and_folders() -> None:
 
 
 def test_skill_rows_are_compact_and_editable() -> None:
-    """仓库列表默认只占一行；点开才显示审查重点，推荐 Skill 可“存为我的”。"""
+    """推荐 Skill 是正方形方块；自建仍是一行折叠，点名称展开审查重点。"""
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
-    # 一行：名称 + 标签 + 使用；展开区放说明与审查重点
+    # 推荐方块：1:1 网格 + 名称/说明（两行截断）+ 右下角“使用”
+    assert "function skillTile" in script
+    assert 'class="skill-tile"' in script
+    assert 'class="skill-tile-open"' in script
+    assert 'class="skill-tile-name"' in script
+    assert 'class="skill-tile-desc"' in script
+    assert "grid-template-columns: repeat(auto-fill" in styles
+    assert "aspect-ratio: 1 / 1" in styles
+    assert ".skill-tile .chip" in styles
+
+    # 自建 Skill：一行 + 展开区（名称 / 标签 / 使用 / 编辑 / 删除）
     assert 'class="skill-head"' in script
     assert 'class="skill-toggle"' in script
     assert 'data-toggle-skill' in script
     assert 'class="skill-detail"' in script
     assert 'class="skill-instruction"' in script
-    assert 'class="chip-mini"' in script or "chip chip-mini" in script
-    # 推荐 Skill 只读，但可以填进表单另存为我的；自建可编辑/删除
     assert 'data-edit-skill' in script
     assert "存为我的" in script
     assert "fillSkillForm" in script
@@ -266,10 +283,23 @@ def test_skill_rows_are_compact_and_editable() -> None:
     # 页头那段说明（用户要求删掉）不再渲染
     assert "开箱可用" not in script
     assert 'class="page-head"' not in script
-    # 右栏两个卡片紧凑：小字号、小高度、无大段留白
-    assert ".skill-form .field-compact input" in styles
-    assert "height: 30px" in styles
-    assert ".dropzone" in styles and "padding: 11px 8px" in styles
+    # Skill 弹窗比默认 460px 宽一点（类选择器要带 .dialog 才有更高优先级）
+    assert ".dialog.skill-dialog" in styles
+
+
+def test_skill_dialog_events_are_delegated_to_document() -> None:
+    """表单/导入弹窗在 #view 外：事件必须挂在 document 上，否则按钮点了没反应。"""
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+
+    assert "表单在静态弹窗里" in script
+    assert 'document.addEventListener("click"' in script
+    assert 'document.addEventListener("submit"' in script
+    assert 'document.addEventListener("change"' in script
+    assert 'document.addEventListener("drop"' in script
+    # 弹窗本身是 index.html 的静态节点（不靠每次渲染重建）
+    assert page.index('id="skill-new-dialog"') < page.index("/static/app.js")
+    assert 'id="skill-form"' in page
 
 
 def test_llm_form_does_not_trigger_password_autofill() -> None:
@@ -457,3 +487,84 @@ def test_runtime_internals_stay_out_of_the_ui() -> None:
     assert ".runtime" not in styles
     # 保留的是对业务有用的入口，而不是调试信息
     assert "接口文档" in page
+
+
+def test_review_is_streamed_as_chat_then_split_into_clause_panes() -> None:
+    """上传后先以对话形式流式返回，再左右分屏逐条审查（左原文 / 右意见）。"""
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    # 对话：用户气泡 + 助手气泡 + 逐段写入的流式目标
+    assert 'class="review-shell"' in script
+    assert 'class="chat-thread"' in script
+    assert "msg is-user" in script and "msg is-ai" in script
+    assert 'id="ai-stream"' in script
+    assert "function streamText" in script
+    assert "function chatNarrative" in script
+    # 内容必须来自真实审查结果（条款聚合接口），不是前端编造
+    assert "/clauses" in script
+    assert "state.clauseView" in script
+    # 流式结束后才展开工作台（避免边输出边抖动）
+    assert "box.hidden = false" in script
+    assert ".workbench[hidden]" in styles
+
+    # 左右分屏：左条款列表 + 右条款详情
+    assert 'class="workbench-grid"' in script
+    assert 'id="clause-list"' in script
+    assert 'id="clause-detail"' in script
+    assert "grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.6fr)" in styles
+    assert ".clause-list" in styles and ".clause-detail" in styles
+    # 窄屏退化成上下排列
+    assert "grid-template-columns: minmax(0, 1fr)" in styles.split("@media (max-width: 900px)")[1]
+
+
+def test_clause_detail_offers_fix_suggestion_and_one_click_correction() -> None:
+    """有问题的条款给修改建议 + 修改后的条款，一键更正可撤销，并能导出 DOCX/PDF。"""
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    assert "function findingBlock" in script
+    assert "finding-fix" in script
+    assert "修改后的条款（可编辑）" in script
+    assert 'class="revision-input"' in script
+    # 一键更正 / 撤销 / 全部更正
+    assert 'data-apply="' in script
+    assert 'data-revert="' in script
+    assert "data-apply-all" in script
+    assert "function applyCorrection" in script
+    assert "function revertCorrection" in script
+    assert "state.corrections" in script
+
+    # 导出修订稿：POST /export，二进制下载，文件名取 Content-Disposition
+    assert "/export" in script
+    assert "function exportRevised" in script
+    assert "filenameFromDisposition" in script
+    assert "URL.createObjectURL" in script and "URL.revokeObjectURL" in script
+    assert 'data-export="docx"' in script and 'data-export="pdf"' in script
+    assert "导出修订稿" in script
+    assert ".revision-actions" in styles
+    assert ".export-label" in styles
+
+
+def test_logout_requires_second_confirmation_while_review_runs() -> None:
+    """有审查任务没结束时，退出登录必须先弹窗说明会中断任务，再确认。"""
+    page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    assert 'id="logout-confirm"' in page
+    assert "审查任务仍在进行" in page
+    assert "退出会中断这次任务" in page
+    assert 'id="logout-cancel"' in page
+    assert 'id="logout-confirm-yes"' in page
+
+    # 判断覆盖：上传/读取中、待人工确认、running
+    assert "function hasActiveTask" in script
+    assert "state.taskActive" in script
+    assert 'review === "awaiting_human" || review === "running"' in script
+    # 登出前先停掉流式定时器，避免在已卸载的视图上继续写
+    assert "function stopStream" in script
+    assert "stopStream();" in script.split("async function doLogout()", 1)[1][:200]
+    # 取消按钮只是关弹窗，不退出
+    assert 'on("logout-cancel", "click", () => closeDialog("logout-confirm"))' in script
+    assert ".dialog.confirm-dialog" in styles
