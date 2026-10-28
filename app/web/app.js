@@ -3317,7 +3317,25 @@
     );
   }
 
-  /** Agent 轨迹：这一轮跑了哪些专家、调了哪些工具（失败也列出来，方便追因）。 */
+  /** 专家 id → 中文名；降级原因 → 人话（后端只写枚举，翻译只在前端做）。 */
+  const EXPERT_TITLES = { payment: "付款与资金", delivery: "交付与物流", dispute: "争议与合规" };
+  const EXPERT_NOTE_LABELS = {
+    not_configured: "未配置模型",
+    failed: "执行失败",
+    quote_not_found: "引文未能在原文定位",
+  };
+  const EXPERT_STATUS_LABELS = { skipped: "未启用", ok: "已给出参考意见", degraded: "部分降级" };
+
+  /** 把后端 `expert:<id>:<reason>` 翻成人话，别让用户看原始英文枚举。 */
+  function expertNote(note) {
+    const rest = String(note || "").replace(/^expert:/, "");
+    const parts = rest.split(":");
+    const who = EXPERT_TITLES[parts[0]] || parts[0];
+    const reason = parts.slice(1).join(":") || "";
+    return who + "：" + (EXPERT_NOTE_LABELS[reason] || reason || "未说明");
+  }
+
+  /** Agent 轨迹：这一轮跑了哪些专家、调了哪些工具（失败/降级都列出来，方便追因）。 */
   function agentTraceBlock() {
     const trace = state.clauseView && state.clauseView.agent_trace;
     if (!trace) return "";
@@ -3325,10 +3343,17 @@
       ? trace.experts
           .map((id) => {
             const found = (trace.expert_findings || []).find((item) => item.expert === id);
-            return found ? found.expert_title : id;
+            return found ? found.expert_title : EXPERT_TITLES[id] || id;
           })
           .join("、")
       : "未启用";
+    const notes = (trace.expert_notes || []).map(expertNote);
+    const status = EXPERT_STATUS_LABELS[trace.expert_status] || trace.expert_status;
+    const findings = (trace.expert_findings || []).length;
+    const totalMs = (trace.tool_calls || []).reduce(
+      (sum, call) => sum + (Number(call.elapsed_ms) || 0),
+      0,
+    );
     const calls = (trace.tool_calls || [])
       .map((call) =>
         [
@@ -3350,10 +3375,29 @@
       '<p class="trace-text">专家：' +
       esc(experts) +
       "（" +
-      esc(trace.expert_status) +
-      "）· 工具：" +
+      esc(status) +
+      "，参考意见 " +
+      findings +
+      " 条）· 工具：" +
       (trace.tools_enabled ? "已启用" : "未启用") +
+      (trace.tools_enabled
+        ? "，" + (trace.tool_calls || []).length + " 次 / 合计 " + Math.round(totalMs) + " ms"
+        : "") +
       "</p>" +
+      (notes.length
+        ? '<ul class="trace-list">' +
+          notes
+            .map(
+              (note) =>
+                '<li class="trace-item is-failed"><span>降级原因</span>' +
+                '<span class="trace-state">跳过</span>' +
+                '<p class="trace-text">' +
+                esc(note) +
+                "</p></li>",
+            )
+            .join("") +
+          "</ul>"
+        : "") +
       (calls ? '<ul class="trace-list">' + calls + "</ul>" : "") +
       "</details>"
     );

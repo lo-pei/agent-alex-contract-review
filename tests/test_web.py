@@ -728,6 +728,12 @@ def test_expert_opinions_and_agent_trace_are_shown_separately() -> None:
     assert "trace-item" in script and "is-failed" in script
     assert ".trace summary" in styles and ".trace-item" in styles
 
+    # 降级原因翻成人话（不能让用户读到 not_configured / degraded 这类枚举）
+    assert "EXPERT_NOTE_LABELS" in script
+    assert "未配置模型" in script and "引文未能在原文定位" in script
+    assert "降级原因" in script
+    assert "EXPERT_STATUS_LABELS" in script and "部分降级" in script
+
     # 边界：专家意见不得使用红黄绿语义色（避免被误读成等级）
     expert_css = styles.split(".expert-block", 1)[1].split("/* Agent 轨迹", 1)[0]
     for token in ("--red-bg", "--red-ink", "--amber-bg", "--green-bg"):

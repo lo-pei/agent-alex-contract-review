@@ -8,9 +8,11 @@ from pathlib import Path
 from app.report_markdown import render_report_markdown
 from app.review_service import ReviewService
 from app.schemas import (
+    ExpertFinding,
     HitlDecision,
     ReportFinding,
     ReviewReport,
+    ToolCallRecord,
     ToVerifyItem,
 )
 
@@ -82,6 +84,71 @@ def test_render_escapes_table_and_newlines() -> None:
     assert "| seller | 甲公司 |" in markdown
     # 未命中风险时给显式说明，而不是空白
     assert "未命中任何风险规则" in markdown
+
+
+def test_render_includes_expert_and_tool_sections_without_touching_levels() -> None:
+    finding = ReportFinding(
+        rule_id="R-PAY-001",
+        risk_level="red",
+        reason="100% 预付款",
+        suggestion="改为 30% 预付",
+        clause_ids=["c2"],
+        citations=["合同A.txt:p1:10-30"],
+    )
+    report = _report(finding)
+    report.expert_findings = [
+        ExpertFinding(
+            expert="payment",
+            expert_title="付款与资金",
+            clause_id="c2",
+            clause_title="2. Price and Payment",
+            topic="预付款比例",
+            detail="全款预付把资金风险全部压在买方。",
+            quote="100% advance payment",
+            citation="合同A.txt:p1:10-30",
+            suggestion="改为 30% 预付 + 见提单副本付余款",
+            grounded=True,
+        )
+    ]
+    report.tool_calls = [
+        ToolCallRecord(
+            name="find_clause",
+            title="关键词定位",
+            arguments={"keyword": "付款"},
+            ok=True,
+            summary="命中 1 条条款",
+            citations=["c2"],
+            elapsed_ms=12.3,
+        ),
+        ToolCallRecord(
+            name="search_knowledge",
+            title="知识检索",
+            arguments={"query": "预付款"},
+            ok=False,
+            error="知识库未启用",
+            elapsed_ms=0.4,
+        ),
+    ]
+
+    markdown = render_report_markdown(report)
+
+    assert "## 专家参考意见（不参与判级）" in markdown
+    assert "专家意见不改变上方任何一条等级" in markdown
+    assert "付款与资金 · 预付款比例" in markdown
+    assert "`合同A.txt:p1:10-30`" in markdown
+    assert "## 工具调用记录" in markdown
+    assert "`find_clause`" in markdown and "12 ms" in markdown
+    assert "知识库未启用" in markdown  # 失败也要留痕
+    # 专家与工具只增材料，不改总体等级
+    assert "**红色**" in markdown
+    assert "[红色][合同] R-PAY-001" in markdown
+
+
+def test_render_states_absence_of_experts_and_tools() -> None:
+    markdown = render_report_markdown(_report())
+
+    assert "本次未产生可用的专家意见" in markdown
+    assert "本次未调用工具（未启用工具层）。" in markdown
 
 
 def test_render_from_real_review(sample_path: Path) -> None:

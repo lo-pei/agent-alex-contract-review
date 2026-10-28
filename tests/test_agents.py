@@ -23,6 +23,7 @@ from app.schemas import (
     ExpertOpinion,
     HitlDecision,
 )
+from app.services.clause_review import build_clause_reviews
 from tests.fakes import FakeLLM
 
 APPROVE = HitlDecision(action="approve", reviewer="test-reviewer")
@@ -267,6 +268,12 @@ def test_expert_without_llm_records_not_configured(
     assert state.expert_findings == []
     assert state.expert_status == "degraded"
     assert any(note.endswith(":not_configured") for note in state.degraded_steps)
+
+    # 降级原因要透到逐条审查页（前端翻成人话），不能只留在 state.degraded_steps 里
+    view = build_clause_reviews(state)
+    notes = view.agent_trace.expert_notes
+    assert notes and all(note.startswith("expert:") for note in notes)
+    assert len(notes) == len(set(notes))
 
 
 # ---------- 轨迹透出 ----------

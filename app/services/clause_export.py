@@ -68,6 +68,44 @@ def _clause_heading(clause) -> str:
     return f"{clause.index}. {clause.title or '（无标题）'}"
 
 
+def _expert_blocks(payload: ClauseReviewList) -> list[str]:
+    """专家参考意见（ADR-015）：只作补充材料，导出层不改等级。"""
+    findings = payload.agent_trace.expert_findings
+    if not findings:
+        return ["本次未产生可用的专家意见（未启用专家，或模型不可用 / 引文未能在原文定位）。"]
+    blocks: list[str] = []
+    for finding in findings:
+        where = finding.clause_title or finding.clause_id or "全合同"
+        lines = [f"{finding.expert_title or finding.expert} · {finding.topic}（{where}）"]
+        lines.append(f"说明：{finding.detail}")
+        if finding.quote:
+            lines.append(f"原文摘录：{finding.quote}")
+        lines.append(f"位置：{finding.citation or '未定位（仅供人工核对）'}")
+        if finding.suggestion:
+            lines.append(f"建议：{finding.suggestion}")
+        blocks.append("\n".join(lines))
+    return blocks
+
+
+def _tool_blocks(payload: ClauseReviewList) -> list[str]:
+    """工具调用轨迹：成功失败都留痕，便于审计（ADR-015）。"""
+    calls = payload.agent_trace.tool_calls
+    if not calls:
+        return ["本次未调用工具（未启用工具层）。"]
+    blocks: list[str] = []
+    for call in calls:
+        name = call.title or call.name
+        arguments = "；".join(f"{key}={value}" for key, value in call.arguments.items()) or "—"
+        blocks.append(
+            f"{name}（{call.name}）：{'成功' if call.ok else '失败'}"
+            f"，{call.elapsed_ms:.0f} ms\n"
+            f"参数：{arguments}\n"
+            f"结果：{call.error or call.summary or '—'}\n"
+            f"引用：{'；'.join(call.citations) or '—'}"
+        )
+    return blocks
+
+
 # --------------------------------------------------------------------------- DOCX
 
 
@@ -117,6 +155,18 @@ def _build_docx(payload: ClauseReviewList, accepted: dict[str, str]) -> bytes:
         document.add_heading(f"{_clause_heading(clause)}{mark}", level=3)
         for line in final.split("\n"):
             document.add_paragraph(line)
+
+    document.add_heading("四、专家参考意见（不参与判级）", level=2)
+    document.add_paragraph(
+        "以下意见由付款 / 交付 / 争议三个专家并行给出，只作补充参考；"
+        "风险等级仍只由规则引擎判定。"
+    )
+    for block in _expert_blocks(payload):
+        document.add_paragraph(block)
+
+    document.add_heading("五、工具调用记录", level=2)
+    for block in _tool_blocks(payload):
+        document.add_paragraph(block)
 
     note = document.add_paragraph(DISCLAIMER)
     note.runs[0].font.size = Pt(9)
@@ -233,6 +283,23 @@ def _build_pdf(payload: ClauseReviewList, accepted: dict[str, str]) -> bytes:
         flowable.append(para(f"{_clause_heading(clause)}{mark}", body_style))
         flowable.append(para(final))
         flowable.append(Spacer(1, 6))
+
+    flowable.append(para("四、专家参考意见（不参与判级）", heading_style))
+    flowable.append(
+        para(
+            "以下意见由付款 / 交付 / 争议三个专家并行给出，只作补充参考；"
+            "风险等级仍只由规则引擎判定。",
+            note_style,
+        )
+    )
+    for block in _expert_blocks(payload):
+        flowable.append(para(block, note_style))
+        flowable.append(Spacer(1, 4))
+
+    flowable.append(para("五、工具调用记录", heading_style))
+    for block in _tool_blocks(payload):
+        flowable.append(para(block, note_style))
+        flowable.append(Spacer(1, 4))
 
     flowable.append(Spacer(1, 10))
     flowable.append(para(DISCLAIMER, note_style))

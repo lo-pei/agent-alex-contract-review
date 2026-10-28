@@ -17,11 +17,14 @@ from fastapi.testclient import TestClient
 from app.api import create_app
 from app.review_service import ReviewService
 from app.schemas import (
+    AgentTrace,
     Clause,
     ContractReviewState,
     Evidence,
+    ExpertFinding,
     ExplanationResult,
     RuleEvaluation,
+    ToolCallRecord,
 )
 from app.services.clause_export import ExportError, export_clause_review
 from app.services.clause_review import (
@@ -324,6 +327,61 @@ def test_export_builds_docx_and_pdf_bytes() -> None:
     assert pdf.startswith(b"%PDF")
     assert pdf_name.endswith(".pdf") and "审查稿" in pdf_name
     assert pdf_mime == "application/pdf"
+
+
+def test_export_carries_expert_opinions_and_tool_trace() -> None:
+    """导出物不能只有规则意见：专家参考与工具轨迹也要落进 DOCX / PDF（ADR-015）。"""
+    import io
+
+    from docx import Document
+
+    view = build_clause_reviews(_state()).model_copy(
+        update={
+            "agent_trace": AgentTrace(
+                agents_enabled=True,
+                tools_enabled=True,
+                experts=["payment"],
+                expert_status="ok",
+                expert_findings=[
+                    ExpertFinding(
+                        expert="payment",
+                        expert_title="付款与资金",
+                        clause_id="c1",
+                        clause_title="2. Price and Payment",
+                        topic="预付款比例",
+                        detail="全款预付把资金风险全部压在买方。",
+                        quote="100% advance payment",
+                        citation="sales-contract.txt:p1:12-32",
+                        suggestion="改为 30% 预付 + 见提单副本付余款",
+                        grounded=True,
+                    )
+                ],
+                tool_calls=[
+                    ToolCallRecord(
+                        name="find_clause",
+                        title="关键词定位",
+                        arguments={"keyword": "payment"},
+                        ok=True,
+                        summary="命中 1 条条款",
+                        citations=["c1"],
+                        elapsed_ms=11.2,
+                    )
+                ],
+            )
+        }
+    )
+
+    docx, _name, _mime = export_clause_review(view, {}, "docx")
+    text = "\n".join(paragraph.text for paragraph in Document(io.BytesIO(docx)).paragraphs)
+    assert "四、专家参考意见（不参与判级）" in text
+    assert "五、工具调用记录" in text
+    assert "付款与资金 · 预付款比例" in text
+    assert "find_clause" in text
+
+    pdf, _pdf_name, _pdf_mime = export_clause_review(view, {}, "pdf")
+    assert pdf.startswith(b"%PDF")
+    # 加了两节也不改等级
+    assert view.overall_level == "red"
 
 
 def test_export_rejects_unknown_format_and_empty_clauses() -> None:

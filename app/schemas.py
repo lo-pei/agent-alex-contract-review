@@ -360,6 +360,8 @@ class AgentTrace(BaseModel):
     #: 本次实际运行的专家 id（确定性路由结果）
     experts: list[str] = Field(default_factory=list)
     expert_status: Literal["skipped", "ok", "degraded"] = "skipped"
+    #: 降级原因（`expert:<id>:not_configured` / `:failed` / `:quote_not_found`），前端翻成人话
+    expert_notes: list[str] = Field(default_factory=list)
     expert_findings: list[ExpertFinding] = Field(default_factory=list)
     tool_calls: list[ToolCallRecord] = Field(default_factory=list)
 

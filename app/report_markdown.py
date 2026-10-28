@@ -93,6 +93,69 @@ def _finding_lines(index: int, finding) -> list[str]:
     return lines
 
 
+def _expert_lines(report: ReviewReport) -> list[str]:
+    """专家参考意见：只作补充材料，明写不参与判级（ADR-015）。"""
+    lines = [
+        "## 专家参考意见（不参与判级）",
+        "",
+        "> 由付款 / 交付 / 争议三个专家并行给出，只作补充参考；"
+        "风险等级仍只由 Python 规则判定，专家意见不改变上方任何一条等级。",
+        "",
+    ]
+    if not report.expert_findings:
+        lines.extend(
+            ["本次未产生可用的专家意见（未启用专家，或模型不可用 / 引文未能在原文定位）。", ""]
+        )
+        return lines
+    for index, finding in enumerate(report.expert_findings, start=1):
+        title = finding.expert_title or finding.expert
+        where = f"[{finding.clause_title or finding.clause_id}] " if (
+            finding.clause_title or finding.clause_id
+        ) else ""
+        lines.append(f"### {index}. {_text(title)} · {_text(finding.topic)}")
+        lines.append("")
+        lines.append(f"- 条款：{where or '全合同'}（专家 `{finding.expert}`）")
+        lines.append(f"- 说明：{_text(finding.detail)}")
+        if finding.quote:
+            lines.append(f"- 原文摘录：{_text(finding.quote)}")
+        if finding.citation:
+            lines.append(f"- 位置：`{finding.citation}`")
+        if not finding.grounded:
+            lines.append("- 定位：引文未能在原文唯一定位，仅供人工核对")
+        if finding.suggestion:
+            lines.append(f"- 建议：{_text(finding.suggestion)}")
+        lines.append("")
+    return lines
+
+
+def _tool_lines(report: ReviewReport) -> list[str]:
+    """工具调用轨迹：成败、参数、摘要、引用都留痕（ADR-015）。"""
+    lines = ["## 工具调用记录", ""]
+    if not report.tool_calls:
+        lines.extend(["本次未调用工具（未启用工具层）。", ""])
+        return lines
+    lines.extend(
+        [
+            "| # | 工具 | 结果 | 耗时 | 参数 | 摘要 / 错误 | 引用 |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for index, call in enumerate(report.tool_calls, start=1):
+        name = call.title or call.name
+        result = "成功" if call.ok else "失败"
+        arguments = (
+            "；".join(f"{key}={_cell(value)}" for key, value in call.arguments.items()) or "—"
+        )
+        detail = _cell(call.error or call.summary) or "—"
+        citations = "；".join(f"`{item}`" for item in call.citations) or "—"
+        lines.append(
+            f"| {index} | {_cell(name)} `{_cell(call.name)}` | {result} | "
+            f"{call.elapsed_ms:.0f} ms | {arguments} | {detail} | {citations} |"
+        )
+    lines.append("")
+    return lines
+
+
 def render_report_markdown(report: ReviewReport) -> str:
     """生成完整 Markdown 报告（UTF-8 文本）。"""
     lines: list[str] = [
@@ -120,6 +183,9 @@ def render_report_markdown(report: ReviewReport) -> str:
             lines.extend(_finding_lines(index, finding))
     else:
         lines.extend(["未命中任何风险规则（不代表合同没有风险，见文末限制）。", ""])
+
+    lines.extend(_expert_lines(report))
+    lines.extend(_tool_lines(report))
 
     lines.extend(["## 抽取要素", ""])
     if report.extracted_fields:

@@ -307,6 +307,16 @@ def _agent_trace(state: ContractReviewState) -> AgentTrace:
         tools_enabled=settings.tools_enabled,
         experts=route,
         expert_status=state.expert_status,
+        expert_notes=_expert_notes(state),
         expert_findings=findings,
         tool_calls=list(state.tool_calls),
     )
+
+
+def _expert_notes(state: ContractReviewState) -> list[str]:
+    """降级原因去重（并行 append 顺序不稳，同一专家也可能重复写）。"""
+    notes: list[str] = []
+    for note in state.expert_notes:
+        if note not in notes:
+            notes.append(note)
+    return notes
