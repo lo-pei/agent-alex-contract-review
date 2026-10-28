@@ -707,3 +707,28 @@ def test_logout_requires_second_confirmation_while_review_runs() -> None:
     # 取消按钮只是关弹窗，不退出
     assert 'on("logout-cancel", "click", () => closeDialog("logout-confirm"))' in script
     assert ".dialog.confirm-dialog" in styles
+
+
+def test_expert_opinions_and_agent_trace_are_shown_separately() -> None:
+    """专家意见只作参考（不画等级）、Agent 轨迹默认折叠；两者的样式与结构都要在。"""
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    # 专家意见：中性样式 + 明确的“不判级”文案
+    assert "function expertBlocks" in script
+    assert "agent_trace" in script
+    assert "expert_findings" in script
+    assert "（参考 · " in script or "参考 · " in script
+    assert "专家意见只作补充参考，不代表风险等级" in script
+    assert ".expert-block" in styles and ".expert-tag" in styles and ".expert-quote" in styles
+
+    # 轨迹：折叠面板，失败也列出，附引用
+    assert "function agentTraceBlock" in script
+    assert "Agent 轨迹" in script
+    assert "trace-item" in script and "is-failed" in script
+    assert ".trace summary" in styles and ".trace-item" in styles
+
+    # 边界：专家意见不得使用红黄绿语义色（避免被误读成等级）
+    expert_css = styles.split(".expert-block", 1)[1].split("/* Agent 轨迹", 1)[0]
+    for token in ("--red-bg", "--red-ink", "--amber-bg", "--green-bg"):
+        assert token not in expert_css

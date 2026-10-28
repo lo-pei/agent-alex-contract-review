@@ -81,6 +81,15 @@ class Settings:
     rag_top_k: int
     rag_min_score: float
 
+    # 多智能体专家与工具调用（ADR-015；默认关闭，关闭时行为与确定性主干一致）
+    agents_enabled: bool
+    tools_enabled: bool
+    #: MCP 服务器（stdio）JSON 列表：`[{"name": "...", "command": "...", "args": [...]}]`
+    mcp_servers: str
+    mcp_timeout_seconds: float
+    #: 单次审查内最多执行的工具调用数（含专家与解释规划）
+    max_tool_calls: int
+
     # 文档上限（ADR-005）
     max_upload_mb: int
     max_contract_chars: int
@@ -125,6 +134,11 @@ def load_settings() -> Settings:
         ),
         rag_top_k=_int_env("RAG_TOP_K", 3),
         rag_min_score=_float_env("RAG_MIN_SCORE", 1.0),
+        agents_enabled=_bool_env("AGENTS_ENABLED", False),
+        tools_enabled=_bool_env("TOOLS_ENABLED", False),
+        mcp_servers=os.getenv("MCP_SERVERS", "").strip(),
+        mcp_timeout_seconds=_float_env("MCP_TIMEOUT_SECONDS", 10.0),
+        max_tool_calls=_int_env("MAX_TOOL_CALLS", 3),
         max_upload_mb=_int_env("MAX_UPLOAD_MB", 30),
         max_contract_chars=_int_env("MAX_CONTRACT_CHARS", 200_000),
         max_pages=_int_env("MAX_PAGES", 200),

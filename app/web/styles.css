@@ -3236,6 +3236,126 @@ svg {
   opacity: 0.9;
 }
 
+/* 专家意见（ADR-015）：只作“参考”，所以用中性灰蓝，不用红黄绿语义色，
+   避免被误读成新的风险等级 */
+.expert-block {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--rule);
+}
+.expert-note {
+  color: var(--faint);
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
+  line-height: 1.6;
+}
+.expert-item {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--raised);
+}
+.expert-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.expert-tag {
+  padding: 1px 6px;
+  border: 1px solid var(--control);
+  border-radius: var(--radius-chip);
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: calc(10.5px * var(--ui-text-scale, 1));
+  white-space: nowrap;
+}
+.expert-topic {
+  color: var(--text);
+  font-size: calc(13px * var(--ui-text-scale, 1));
+  font-weight: 600;
+}
+.expert-detail {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
+  line-height: 1.7;
+}
+.expert-quote {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--control);
+  background: var(--surface);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Agent 轨迹：默认折叠，展开后能看到“跑了哪些专家、调了什么工具” */
+.trace {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--rule);
+}
+.trace summary {
+  color: var(--faint);
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
+  cursor: pointer;
+  list-style: none;
+}
+.trace summary::-webkit-details-marker {
+  display: none;
+}
+.trace summary::before {
+  content: "▸ ";
+}
+.trace[open] summary::before {
+  content: "▾ ";
+}
+.trace summary:hover {
+  color: var(--text);
+}
+.trace-text {
+  margin-top: 6px;
+  color: var(--faint);
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
+  line-height: 1.7;
+  word-break: break-word;
+}
+.trace-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.trace-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  background: var(--raised);
+  color: var(--muted);
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
+}
+.trace-item .trace-state {
+  color: var(--positive);
+  font-family: var(--font-mono);
+}
+.trace-item.is-failed .trace-state {
+  color: var(--negative);
+}
+.trace-item .trace-text,
+.trace-item .cite {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+}
+
 @media (max-width: 900px) {
   /* 窄屏：逐条审查改为上下排列，各自限高，仍然互不影响滚动 */
   .workbench-grid {

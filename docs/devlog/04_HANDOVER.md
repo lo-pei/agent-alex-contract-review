@@ -1,7 +1,7 @@
 ﻿# 开发交接文档（Handover）
 
-> 更新时间：2026-10-28（界面轮 13：上传上限 30 MB + 图片 PDF 本地 OCR + 4 个外部 Skill 包内置 + zip 导入 + 完整原文 + 条款去重；界面轮 12：配色三档 + Skill 工具/附件 + 头像裁剪 + 标签行 + 历史即时刷新 + 切分精度 + 左原文右意见独立滚动；界面轮 10：账户设置 B 端分区弹窗 + 主题色 5 套 + 字号三档 + 侧栏去掉昵称邮箱；界面轮 9：个人账户弹窗 + Skill 编辑 + 厂商 20；界面轮 8：Skill Markdown 导入 + 注册 not found 定位；界面轮 7：Skill 仓库独立页；界面轮 6：审查历史子目录 + 记录运维；界面轮 5：账号/记录/Skill/BYOK；界面轮 4：主区两屏；第四阶段第 4 轮：规则 version 5 + 第四批留出集）
-> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI）；界面轮 13 完成（上传上限 15→30 MB 且前后端同一配置源；图片/扫描 PDF 走本地 OCR（`pypdfium2` + `rapidocr-onnxruntime`，离线、只在无文本层时触发、≤20 页、只产文本不判级）；桌面 4 个外部 Skill 包复制进 `app/resources/skills/` 作 `builtin:*`（内置 Skill 7→11）；Skill 仓库支持 zip 包导入（不落盘、不执行）；“两个付款条件”双层去重（切分 + 展示）并为旧记录兜底；结果页合同名/Skill/审查重点/状态收成同一行标签；左栏新增“原文全文”tab 按原排版呈现）；界面轮 12 完成（配色改“白天/黑夜/跟随系统”三档，主题色 5 套下线；Skill 从一段提示词扩成“指令 + 5 个可声明工具 + 只读文本附件”；头像上传后先裁剪再存 128×128 JPEG；审查页顶部改标签行并删掉对话式长叙述；审查与确认后侧栏历史即时刷新；未命中规则改“这条没问题”的人话；条款切分修 4 类误切 + 短标题 + 前言标注；逐条审查左目录与原文、右意见与“采用修改/保留原文/撤销”，三块各自滚动）；界面轮 5 完成（账号体系 / 审查记录 / Skill 仓库 / BYOK 按 ADR-013 落地，`API_VERSION 1.0.0`；侧栏 = 导航 + API 配置 + 接口文档 + 账号区）；上传仍先判断是不是合同（不是即 `not_contract`，不切条款/不抽取/不判级）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）；347 个测试通过**；检索评测与人工复核 gold 尚未完成
+> 更新时间：2026-10-28（界面轮 14：多智能体专家并行（付款 / 交付 / 争议）+ 只读工具层（4 个本地工具 + MCP stdio）+ 专家意见与 Agent 轨迹上屏 + 两个开关默认关闭；界面轮 13：上传上限 30 MB + 图片 PDF 本地 OCR + 4 个外部 Skill 包内置 + zip 导入 + 完整原文 + 条款去重；界面轮 12：配色三档 + Skill 工具/附件 + 头像裁剪 + 标签行 + 历史即时刷新 + 切分精度 + 左原文右意见独立滚动；界面轮 10：账户设置 B 端分区弹窗 + 主题色 5 套 + 字号三档 + 侧栏去掉昵称邮箱；界面轮 9：个人账户弹窗 + Skill 编辑 + 厂商 20；界面轮 8：Skill Markdown 导入 + 注册 not found 定位；界面轮 7：Skill 仓库独立页；界面轮 6：审查历史子目录 + 记录运维；界面轮 5：账号/记录/Skill/BYOK；界面轮 4：主区两屏；第四阶段第 4 轮：规则 version 5 + 第四批留出集）
+> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI）；界面轮 14 完成（按 ADR-015 落地可选 Agent 层：`validate_extraction` 之后“付款 / 交付 / 争议”三个专家并行出参考意见（确定性路由、schema 无 `risk_level`、引文定位不到即丢弃），`rules`/人工确认之后插一次 `research_tools`（4 个本地只读工具 + MCP stdio/JSON-RPC 子集，零新依赖、`shell=False`、超时杀进程、无 LLM 走确定性检索）；专家意见与 Agent 轨迹上屏，专家块只用中性色；`AGENTS_ENABLED` / `TOOLS_ENABLED` 默认 false，关闭时与确定性主干逐字一致；`API_VERSION 1.1.0`）；界面轮 13 完成（上传上限 15→30 MB 且前后端同一配置源；图片/扫描 PDF 走本地 OCR（`pypdfium2` + `rapidocr-onnxruntime`，离线、只在无文本层时触发、≤20 页、只产文本不判级）；桌面 4 个外部 Skill 包复制进 `app/resources/skills/` 作 `builtin:*`（内置 Skill 7→11）；Skill 仓库支持 zip 包导入（不落盘、不执行）；“两个付款条件”双层去重（切分 + 展示）并为旧记录兜底；结果页合同名/Skill/审查重点/状态收成同一行标签；左栏新增“原文全文”tab 按原排版呈现）；界面轮 12 完成（配色改“白天/黑夜/跟随系统”三档，主题色 5 套下线；Skill 从一段提示词扩成“指令 + 5 个可声明工具 + 只读文本附件”；头像上传后先裁剪再存 128×128 JPEG；审查页顶部改标签行并删掉对话式长叙述；审查与确认后侧栏历史即时刷新；未命中规则改“这条没问题”的人话；条款切分修 4 类误切 + 短标题 + 前言标注；逐条审查左目录与原文、右意见与“采用修改/保留原文/撤销”，三块各自滚动）；界面轮 5 完成（账号体系 / 审查记录 / Skill 仓库 / BYOK 按 ADR-013 落地，侧栏 = 导航 + API 配置 + 接口文档 + 账号区）；上传仍先判断是不是合同（不是即 `not_contract`，不切条款/不抽取/不判级）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）；383 个测试通过**；检索评测与人工复核 gold 尚未完成
 > 交接原则：任何新接手的人只读本文件 + `00_PROJECT_STATE.md` + `02_ARCHITECTURE_DECISIONS/README.md`，就能继续开发。
 
 ---
@@ -17,7 +17,7 @@
 - 报告每条风险都有 `rule_id + reason + 原文引用 + 文件:页码:字符偏移`；
 - 交付：侧栏导航壳 + 对话式主区（FastAPI 托管，给审查重点/附件/Skill → 查看风险点 → 人工确认 → 下载报告）+ 账号与审查记录 + BYOK 模型配置 + 命令行 + FastAPI 接口；Streamlit 备用。
 
-硬约束来自根目录 `开发提示词.md`：技术栈 Python / LangGraph / Streamlit / FastAPI / Pydantic；规则决定等级，LLM 只抽取与解释；HITL 必须暂停/恢复；全部代码要解释清、能测试、边界明确。**2026-10-27 用户明确放开 RAG 与多智能体（ADR-007）**：允许 RAG、专家节点与 Supervisor 路由，但判级仍只由 Python 规则产生、HITL 仍必须真中断、证据仍必须可追溯；RAG/多智能体默认关闭（`RAG_ENABLED=false`、`AGENTS_ENABLED=false`）。训练模型、Docker、前端框架仍禁止——**主区两屏 + 侧栏导航壳用 HTML/CSS/JS 手写，未引入 React/Vue/npm/CDN，字体随包离线**（ADR-009 第 3、5 轮补充）。
+硬约束来自根目录 `开发提示词.md`：技术栈 Python / LangGraph / Streamlit / FastAPI / Pydantic；规则决定等级，LLM 只抽取与解释；HITL 必须暂停/恢复；全部代码要解释清、能测试、边界明确。**2026-10-27 用户明确放开 RAG 与多智能体（ADR-007）**：允许 RAG、专家节点与 Supervisor 路由，但判级仍只由 Python 规则产生、HITL 仍必须真中断、证据仍必须可追溯；三个开关默认关闭（`RAG_ENABLED=false`、`AGENTS_ENABLED=false`、`TOOLS_ENABLED=false`，界面轮 14 按 ADR-015 实现了后两个）。训练模型、Docker、前端框架仍禁止——**主区两屏 + 侧栏导航壳用 HTML/CSS/JS 手写，未引入 React/Vue/npm/CDN，字体随包离线**（ADR-009 第 3、5 轮补充）。
 
 ---
 
@@ -26,7 +26,7 @@
 | 项 | 状态 | 证据 |
 |---|---|---|
 | GitHub 调研 | ✅ 完成 | `01_RESEARCH_LOG.md`，8 个仓库源码级分析 |
-| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~014` |
+| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~015` |
 | 环境与依赖 | ✅ 完成 | `.venv`（Python 3.12.10）+ `requirements*.txt`；实际版本见 ADR-006 §6 |
 | 业务代码（第 3 步） | ✅ 解析/切分/抽取/校验/规则可用 | `app/` |
 | HITL（第 4 步） | ✅ 条件边 + `interrupt()` + checkpointer | `app/nodes/hitl.py`、`app/review_service.py`、`app/services/checkpointer.py` |
@@ -34,6 +34,7 @@
 | API / UI（第 6 步） | ✅ FastAPI + pending 落盘 + Streamlit 备用 | `app/api.py`、`app/ui.py`、`app/report_markdown.py`、`app/services/pending_store.py` |
 | B 端审查工作台（界面轮 2） | ✅ 四视图 + 本地字体 + 只读规则目录 | `app/web/index.html`、`app/web/styles.css`、`app/web/app.js`、`app/web/fonts/`；`GET /`、`GET /static/*`、`GET /api/rules`；`tests/test_web.py`（6 项）、`tests/test_api.py::test_rule_catalog_matches_definitions` |
 | 账号 / 记录 / Skill / BYOK（界面轮 5） | ✅ 本地 SQLite + 密文盒 + 每审查模型运行时 | `app/services/accounts.py`、`app/services/secret_box.py`、`app/services/llm_providers.py`、`app/services/skill_catalog.py`、`app/services/llm.py`（`LLMRuntime` / `review_llm_scope`）；`tests/test_accounts.py`（28 项）；`API_VERSION 1.0.0` |
+| 多智能体专家并行 + 只读工具层（界面轮 14） | ✅ 三个专家并行出参考意见（不判级）；本地 4 个只读工具 + MCP stdio；两个开关默认关闭 | `app/nodes/experts.py`（`EXPERT_SPECS` / `select_experts` / `route_experts` / `collect_expert_findings`）、`app/services/tools.py`（`ToolSpec` / `ToolRegistry` / `McpStdioClient` / `build_tool_registry` / `parse_mcp_servers`）、`app/nodes/research.py`（`research_tools` / `_plan` / `_fallback_plan` / `_execute`）、`app/graph.py`（并行 fan-out + `research_tools`）、`app/schemas.py`（`ExpertFinding` / `ExpertOpinion` / `ToolCallRecord` / `AgentTrace` + `operator.add` reducer）、`app/nodes/explain.py`（`<untrusted_experts>` / `<untrusted_tools>`）、`app/services/clause_review.py`（`_agent_trace`）、`app/nodes/report.py`、`app/web/app.js`（`expertBlocks` / `agentTraceBlock`）、`app/web/styles.css`（`.expert-*` / `.trace-*`）、`.env.example`、`tests/test_agents.py`（10 项）、`tests/test_tools.py`（23 项）、`tests/test_web.py`（+1）；全量 **383 passed** |
 | 上传 30 MB + 图片 PDF OCR + 外部 Skill 包 + zip 导入 + 原文全文（界面轮 13） | ✅ 扫描件也能审查；内置 Skill 7→11；Skill 可传 zip；付款条件不再重复；左栏可看完整原文 | `app/services/ocr.py`（`ocr_available` / `ocr_pdf_pages`）、`app/nodes/ingest.py`（`MIN_PAGE_TEXT_CHARS` / `MIN_PDF_TEXT_CHARS` / `ocr_attempted` / `fail(message, extra_warnings)`）、`app/config.py`（`ocr_enabled` / `ocr_max_pages` / `ocr_render_scale`）、`app/resources/skills/`（4 个外部包）、`app/services/skill_catalog.py`（`_PACKAGE_SPECS` / `packaged_skills` / `parse_skill_package`）、`app/api.py`（`POST /api/skills/import`）、`app/nodes/segment.py`（`_merge_duplicate_headings`）、`app/services/clause_review.py`（`_display_title` / `_merge_adjacent_duplicates`）、`app/schemas.py`（`ClauseReviewList.contract_text`）、`app/web/app.js`（`MAX_BYTES` 30 MB / `renderContractFulltext` / `applyPaneMode`）、`app/web/index.html`（`.pane-tabs` / `#contract-fulltext` / zip 导入文案）、`app/web/styles.css`（`.pane-tabs` / `.contract-fulltext`）、`tests/test_ocr.py`（+5）、`tests/test_accounts.py`（+4）、`tests/test_segment.py`（+1）、`tests/test_clause_review.py`（+2）、`tests/test_web.py`（+1 并改写 2）；全量 **347 passed** |
 | 配色三档 + Skill 工具/附件 + 头像裁剪 + 左原文右意见（界面轮 12） | ✅ 主题色下线；Skill 可声明 5 个工具、可挂只读文本附件；头像可拖动/缩放裁剪；标签行 + 三块独立滚动 | `app/web/index.html`（`[data-scheme-value]`、`#skill-tools` / `#skill-asset-pick` / `#skill-asset-input` / `#skill-asset-list`、`#avatar-crop-dialog`）、`app/web/app.js`（`resolvedScheme` / `applyPrefs` / `cropGeometry` / `cropResult` / `applyCrop` / `reviewChip` / `clauseListItem` / `renderClauseOrigin` / `keepClause` / `refreshHistory` / `loadSkillTools` / `renderToolChips` / `renderAssetList`）、`app/web/styles.css`（`html[data-scheme]`、`.chip-tag` / `.chip-wide`、`.workbench-grid` 三块独立滚动、`.clause-origin`、`.detail-actions`、`.pass-block`、`.tool-chip` / `.asset-*`、`.crop-stage`）、`app/services/skill_catalog.py`（`TOOL_CATALOG` / `SkillAsset` / `compose_focus`）、`app/services/accounts.py`（`tools` / `assets` 列 + `_clean_skill_*`）、`app/api.py`（`GET /api/skills/tools`）、`app/nodes/segment.py`（同行标题 / 字段黑名单 / 说明块 / 中英合并 / `_short_title`）、`app/services/clause_review.py`（`is_preamble`）；`tests/test_web.py`（+3 项、改写 3 项）、`tests/test_accounts.py`（+4 项）、`tests/test_segment.py`（+3 项）、`tests/test_clause_review.py`（+1 项）；全量 **334 passed** + CDP 冒烟 |
 | 账户设置 B 端弹窗 + 侧栏收口（界面轮 10） | ✅ 左侧分区（个人信息 / 通用 / 数据管理 / 关于）+ 字号三档（主题色已在轮 12 换成三档配色）；侧栏不再显示昵称与邮箱 | `app/web/index.html`（`#account-dialog` 分区结构、`#account-line` 删除）、`app/web/app.js`（`setAccountPanel` / `loadAccountStats` / `loadAboutInfo` / `syncPrefControls` / `resetPrefs`、`prefs.scheme` / `prefs.font`）、`app/web/styles.css`（`.account-nav` / `.account-panel` / `.seg` / `--ui-text-scale` + `html[data-font]`、全量 `font-size` 换算）、`tests/test_web.py`（个人账户测试扩到分区与三档配色断言） |
@@ -43,24 +44,24 @@
 | 历史可运维 + Skill 归位 + 满屏（界面轮 6） | ✅ 侧栏子目录 + 改名/置顶/删除 + 定高弹窗 | `app/services/accounts.py`（`title`/`pinned` + `ALTER TABLE` 升级 + `rename/set_pinned/delete`）、`app/review_service.py`（`discard`）、`app/api.py`（`PATCH|DELETE /api/reviews/{id}`）、`app/web/*`；`tests/test_accounts.py`（+4 项）、`tests/test_web.py`（+3 项） |
 | 主区极简 + 侧栏保留（界面轮 4） | ✅ 两屏：上传 → 风险点 | `app/web/index.html`、`app/web/app.js`、`app/web/styles.css`；侧栏/顶栏导航壳保留；hash 路由只留 `#/` 与 `#/review/{id}`；待确认态渲染 `approval.findings`；`tests/test_web.py`（10 项） |
 | 文档类型闸门（界面轮 3） | ✅ 先判断是不是合同，不是就停 | `app/services/document_type.py`、`app/nodes/precheck.py`、`app/graph.py`（`ingest → precheck → segment | report`）；`status=not_contract`；`tests/test_document_type.py`（11 项）、`tests/test_api.py::test_non_contract_upload_is_not_reviewed`、`tests/test_web.py::test_runtime_internals_stay_out_of_the_ui` |
-| 测试 | ✅ 347 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
+| 测试 | ✅ 383 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
 | 规则集 | ✅ 13 条 | `app/rules/definitions.yaml`（`version: 5`，三类措辞 + 保额邻近判定）；6 条新规则各有语料命中集合回归（ADR-010） |
 | 评测集 / 指标 | ⏳ 主集完成、四批留出完成、待复核 | `data/eval/gold_rules.json`（21 现象，silver）+ `gold_holdout{,2,3,4}.json`（7/9/7/9 现象）+ `eval/results/rules-*.json`；**silver gold 未经人工复核**，检索评测未做 |
 | Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`、`e41d235`、`c7f24a9`、`6eaff8c`、`5dc05bd`、`c540259`，以及后续每步提交 |
 
 > 报数纪律（ADR-011）：对外只引用**当前未被消耗**的留出集（holdout4，12 份，P=1.00 / R=0.889 / F1=0.941），并注明“silver gold 待复核、样本 12 份、唯一漏报 H39”。主集（50 份）P/R=1.0 是**同分布**产物；holdout、holdout2、holdout3 三批已被用于定位缺陷（“已消耗”），修复后即使 1.0 也只能当回归守卫。覆盖率 52.4%（主集 gold）与 H39 漏报才是当前真实短板；留出集的 `coverage=1.0` 是平凡结果，不能与 recall 混读。
 
-### 2.1 架构决策速览（ADR-001~014）
+### 2.1 架构决策速览（ADR-001~015）
 
 | ADR | 结论 | 状态 |
 |---|---|---|
-| 001 图结构 | 确定性顺序主干 + 两个条件边（是否有 red / 是否 approve）+ 单一 HITL 门；不用 Supervisor/并行/单体 ReAct | **已接受**（两条条件边均已实现：`route_by_risk`、`route_after_human_review`） |
+| 001 图结构 | 确定性顺序主干 + 两个条件边（是否有 red / 是否 approve）+ 单一 HITL 门；不用 Supervisor/并行/单体 ReAct | **已接受**（两条条件边均已实现：`route_by_risk`、`route_after_human_review`；界面轮 14 按 ADR-015 增加**可选**专家并行，默认关闭，主干仍顺序） |
 | 002 HITL | 节点内 `interrupt()` + checkpointer + `Command(resume=HitlDecision)`；审批前零业务写入；超时 → `unreviewed_red_risk`，绝不自动通过 | **已接受**（第 4 步已实现，回填见 ADR-002 §7） |
 | 003 规则/LLM | 规则唯一判级；LLM 只抽 17 字段与解释；schema 禁止 `risk_level`；引文核验、越权表述拦截、失败兜底 | **已接受** |
 | 004 持久化 | 运行用 `SqliteSaver`（同步，当前实现）/测试用 `InMemorySaver`；`thread_id=review_id`；pending/报告/审计分离；惰性超时 | **已接受**（ADR-004 原写 `AsyncSqliteSaver`，第 4 步实际用同步 `SqliteSaver`，见 ADR-002 §7） |
 | 005 解析/证据 | pypdf + python-docx + TXT；canonical text + 页/全局偏移；`文件名:p页:start-end`；精确/空白规范化定位 | **已接受** |
 | 006 环境 | Python 3.12 + LangGraph 1.2.17 等最新稳定依赖；OpenAI 兼容接口；无 Docker/Redis/Postgres | **已接受** |
-| 007 范围变更 | 允许 RAG/多智能体/Supervisor（仅路由）；判级/HITL/证据边界不变；默认开关关闭 | **已接受**（2026-10-27；RAG 已实现，多智能体仍未实现） |
+| 007 范围变更 | 允许 RAG/多智能体/Supervisor（仅路由）；判级/HITL/证据边界不变；默认开关关闭 | **已接受**（2026-10-27；RAG 第 5 步已实现，多智能体界面轮 14 按 ADR-015 已实现） |
 | 008 RAG/质量门 | 本地 BM25 + 中文二元组；`source_id#section` 白名单；Python 质量门拦截越权；无命中/配置错误降级 | **已接受**（第 5 步已实现） |
 | 009 API/UI | API/UI 只依赖 `ReviewService`；pending 时间戳原子落盘；上传校验；Markdown 纯渲染；**第 2 轮补充：原生 Web 前端；第 3 轮补充：B 端工作台（framed-sheet + hash 路由四视图 + 本地 IBM Plex 字体 + 只读 `GET /api/rules`）；第 4 轮补充：移除侧栏“运行环境”块 + 非合同页，`API_VERSION` 0.9.0；第 5 轮补充：收成极简两屏（上传 / 风险点），待确认先展示审批载荷中的红色风险，下载走 `/report?format=markdown`**，Streamlit 降为备用 | **已接受**（第 6 步已实现；第 2–5 轮补充均已实现） |
 | 010 规则扩充/评测 | 规则 7 → 13 条；新规则准入四关；模拟合同拆入 `data/contracts/`；评测只报触发情况 | **已接受**（2026-10-27 第 1 轮已实现） |
@@ -68,6 +69,7 @@
 | 012 类型闸门 | `ingest` 后 `precheck_document` 判定“是不是合同”；否 → `not_contract` 直接出报告，不切条款/不抽取/不判级/不触发 HITL | **已接受**（界面轮 3 已实现，`API_VERSION` 0.9.0） |
 | 013 账号与 BYOK | 账号/会话/Skill/记录/模型配置落本地 SQLite（零新依赖）；口令 PBKDF2 + 会话只存 token 哈希；API Key 密文盒加密、接口只回尾号；`LLMRuntime` 按 `review_id` 登记 + `ContextVar` 作用域；**审查重点 / Skill 只进 `<untrusted_focus>`，不改等级** | **已接受**（界面轮 5 已实现，`API_VERSION` 1.0.0） |
 | 014 OCR 与外部 Skill 包 | 上传上限 15→30 MB（单一配置源）；**只在 PDF 无文本层/单页少文本时**用 `pypdfium2` + `rapidocr-onnxruntime` 本地 OCR（离线、≤20 页、逐页降级），OCR 只进 `raw_text`、**不参与判级**；4 个外部 Skill 包复制进 `app/resources/skills/` 作 `builtin:*`；zip 导入只读文本、根目录 `SKILL.md` 必填、**不执行包内脚本**、`allowed-tools` 不映射 | **已接受**（界面轮 13 已实现） |
+| 015 多智能体专家与只读工具层 | `validate_extraction` 之后**确定性路由**出“付款 / 交付 / 争议”三个专家并行出参考意见（schema **无 `risk_level`**、引文定位不到即丢弃、并行只写 reducer 字段）；`rules`/人工确认之后插一次 `research_tools`：4 个本地只读工具 + MCP stdio/JSON-RPC 子集（零新依赖、`shell=False`、超时杀进程），无 LLM 走确定性检索；**两个开关默认关闭，关闭时拓扑与结论和原来完全一致** | **已接受**（界面轮 14 已实现，`API_VERSION` 1.1.0） |
 
 ---
 
@@ -153,9 +155,21 @@ RAG_KNOWLEDGE_DIR=data/knowledge
 RAG_TOP_K=3
 RAG_MIN_SCORE=1.0
 
-MAX_UPLOAD_MB=15
+# 多智能体专家 + 只读工具层（ADR-015，默认关闭）
+AGENTS_ENABLED=false
+TOOLS_ENABLED=false
+MAX_TOOL_CALLS=3
+MCP_SERVERS=
+MCP_TIMEOUT_SECONDS=10
+
+MAX_UPLOAD_MB=30
 MAX_CONTRACT_CHARS=200000
 MAX_PAGES=200
+
+# 图片 PDF 本地 OCR（ADR-014）
+OCR_ENABLED=true
+OCR_MAX_PAGES=20
+OCR_RENDER_SCALE=2.2
 
 # 账号 / 审查记录 / Skill / BYOK（ADR-013）
 USER_DB_PATH=.data/app.sqlite
@@ -265,7 +279,7 @@ Agent_Alex外贸合同智审助手/
 | 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
 | 恢复人工决定 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision approve --reviewer zhangsan` | ✅ 可用（SQLite 跨进程） |
 | 超时语义 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision timeout` | ✅ 可用 → `unreviewed_red_risk` |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 347 个通过 |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 383 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行（统一入口） | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` | ✅ 可用（`/docs` 可试；默认 SQLite + 文件 pending） |
@@ -289,9 +303,9 @@ Agent_Alex外贸合同智审助手/
 4. **失败显式降级**：LLM 失败 → 抽取降级/解释兜底；规则执行异常 → fail-closed 系统 red（`is_system_finding=true`，进入 HITL）；HITL 超时 → `unreviewed_red_risk`；RAG 无命中 → 退化为纯规则解释。
 5. **证据可定位**：`文件:第N页:字符start-end`；LLM 引文必须精确出现在条款原文（仅允许空白/Unicode 规范化）；知识引用必须能定位到 `source_id#section`。
 6. **抽取状态是一等状态**：`ok / degraded / skipped` 都必须进报告；`degraded` 时字段规则 `skipped`，不得把系统降级伪装成“合同缺少条款”。
-7. **图结构**：确定性顺序主干；两个条件边只用于“是否有 red”“是否 approve”；不用并行/单体 ReAct；Supervisor 仅白名单路由（ADR-007）。
+7. **图结构**：确定性顺序主干；两个条件边只用于“是否有 red”“是否 approve”；单体 ReAct 禁用；Supervisor 仅白名单路由（ADR-007）；界面轮 14 起**可选**专家并行（ADR-015），默认关闭，主干顺序不变。
 8. **持久化**：运行用 SQLite checkpointer，测试用内存；`thread_id=review_id`；pending 时间戳落盘 `.data/pending/<review_id>.json`；报告由 state 派生。
-9. **RAG/多智能体默认关闭**：`RAG_ENABLED=false`、`AGENTS_ENABLED=false`；开启后也只用于解释/建议/条款比对；Supervisor 与专家不得判级。
+9. **RAG/多智能体/工具默认关闭**：`RAG_ENABLED=false`、`AGENTS_ENABLED=false`、`TOOLS_ENABLED=false`；开启后专家与工具也只用于解释/建议/补充材料，不得判级；并行分支只能写带 reducer 的字段（否则 `INVALID_CONCURRENT_GRAPH_UPDATE`）；MCP 只允许 `.env` 里配置的 stdio 命令，只读、超时杀进程。
 10. **入口分层**：CLI / FastAPI / 原生 Web 前端 / Streamlit 全部只依赖 `ReviewService`；不拼 `Command(resume=...)`；前端/API/UI 都不判级（ADR-009 + 第 2 轮补充）。
 11. **不引入**：Neo4j/GraphRAG、向量数据库、训练模型、Docker、React/Vue 及任何前端框架/npm 构建/CDN、Postgres/Redis、PyMuPDF 默认依赖、无许可证仓库代码。原生 Web 前端是手写 `HTML/CSS/JS`，由 FastAPI 托管。
 
@@ -437,6 +451,13 @@ Agent_Alex外贸合同智审助手/
 | 134 | 流式输出结束后，逐条审查分屏被对话挤到屏幕外，用户以为“没做逐条审查” | 流式回调里 `box.hidden = false` 后判断 `getBoundingClientRect().top > innerHeight - 120` 再 `scrollIntoView({block:"start"})`；不要无条件滚，否则短对话也会跳 |
 | 135 | 导出 PDF 中文变方块/乱码 | `reportlab` 默认 `Helvetica` 没有中文字形；必须 `pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))` 并给 Paragraph 设置 `fontName`，同时用 `escape()` 处理 `&<>`、把 `\n` 换成 `<br/>`；`requirements.txt` 里要写 `reportlab==4.4.4` |
 | 136 | 导出文件名中文被截断成乱码 | `Content-Disposition` 只写 `filename=中文.docx` 时多数浏览器按 latin-1 处理；要同时给 ASCII 兜底名与 RFC5987 形式 `filename*=UTF-8''<quote(name, safe="")>`，前端优先解 `filename*` |
+| 137 | 三个并行专家各自写 `degraded_steps` / `timings`，跑图直接报 `INVALID_CONCURRENT_GRAPH_UPDATE` | LangGraph 并行分支**只能写带 reducer 的字段**：`expert_findings` / `expert_notes` / `expert_route` 用 `Annotated[list[T], operator.add]`；`expert_status` / `degraded_steps` / `warnings` 统一由汇合节点 `collect_expert_findings` 单点写 |
+| 138 | 并行分支的 append 顺序不稳定，前端“专家顺序”每次都不一样 | 展示层不要直接用 `state.expert_route`：`_agent_trace()` 与 `collect_expert_findings()` 都按 `EXPERT_ORDER` 归一；测试也按同一顺序比较，别断言原始列表相等 |
+| 139 | 给专家 schema 留个“置信度 / 建议等级”字段，看起来更专业，实际会让 LLM 变相判级 | `ExpertDraft` / `ExpertOpinion` 一律 `extra="forbid"` 且**不含 `risk_level`**；引文必须 `locate_quote` 命中，否则整条丢弃并记 `expert:<id>:quote_not_found` |
+| 140 | 工具“调用成功”却让审查挂掉，或模型编了个不存在的工具名就真的执行 | `ToolRegistry.call()` **永不抛异常**，统一转 `ok=False` 轨迹；`_execute()` 只执行注册表里的名字，白名单外只记“未注册的工具（白名单外，不执行）” |
+| 141 | MCP 用 `shell=True` 拼命令字符串，等于把 `.env` 配置变成任意命令执行 | `subprocess.Popen(list(argv), shell=False)`；命令只来自 `.env` 的 `MCP_SERVERS`；单行 ≤1 MB、初始化 15 s、调用按 `MCP_TIMEOUT_SECONDS` 超时 `kill()`；不可达只注册 `<server>/unavailable` 占位工具 |
+| 142 | 本地无 LLM Key 时 `TOOLS_ENABLED=true` 看起来“什么都没发生”，演示像是没做工具调用 | `_fallback_plan()` 用第一条 red/yellow 的规则标题作检索词调 `find_clause` / `search_knowledge`，并写 `research_tools:deterministic_plan` + warning，明确“不是模型规划的” |
+| 143 | 专家意见用红/黄/绿渲染，用户直接当成风险等级，规则判级被绕过 | 专家块只用中性色（`--muted/--faint/--border/--raised`），并明写“专家意见只作补充参考，不代表风险等级”；`test_web.py` 断言 `.expert-block` 内不得出现语义色变量 |
 ---
 
 ## 8. 参考资料（按可信度排序）
@@ -534,12 +555,22 @@ Agent_Alex外贸合同智审助手/
      - **同一行标签**：结果页删 `.review-head-main` / `.file-line`，合同文件名、Skill、审查重点、状态全部进 `#review-chips`；`.review-chips .status-chip{margin-left:0}`。
      - **完整原文**：`ClauseReviewList.contract_text = state.raw_text`；左栏 `.pane-tabs`（**条款目录**默认 / **原文全文**），`renderContractFulltext()` 按 `\n\n` 分段、段内 `\n` → `<br>`，自己 `overflow-y:auto` + `overscroll-behavior:contain`；`applyPaneMode()` 只切左栏，不影响右栏意见。
      - 验证：`pytest` **347 通过**（`tests/test_ocr.py` +5、`tests/test_accounts.py` +4、`tests/test_segment.py` +1、`tests/test_clause_review.py` +2、`tests/test_web.py` +1 并改写 2）；`ruff` / `node --check` 通过；真实图片 PDF OCR 4.9 s（`SALES CONTRACT / 2.PAYMENT TERMS / 100% T/T IN ADVANCE / 3.DELIVERY:CIF HAMBURG`）；`4b82dd…` 旧记录 7→6 条且只剩一个“5. 付款条件”；`0bbbf1…` 15 条 + `contract_text` 7552 字。
+   - **界面轮 14（已完成，2026-10-28，ADR-015）**：多智能体专家并行 + 只读工具层（本地工具 / MCP），默认关闭。
+     - **专家并行**：`app/nodes/experts.py` 三个 `ExpertSpec`（`payment` / `delivery` / `dispute`，各带 `clause_types` + 中英关键词 + `instruction`）；`select_experts()` 纯 Python 按条款类型/关键词路由，无命中跑全部（召回优先）；`route_experts()` 在开关关闭/`status=failed`/无条款时直接返回 `evaluate_rules`；`validate_extraction` 用条件边返回专家节点列表 → LangGraph 并行 fan-out → `collect_expert_findings` 汇合 → `evaluate_rules`。
+     - **并行写安全**：`ContractReviewState.expert_findings / expert_notes / expert_route` 用 `Annotated[list, operator.add]`；每个专家 `finish()` 只回这三类字段；`expert_status`（`skipped/ok/degraded`）/ `degraded_steps` / `warnings` 由汇合节点单点写；展示层按 `EXPERT_ORDER` 归一顺序。
+     - **不判级**：`ExpertDraft` / `ExpertOpinion` 均 `extra="forbid"` 且**没有 `risk_level`**；引文必须 `locate_quote` 命中（否则丢弃 + `expert:<id>:quote_not_found`）；无 Key → `:not_configured`，异常 → `:failed`，都只写 `expert_notes`。
+     - **工具层**：`app/services/tools.py` 的 `ToolRegistry`（白名单、`call()` 永不抛异常、参数 200 字 / 摘要 400 字截断）注册 4 个本地只读工具（`contract_outline` / `find_clause` / `read_field` / `search_knowledge`，后者受 `RAG_ENABLED` 控制）；`McpStdioClient` 手写 `initialize → tools/list → tools/call`（`shell=False`、单行 ≤1 MB、超时 `kill()`、不可达注册 `<server>/unavailable`），零新依赖。
+     - **节点**：`app/nodes/research.py` 的 `research_tools` 插在 `evaluate_rules`（或人工确认）之后、`explain_risks` 之前；`ToolPlan` 1 次规划、`min(MAX_TOOL_CALLS, 3)` 次执行；未注册工具只记 `ok=False`；**无 LLM 时 `_fallback_plan()`** 用第一条红/黄规则标题做确定性检索并写 warning。
+     - **解释与状态**：`explain.py` system prompt 增第 9/10 条，user prompt 增 `<untrusted_experts>` / `<untrusted_tools>`（结束标签转义），引用白名单扩成“本条 RAG 命中 ∪ 工具 citation”；`ClauseReviewList.agent_trace`（`_agent_trace` 过滤 + 归一）+ `ReviewReport.expert_findings / tool_calls`。
+     - **前端**：`expertBlocks(clauseId)` 渲染“参考 · {专家}”（`topic/detail/quote/citation/suggestion` + 明写“不代表风险等级”），`agentTraceBlock()` 用 `<details>` 折叠轨迹（专家 / 状态 / 工具成败 / 引用）；`.expert-*` 只用中性色，测试断言 `.expert-block` 不含语义色变量。
+     - **配置**：`Settings` 新增 `agents_enabled=False` / `tools_enabled=False` / `mcp_servers=""` / `mcp_timeout_seconds=10.0` / `max_tool_calls=3`；`.env.example` 带 JSON 示例；`/health` 返回两个开关；`API_VERSION` 1.0.0 → **1.1.0**。
+     - 验证：`pytest` **383 通过**（`tests/test_agents.py` 12 项、`tests/test_tools.py` 23 项含伪 MCP 服务器、`tests/test_web.py` +1）；`ruff` / `node --check` 通过；开/关专家对照测试确认 `rule_id` 与 `overall_level` 完全一致。
    - **下一步（第四阶段）**：
      - 修 H39（`R-DIS-004` modal 与动词之间放宽为 `[^.]{0,80}?`），**另写 holdout5（8–12 份）再报数**（ISSUE-021）；
      - 人工复核 21 个 silver 现象 + 32 个留出现象，silver 升 gold（ISSUE-020）；
      - 补规则缺口：不可抗力缺失、检验条款缺失、责任上限、质保期（ISSUE-009，主集覆盖率 52.4%）；
      - RAG 检索评测：先做 `100问题.md` → manifest 映射（ISSUE-018），再调 `RAG_TOP_K`/`RAG_MIN_SCORE`；
-     - 语料授权与 `effective_date` 复核（ISSUE-015）；多智能体范围（ISSUE-016）阶段 B 再定。
+     - 语料授权与 `effective_date` 复核（ISSUE-015）；多智能体已在界面轮 14 按 ADR-015 落地（专家并行 + 只读工具层，默认关闭），真实外部 API（制裁名单 / 汇率 / HS 编码）仍待接（ISSUE-032）。
 6. 每完成一个阶段：更新 `00_PROJECT_STATE.md`、写当日 `03_DEV_LOGS/YYYY-MM-DD.md`、更新本文件的“当前完成度/已知坑”、更新 `05_OPEN_ISSUES.md`。
 
 ---
@@ -550,12 +581,13 @@ Agent_Alex外贸合同智审助手/
 |---|---|
 | 本地知识检索增强解释/建议（BM25、字符 n-gram） | 用 RAG 结果决定 `red / yellow / pass` |
 | 知识引用格式 `source_id#section` | 引用未登记/无授权的文档 |
-| 专家节点补充解释（付款/交付/争议） | 专家改级、新增 red/yellow、越权给法律结论 |
-| 前端展示后端返回的等级与解释 | 前端自行判级、前端拼 `Command(resume=...)`、前端调用 LLM |
-| Supervisor 白名单路由 | Supervisor 判级、自由规划、动态生成节点 |
-| 开关控制（默认关闭） | 默认开启、隐式联网调用 embedding 服务 |
+| 专家节点补充解释（付款/交付/争议），并行 fan-out | 专家改级、新增 red/yellow、越权给法律结论 |
+| 只读工具（4 个本地 + MCP stdio）为解释补材料 | 工具改合同、写库、改等级；执行未注册/白名单外工具 |
+| 前端展示后端返回的等级、解释与专家参考意见 | 前端自行判级、前端拼 `Command(resume=...)`、前端调用 LLM |
+| Supervisor 白名单路由（现为 `select_experts()` 确定性路由） | Supervisor 判级、自由规划、动态生成节点 |
+| 开关控制（`AGENTS_ENABLED` / `TOOLS_ENABLED` 默认关闭） | 默认开启、隐式联网调用 embedding 服务、`shell=True` 跑 MCP |
 
-默认行为：`RAG_ENABLED=false` 时 `explain` 只用规则 `reason` + 合同原文；RAG 无命中时必须退化为纯规则解释，并在 `limitations` 说明“未使用知识库”。
+默认行为：`RAG_ENABLED=false` 时 `explain` 只用规则 `reason` + 合同原文；RAG 无命中时必须退化为纯规则解释，并在 `limitations` 说明“未使用知识库”。`AGENTS_ENABLED=false` 时三个专家节点不进图、`expert_status="skipped"`；`TOOLS_ENABLED=false` 时 `research_tools` 是零副作用空节点——两者关闭时拓扑与结论和原来逐字一致。
 
 **为什么默认关闭**（用户界面轮 3 问过）：RAG 只增强**解释**、不参与判级；知识库没就绪时开启，会让“检索不到”被误读成“没有风险”。开启方式：`.env` 里 `RAG_ENABLED=true`（本机 `.env` 已开启，`GET /health` 的 `rag_enabled` 为 true）；查当前值：`GET /health` 的 `rag_enabled`。界面轮 3 已按用户要求把该开关从侧栏移除，业务界面不再展示实现细节。
 

@@ -71,7 +71,7 @@ from app.services.skill_catalog import (
 )
 
 API_TITLE = "Agent Alex · 外贸合同智审助手"
-API_VERSION = "1.0.0"
+API_VERSION = "1.1.0"
 
 #: 原生前端资源目录（无框架、无 CDN；见 ADR-009 第 2 轮补充）
 WEB_DIR = Path(__file__).resolve().parent / "web"
@@ -471,6 +471,8 @@ def create_app(
             "version": API_VERSION,
             "checkpoint_backend": settings.checkpoint_backend if service is None else "memory",
             "rag_enabled": settings.rag_enabled,
+            "agents_enabled": settings.agents_enabled,
+            "tools_enabled": settings.tools_enabled,
             "accounts": True,
             "time": datetime.now(UTC).isoformat(),
         }

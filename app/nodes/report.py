@@ -5,7 +5,9 @@
 约束：
 - 抽取降级/跳过不影响报告生成，但必须在 `limitations` 里显式说明；
 - 报告 `extracted_fields` 只来自 `state.facts`（已通过 Python 引文校验）；
-- 人工决定只写进 `hitl`，**不改写规则等级**；超时状态必须在摘要与 limitation 中显著提示。
+- 人工决定只写进 `hitl`，**不改写规则等级**；超时状态必须在摘要与 limitation 中显著提示；
+- 专家意见（`expert_findings`）与工具轨迹（`tool_calls`）只作为**补充材料**附在报告里，
+  `findings` 的 `rule_id` / `risk_level` 仍只来自 Python 规则（ADR-015）。
 """
 
 from __future__ import annotations
@@ -204,6 +206,8 @@ def build_report(state: ContractReviewState) -> dict:
         explanation_prompt_version=state.explanation_prompt_version,
         focus=state.focus or None,
         skill=state.skill_name or None,
+        expert_findings=list(state.expert_findings),
+        tool_calls=list(state.tool_calls),
     )
     return {
         "report": report,

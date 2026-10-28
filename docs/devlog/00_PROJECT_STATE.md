@@ -1,27 +1,28 @@
 ﻿# 项目状态快照
 
-> 更新时间：2026-10-28（界面轮 13：上传上限 15→30 MB + 图片 PDF 本地 OCR + 4 个外部 Skill 包内置到仓库 + 条款目录去重/状态并到标签行 + 左栏新增“原文全文”完整视图 + Skill 支持 zip 包导入；界面轮 12：主题色下线改白天/黑夜/跟随系统 + Skill 支持“调用工具 + 文本附件”+ 头像上传后裁剪 + 合同/Skill/审查重点改成标签行 + 删掉对话式长叙述 + 审查历史即时刷新 + 未命中规则改人话 + 条款切分精度（同行标题/字段黑名单/说明块/中英合并/短标题/前言标注）+ 逐条审查左目录与原文、右意见与采纳/保留、三块各自滚动；界面轮 10：账户设置改成 B 端分区弹窗（个人信息 / 通用 / 数据管理 / 关于）+ 主题色 5 套 + 界面字号三档 + 侧栏不再显示昵称与邮箱；界面轮 9：个人账户弹窗（头像/昵称/系统设置/二次确认清数据）+ Skill 查看与编辑 + 仓库紧凑化 + 厂商 20 个 + 阻止密码自动填充；界面轮 8：注册 not found 根因（旧进程 0.9.0）+ Skill 支持 Markdown/文件夹批量导入；界面轮 7：Skill 仓库独立页面 + 自绘 Skill 下拉 + 页脚贴右/降高 + 输入区收窄；界面轮 6：审查历史子目录 + 记录改名/置顶/删除 + 侧栏 Skill 仓库 + 满屏布局 + 登录弹窗定高与同意勾选；界面轮 5：账号/审查记录/Skill 仓库/BYOK + 右侧对话式首屏；界面轮 4：极简 C 端页“上传合同 → 看风险点”；界面轮 3：非合同闸门 + 收掉内部信息；界面轮 2：B 端工作台；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
-> 当前阶段：**交付形态补齐：对话式 Web 前端（`app/web/` 原生 HTML/CSS/JS，右侧对话式首屏 + 结果页；侧栏 = 导航壳 + API 配置 + 接口文档 + 账号区；无框架/无 CDN/无构建/本地字体）；账号体系按 **ADR-013** 落地（本地 SQLite：口令 PBKDF2、会话只存哈希、审查记录按账号隔离、Skill 仓库、BYOK 密文盒 + 每审查模型运行时，`API_VERSION 1.0.0`）；上传先做**文档类型闸门**（论文/法规不进入判级）；第四阶段（测试与评测）进行中：规则 13 条（`version: 5`）；silver gold 21 个现象；四批留出集 40 份；当前唯一可对外报的数来自 holdout4（12 份）：P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）**
+> 更新时间：2026-10-28（界面轮 14：多智能体专家并行（付款 / 交付 / 争议，确定性白名单路由）+ 只读工具层（4 个本地工具 + MCP stdio/JSON-RPC 子集）+ 专家意见与 Agent 轨迹上屏 + `AGENTS_ENABLED`/`TOOLS_ENABLED` 默认关闭；界面轮 13：上传上限 15→30 MB + 图片 PDF 本地 OCR + 4 个外部 Skill 包内置到仓库 + 条款目录去重/状态并到标签行 + 左栏新增“原文全文”完整视图 + Skill 支持 zip 包导入；界面轮 12：主题色下线改白天/黑夜/跟随系统 + Skill 支持“调用工具 + 文本附件”+ 头像上传后裁剪 + 合同/Skill/审查重点改成标签行 + 删掉对话式长叙述 + 审查历史即时刷新 + 未命中规则改人话 + 条款切分精度（同行标题/字段黑名单/说明块/中英合并/短标题/前言标注）+ 逐条审查左目录与原文、右意见与采纳/保留、三块各自滚动；界面轮 10：账户设置改成 B 端分区弹窗（个人信息 / 通用 / 数据管理 / 关于）+ 主题色 5 套 + 界面字号三档 + 侧栏不再显示昵称与邮箱；界面轮 9：个人账户弹窗（头像/昵称/系统设置/二次确认清数据）+ Skill 查看与编辑 + 仓库紧凑化 + 厂商 20 个 + 阻止密码自动填充；界面轮 8：注册 not found 根因（旧进程 0.9.0）+ Skill 支持 Markdown/文件夹批量导入；界面轮 7：Skill 仓库独立页面 + 自绘 Skill 下拉 + 页脚贴右/降高 + 输入区收窄；界面轮 6：审查历史子目录 + 记录改名/置顶/删除 + 侧栏 Skill 仓库 + 满屏布局 + 登录弹窗定高与同意勾选；界面轮 5：账号/审查记录/Skill 仓库/BYOK + 右侧对话式首屏；界面轮 4：极简 C 端页“上传合同 → 看风险点”；界面轮 3：非合同闸门 + 收掉内部信息；界面轮 2：B 端工作台；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
+> 当前阶段：**交付形态补齐：对话式 Web 前端（`app/web/` 原生 HTML/CSS/JS，右侧对话式首屏 + 结果页；侧栏 = 导航壳 + API 配置 + 接口文档 + 账号区；无框架/无 CDN/无构建/本地字体）；账号体系按 **ADR-013** 落地（本地 SQLite：口令 PBKDF2、会话只存哈希、审查记录按账号隔离、Skill 仓库、BYOK 密文盒 + 每审查模型运行时）；Agent 能力按 **ADR-015** 落地为**可选层**（`AGENTS_ENABLED` / `TOOLS_ENABLED` 默认关闭，关闭时与确定性主干逐字一致；`API_VERSION 1.1.0`）；上传先做**文档类型闸门**（论文/法规不进入判级）；第四阶段（测试与评测）进行中：规则 13 条（`version: 5`）；silver gold 21 个现象；四批留出集 40 份；当前唯一可对外报的数来自 holdout4（12 份）：P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）**
 > 项目目录：`d:\A项目\Agent_Alex外贸合同智审助手`
 > Git：`cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`（第 3 步）、`e41d235`（第 4 步）、`c7f24a9`（第 6 步）、`6eaff8c`（第 4 阶段第 1 轮）、`5dc05bd`（第 2 轮）、`c540259`（第 3 轮）、`eba67c0`（界面轮 1）、`892ddf2`（界面轮 2），本轮提交见 `git log`
-> 范围变更：2026-10-27 用户明确「可以做 rag 和多 agent」→ **ADR-007**；第 5 步按 **ADR-008** 落地 RAG MVP；第 6 步按 **ADR-009** 落地 API/UI 与 pending 持久化（第 2 轮：原生 Web 前端；第 3 轮：B 端工作台 + `/api/rules` + 本地字体；第 4 轮：移除运行环境块 + 非合同页；第 5 轮：侧栏保留、主区对话式）；界面轮 3 按 **ADR-012** 增加“是不是合同”的类型闸门；界面轮 5 按 **ADR-013** 增加账号、审查记录、Skill 仓库与 BYOK（RAG/多智能体仍默认关闭，只增强解释、不判级）
+> 范围变更：2026-10-27 用户明确「可以做 rag 和多 agent」→ **ADR-007**；第 5 步按 **ADR-008** 落地 RAG MVP；第 6 步按 **ADR-009** 落地 API/UI 与 pending 持久化（第 2 轮：原生 Web 前端；第 3 轮：B 端工作台 + `/api/rules` + 本地字体；第 4 轮：移除运行环境块 + 非合同页；第 5 轮：侧栏保留、主区对话式）；界面轮 3 按 **ADR-012** 增加“是不是合同”的类型闸门；界面轮 5 按 **ADR-013** 增加账号、审查记录、Skill 仓库与 BYOK；界面轮 13 按 **ADR-014** 增加图片 PDF 本地 OCR 与外部 Skill / zip 导入；界面轮 14 按 **ADR-015** 把 ADR-007 放开的多智能体真正落地（专家并行 + 只读工具层 + MCP），但**判级、HITL、证据边界一律不变**，且两个开关默认关闭
 
 ## 一句话了解项目
 
-面向“国际货物销售合同”的 AI 预审智能体：上传 PDF/DOCX/TXT → **判断是不是合同（不是就停）** → 条款切分 → LLM 抽取关键要素 → **Python 规则引擎判定红/黄/绿风险**（唯一等级来源）→ 红色风险经 **LangGraph `interrupt()` 真人工确认** → LLM 依据规则结果、合同原文与知识片段生成解释 → Python 质量门校验后输出可追溯报告。交付：**对话式 Web 前端（`app/web/`，FastAPI 托管：给审查重点/附件/Skill → 查看风险点 → 人工确认 → 下载报告）+ 账号与审查记录 + BYOK 模型配置** + 命令行 + API（Streamlit 备用），10 天完成。
+面向“国际货物销售合同”的 AI 预审智能体：上传 PDF/DOCX/TXT → **判断是不是合同（不是就停）** → 条款切分 → LLM 抽取关键要素 →（可选 `AGENTS_ENABLED`：付款 / 交付 / 争议三个专家**并行**给出参考意见，不判级）→ **Python 规则引擎判定红/黄/绿风险**（唯一等级来源）→ 红色风险经 **LangGraph `interrupt()` 真人工确认** →（可选 `TOOLS_ENABLED`：只读工具 / MCP 检索补充材料）→ LLM 依据规则结果、合同原文与知识片段生成解释 → Python 质量门校验后输出可追溯报告。交付：**对话式 Web 前端（`app/web/`，FastAPI 托管：给审查重点/附件/Skill → 查看风险点 → 人工确认 → 下载报告）+ 账号与审查记录 + BYOK 模型配置** + 命令行 + API（Streamlit 备用）；两个 Agent 开关默认关闭，关闭时链路与原来完全一致。10 天完成。
 
 ## 当前完成度
 
 | 模块 | 状态 | 说明 |
 |---|---|---|
 | 第一阶段：GitHub 调研 | ✅ 100% | 8 个仓库源码级分析；用户已确认 |
-| 第二阶段：架构设计 | ✅ 100% | ADR-001 ~ ADR-013 全部**已接受**（ADR-007 范围变更、ADR-008 RAG、ADR-009 API/UI、ADR-010 规则扩充、ADR-011 评测方法与 gold 口径、ADR-012 上传文档类型闸门、ADR-013 账号体系与 BYOK） |
+| 第二阶段：架构设计 | ✅ 100% | ADR-001 ~ ADR-015 全部**已接受**（ADR-007 范围变更、ADR-008 RAG、ADR-009 API/UI、ADR-010 规则扩充、ADR-011 评测方法与 gold 口径、ADR-012 上传文档类型闸门、ADR-013 账号体系与 BYOK、ADR-014 图片 PDF OCR / 外部 Skill 包、ADR-015 多智能体专家与只读工具层） |
 | 第三阶段第 1 步：环境 + 最小图 | ✅ 100% | `.venv`/依赖/最小图/规则引擎/测试/git |
 | 第三阶段第 2 步：解析 + 切分 | ✅ 100% | TXT/MD/文本型 PDF/DOCX；标题切分/合并/超长拆分/上限 |
 | 第三阶段第 3 步：LLM 抽取 + 校验 | ✅ 100% | 17 字段抽取/引文核验/降级/字段规则 skipped；Fake LLM 测试 |
 | 第三阶段第 4 步：HITL 真中断 | ✅ 100% | 条件边/`interrupt()`/审批载荷/checkpointer/幂等/惰性超时；15 个 HITL 测试 |
 | 第三阶段第 5 步：解释 + 质量门 + RAG MVP | ✅ 100% | `explain_risks` 节点/越权拦截/引用定位/BM25 检索/引用白名单；28 个新测试 |
 | 第三阶段第 6 步：FastAPI + Streamlit | ✅ 100% | 上传/审查/人工决定/下载 JSON+Markdown；pending 落盘；37 个新测试 |
+| 界面轮 14：多智能体专家并行 + 只读工具层 | ✅ 100% | 回应“离 agent 越走越远”，按 **ADR-015** 真正加一层 Agent 能力：`validate_extraction` 之后按 `clause_type` + 关键词**确定性路由**出“付款 / 交付 / 争议”三个专家，LangGraph **并行 fan-out**，汇合后进规则；专家 schema（`ExpertOpinion`/`ExpertDraft`，`extra="forbid"`）**没有 `risk_level`**，引文必须 `locate_quote` 命中否则丢弃；并行分支只写 `operator.add` 字段，`degraded_steps`/`warnings` 由汇合节点单点写；`rules`/HITL 之后插 `research_tools`（**4 个本地只读工具** + **MCP stdio/JSON-RPC 子集**，零新依赖、`shell=False`、超时杀进程），LLM 规划 ≤3 次、无 Key 退化为确定性检索；解释侧新增 `<untrusted_experts>` / `<untrusted_tools>` 数据区与标签转义；`ClauseReviewList.agent_trace` + 前端“参考 · 专家”（**中性色，明写不代表风险等级**）与折叠“Agent 轨迹”；`API_VERSION` **1.1.0**；两个开关默认关闭、关闭时结论逐字一致；全量 **383 测试** |
 | 界面轮 13：OCR + 外部 Skill + zip + 原文全文 | ✅ 100% | 上传上限 **15→30 MB**（后端 `MAX_UPLOAD_MB=30`，Streamlit/API/前端同一常量，首屏补格式提示）；PDF **无文本层自动 OCR**（`app/services/ocr.py`：`pypdfium2` 渲染 + `RapidOCR` 本地 PP-OCR，离线、最多 `OCR_MAX_PAGES=20`、逐页降级，OCR 文本**不参与判级**）；4 个外部 Skill 包复制到 `app/resources/skills/` 并作为 `builtin:*` 默认入库（`packaged_skills()`，SKILL.md 全文 + references 只读附件）；`POST /api/skills/import` 支持 **zip 包**（根目录 SKILL.md + references/，拒绝路径穿越/超大包/非文本，包内脚本**不执行**，`allowed-tools` 不映射）；条款目录 **相邻同名条款合并**（`_merge_duplicate_headings` + 展示层 `_merge_adjacent_duplicates`），修复“两个付款条件”；文件标签与状态并到同一行；左栏新增 **“原文全文”** 标签页（`contract_text` 按段落保留换行，三块仍独立滚动）；全量 **347 测试** |
 | 界面轮 12：配色三档 + Skill 工具/附件 + 头像裁剪 + 左原文右意见 | ✅ 100% | 主题色 5 套下线，改 **白天 / 黑夜 / 跟随系统**（`html[data-scheme]` + `matchMedia`）；Skill 从“一段提示词”扩成 **指令 + 5 个可声明工具 + 只读文本附件（`.py/.md/.txt`，≤5 个 / ≤6000 字）**，新增 `GET /api/skills/tools`，附件只拼进 focus、**绝不执行**；头像上传后进 `#avatar-crop-dialog` 自己拖动/缩放，输出 128×128 JPEG；审查页顶部改成 **合同 / Skill / 审查重点标签行**，删掉整段对话式叙述（`chatNarrative`/`streamText`/`#ai-stream`）；审查完成与人工确认后 **`refreshHistory()` 即时刷新侧栏历史**；未命中规则改“这一条没有发现需要修改的地方”；`segment.py` 修 4 类误切（同行标题、字段黑名单、说明块编号、中英对照）+ 短标题 + 前言标注；逐条审查 **左目录与原文（各自滚）、右意见与“采用修改/保留原文/撤销”（自己滚）**；全量 **334 测试** + CDP 复核 |
 | 界面轮 11：方块 Skill + 弹窗化 + 对话式逐条审查 | ✅ 100% | 推荐 Skill 改 1:1 方块网格（`aspect-ratio`，7 个 130×130）；新建/导入移到页头右上角、改静态弹窗（`#skill-new-dialog` / `#skill-import-dialog`，委托挂到 `document`）；上传后先对话式逐段输出审查结论（`#ai-stream`，18ms/3 字），再左右分屏逐条审查（`#clause-list` / `#clause-detail`），有问题条款给建议 + 示例条款 + 一键更正/撤销/全部更正，并可导出 DOCX/PDF（`GET /clauses`、`POST /export`）；任务未结束时退出登录先弹“会中断任务”二次确认；全量 **323 测试** + CDP 复核 |
@@ -37,7 +38,22 @@
 | 第四阶段：测试与评测 | ⏳ 85% | 规则 13 条（`version: 5`：三类措辞 + 保额邻近判定）；50 份合同 + 21 个 silver gold 现象 + 四批留出集 40 份；**当前唯一未消耗的 holdout4：P=1.00 / R=0.889 / F1=0.941**（漏报 H39，故意不修）；检索评测（ISSUE-018）与人工复核 gold 仍未做 |
 | 第五阶段：文档与交付 | ⏳ 45% | README/状态/交接/ADR/资料清单/开发日志已同步；答辩材料未做 |
 
-## 最新产出（2026-10-28 界面轮 13：30 MB 上传、图片 PDF OCR、外部 Skill 内置、条款去重与完整原文、zip 导入）
+## 最新产出（2026-10-28 界面轮 14：多智能体专家并行与只读工具层）
+
+- **起因（用户原话 2 条）**：①“我觉得存在一个问题，我们离 agent 好像越走越远了，为什么没有多 agent 协同工作，mcp 或 api 调用呢”；②“我们现在不是已经完成大部分工作，时间还有很多，绰绰有余啊”（即授权立刻落地）。
+- **定性先行**：原系统确实是“确定性 workflow + 2 个 LLM 站（extract / explain）+ 1 个 HITL 门”，没有专家并行、没有 MCP；ADR-007 早已放开，但 `AGENTS_ENABLED` 一直是悬空的开关（卡在 ISSUE-016）。本轮按 **ADR-015** 补上，而不是改成聊天式 Supervisor。
+- **专家并行（`app/nodes/experts.py`）**：三个专家 `payment` / `delivery` / `dispute`，输入是**条款 + 规则前的合同信息**，输出 `ExpertOpinion`（`topics` / `observations` / `suggestion`，**无 `risk_level`**）。路由 `select_experts()` 是纯 Python：按 `clause_type` + 关键词命中；一个都没命中则**全跑**（召回优先）。`route_experts()` 在关闭 / 抽取失败 / 无条款时直接返回 `"evaluate_rules"`，专家节点根本不进图。
+- **并行写安全**：LangGraph 并行分支只能写带 reducer 的字段，所以 `expert_findings` / `expert_notes` / `expert_route` 用 `Annotated[list, operator.add]`；`expert_status` / `degraded_steps` / `warnings` 统一由 `collect_expert_findings` 单点写，避免 `INVALID_CONCURRENT_GRAPH_UPDATE`。
+- **证据纪律**：专家引文必须过 `locate_quote` 在本条原文里定位，定位不到整条意见丢弃并记 `expert:<id>:quote_not_found`；`ExpertDraft` / `ExpertOpinion` 都是 `extra="forbid"`，模型想输出等级会直接校验失败。专家失败 / 无 Key 只写 `expert_notes`（`:failed` / `:not_configured`），不影响主流程。
+- **工具层（`app/services/tools.py` + `app/nodes/research.py`）**：4 个本地只读工具 `contract_outline` / `find_clause` / `read_field` / `search_knowledge`（后者受 `RAG_ENABLED` 控制）；`ToolRegistry` 白名单执行，未注册的名字只记 `ok=False` 不执行；每次调用产出 `ToolCallRecord`（参数截断 200 字、摘要 400 字、耗时、成败、引用）。
+- **MCP**：`McpStdioClient` 手写 stdio / JSON-RPC 2.0 子集（`initialize` → `tools/list` → `tools/call`），**不引入 `mcp` SDK（零新依赖）**；`subprocess.Popen(shell=False)`、超时杀进程、单行 ≤1 MB、后台读取线程 + `queue.Queue` 超时等待；服务器只来自 `.env` 的 `MCP_SERVERS`（JSON），不可达时注册 `<server>/unavailable` 占位工具并给出原因，而不是让审查挂掉。
+- **规划与回退**：`research_tools` 插在 `evaluate_rules`（或人工确认）之后、`explain_risks` 之前；LLM 规划最多 `MAX_TOOL_CALLS=3` 次调用；**没有 Key 时走 `_fallback_plan()`**（拿第一条红/黄的规则标题去 `find_clause` / `search_knowledge`），保证离线也能看到真实工具轨迹，并写 `research_tools:deterministic_plan` 警告。
+- **解释侧（`app/nodes/explain.py`）**：system prompt 增第 9/10 条（专家与工具都是**数据**、不得据此改级）；user prompt 增 `<untrusted_experts>` / `<untrusted_tools>` 两段，结束标签做转义；引用白名单扩成“本条 RAG 命中 ∪ 工具返回的 `source_id#section`”。
+- **前端（`app/web/app.js` + `styles.css`）**：逐条审查页在规则意见后加“参考 · {专家}”区块（**中性色**，不用红/黄/绿语义色，并明写“专家意见只作补充参考，不代表风险等级”）；结果页底部加 `<details>` 折叠的“Agent 轨迹”（专家路由、状态、工具成功/失败、引用）。测试钉死 `.expert-block` 内不得出现语义色变量。
+- **开关与一致性**：`AGENTS_ENABLED` / `TOOLS_ENABLED` 默认 `false`；关闭时 `route_experts` / `research_tools` 立即返回空更新，拓扑与结论与原来**逐字一致**（有开 / 关对照测试比较 `rule_id` 与 `overall_level`）。
+- **验证**：`pytest` **383 passed**（新增 `tests/test_agents.py` 12 项、`tests/test_tools.py` 23 项含伪 MCP 服务器与白名单、`tests/test_web.py` 1 项）；`ruff check app tests` 通过；`node --check app/web/app.js` 通过。
+
+## 上一轮产出（2026-10-28 界面轮 13：30 MB 上传、图片 PDF OCR、外部 Skill 内置、条款去重与完整原文、zip 导入）
 
 - **起因（用户原话 5 条）**：① 适当扩大上传文件大小；② 加入 OCR 识别 PDF 图片；③ 把桌面上的 4 个合同/信用证 Skill 包纳入默认 Skill 仓库；④ 为什么测试文版里识别到两个付款条件、合同名要与“已完成”同一行、想直接看到完整原文而不是机械拆分；⑤ 导入 Skill 包支持 zip。
 - **上传上限**：`MAX_UPLOAD_MB` 15 → **30**（`.env` / `.env.example` / `config.py` 默认值），前端 `MAX_BYTES = 30 * 1024 * 1024` 与首屏提示、错误文案同步；API 与 Streamlit 共用 `settings.max_upload_mb`，没有第二份硬编码。

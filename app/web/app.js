@@ -3279,6 +3279,86 @@
     "规则只覆盖常见的外贸条款情形，规则之外的商务安排（数量、账期、验收细节等）" +
     "仍建议按这次实际交易再看一眼。";
 
+  /**
+   * 专家意见：只作“参考”，没有等级。等级仍由左栏的规则标记决定，
+   * 所以这里不画红黄标，避免用户把专家意见当成新的风险等级（ADR-015）。
+   */
+  function expertBlocks(clauseId) {
+    const trace = state.clauseView && state.clauseView.agent_trace;
+    if (!trace || !trace.expert_findings || !trace.expert_findings.length) return "";
+    const items = trace.expert_findings
+      .filter((item) => !clauseId || item.clause_id === clauseId)
+      .slice(0, 4)
+      .map((item) =>
+        [
+          '<article class="expert-item">',
+          '<div class="expert-head">',
+          '<span class="expert-tag">参考 · ' + esc(item.expert_title || item.expert) + "</span>",
+          '<span class="expert-topic">' + esc(item.topic) + "</span>",
+          "</div>",
+          '<p class="expert-detail">' + esc(item.detail) + "</p>",
+          item.quote
+            ? '<blockquote class="expert-quote">' + esc(item.quote) + "</blockquote>"
+            : "",
+          item.citation ? '<p class="cite">位置：' + esc(item.citation) + "</p>" : "",
+          item.suggestion
+            ? '<p class="finding-fix"><span>方向</span>' + esc(item.suggestion) + "</p>"
+            : "",
+          "</article>",
+        ].join(""),
+      )
+      .join("");
+    if (!items) return "";
+    return (
+      '<section class="expert-block">' +
+      '<p class="expert-note">专家意见只作补充参考，不代表风险等级；等级以规则判定为准。</p>' +
+      items +
+      "</section>"
+    );
+  }
+
+  /** Agent 轨迹：这一轮跑了哪些专家、调了哪些工具（失败也列出来，方便追因）。 */
+  function agentTraceBlock() {
+    const trace = state.clauseView && state.clauseView.agent_trace;
+    if (!trace) return "";
+    const experts = (trace.experts || []).length
+      ? trace.experts
+          .map((id) => {
+            const found = (trace.expert_findings || []).find((item) => item.expert === id);
+            return found ? found.expert_title : id;
+          })
+          .join("、")
+      : "未启用";
+    const calls = (trace.tool_calls || [])
+      .map((call) =>
+        [
+          '<li class="trace-item' + (call.ok ? "" : " is-failed") + '">',
+          "<span>" + esc(call.title || call.name) + "</span>",
+          '<span class="trace-state">' + (call.ok ? "成功" : "失败") + "</span>",
+          call.summary ? '<p class="trace-text">' + esc(call.summary) + "</p>" : "",
+          call.error ? '<p class="trace-text">' + esc(call.error) + "</p>" : "",
+          (call.citations || []).length
+            ? '<p class="cite">引用：' + esc(call.citations.join("、")) + "</p>"
+            : "",
+          "</li>",
+        ].join(""),
+      )
+      .join("");
+    return (
+      '<details class="trace">' +
+      "<summary>Agent 轨迹</summary>" +
+      '<p class="trace-text">专家：' +
+      esc(experts) +
+      "（" +
+      esc(trace.expert_status) +
+      "）· 工具：" +
+      (trace.tools_enabled ? "已启用" : "未启用") +
+      "</p>" +
+      (calls ? '<ul class="trace-list">' + calls + "</ul>" : "") +
+      "</details>"
+    );
+  }
+
   function renderClauseDetail() {
     const view = state.clauseView;
     const box = document.getElementById("clause-detail");
@@ -3355,6 +3435,9 @@
       parts.push('<p class="detail-empty">这条规则只给文字建议，没有可套用的示例条款。</p>');
     }
 
+    // 专家意见（参考，无等级）+ 本轮 Agent 轨迹（专家/工具），都放在规则意见之后
+    parts.push(expertBlocks(clause.clause_id));
+
     // 每一条都给“保留 / 修改”两个选择：保留只是记下“我看过了”，不改原文
     parts.push(
       '<div class="detail-actions">',
@@ -3375,6 +3458,8 @@
         : "",
       "</div>",
     );
+
+    parts.push(agentTraceBlock());
 
     box.innerHTML = parts.join("");
     box.scrollTop = 0;

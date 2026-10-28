@@ -1,9 +1,9 @@
 # 待解决问题 / 风险登记
 
-> 更新时间：2026-10-28（界面轮 13：上传上限 15→30 MB + 图片 PDF 本地 OCR + 4 个外部 Skill 包内置 + zip 导入 + 两个付款条件双层去重 + 完整原文；界面轮 12：主题色下线改三档配色 + Skill 工具与文本附件 + 头像裁剪 + 标签行 + 历史即时刷新 + 条款切分精度 + 左原文右意见独立滚动；界面轮 10：账户设置改成 B 端分区弹窗（个人信息 / 通用 / 数据管理 / 关于）+ 主题色 5 套 + 界面字号三档 + 侧栏不再显示昵称/邮箱；界面轮 9：个人账户弹窗（头像/昵称/系统设置/二次确认清数据）+ Skill 查看与编辑 + 仓库紧凑化 + 厂商 10→20 + 阻止密码自动填充；界面轮 8：注册 not found 根因（旧进程 0.9.0）+ Skill 支持 Markdown/文件夹导入；界面轮 7：Skill 仓库独立页 + 自绘下拉 + 页脚贴右/降高 + 输入区收窄；界面轮 6：审查历史子目录 + 记录改名/置顶/删除 + 侧栏 Skill 仓库 + 满屏 + 弹窗定高；界面轮 5：账号 / 审查记录 / Skill / BYOK；界面轮 4：侧栏保留 + 主区两屏；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
+> 更新时间：2026-10-28（界面轮 14：多智能体专家并行 + 只读工具层（本地工具 / MCP），ADR-015，关闭 ISSUE-016、新增 ISSUE-032；界面轮 13：上传上限 15→30 MB + 图片 PDF 本地 OCR + 4 个外部 Skill 包内置 + zip 导入 + 两个付款条件双层去重 + 完整原文；界面轮 12：主题色下线改三档配色 + Skill 工具与文本附件 + 头像裁剪 + 标签行 + 历史即时刷新 + 条款切分精度 + 左原文右意见独立滚动；界面轮 10：账户设置改成 B 端分区弹窗（个人信息 / 通用 / 数据管理 / 关于）+ 主题色 5 套 + 界面字号三档 + 侧栏不再显示昵称/邮箱；界面轮 9：个人账户弹窗（头像/昵称/系统设置/二次确认清数据）+ Skill 查看与编辑 + 仓库紧凑化 + 厂商 10→20 + 阻止密码自动填充；界面轮 8：注册 not found 根因（旧进程 0.9.0）+ Skill 支持 Markdown/文件夹导入；界面轮 7：Skill 仓库独立页 + 自绘下拉 + 页脚贴右/降高 + 输入区收窄；界面轮 6：审查历史子目录 + 记录改名/置顶/删除 + 侧栏 Skill 仓库 + 满屏 + 弹窗定高；界面轮 5：账号 / 审查记录 / Skill / BYOK；界面轮 4：侧栏保留 + 主区两屏；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
 > 状态标记：`[OPEN]` 待处理 / `[CLOSED]` 已解决 / `[DEFERRED]` 本阶段不处理
 > 规则：未决事项不写进代码；影响架构的必须先拍板，再进第二阶段。
-> 本轮变化：界面轮 13 按 5 条反馈做：①**上传上限 15→30 MB**（`MAX_UPLOAD_MB` 单一配置源，前端 `MAX_BYTES`、错误文案、首屏提示同步，测试钉住）；②**图片 PDF 本地 OCR**——`pypdfium2` 渲染 + `rapidocr-onnxruntime`（离线 ONNX），只在整份 PDF 文本 < 50 字或单页 < 10 字时触发，≤20 页、逐页降级，OCR 文本只进 `raw_text`、**不参与判级**（**新增 ISSUE-030**）；③桌面 4 个外部 Skill 包复制进 `app/resources/skills/` 作 `builtin:*`，`instruction` 提炼关注方向、原 `SKILL.md` 与 references 作只读附件（**新增 ISSUE-031**：来源/授权未确认、正文截断到 6000 字）；④“两个付款条件”定位为旧切分把双语标题后的英文段再切成一条并吞掉后 4 条 → 切分侧 `_merge_duplicate_headings()` + 展示侧 `_merge_adjacent_duplicates()` 双层合并（旧记录不重跑也能修正）；结果页合同名 / Skill / 审查重点 / 状态收成**同一行标签**；左栏新增**原文全文** tab（`contract_text` 一次返回，按 `\n\n` 分段、段内 `<br>`，保持原文件排版，不再机械拆分）；⑤**zip Skill 包导入**——根目录 `SKILL.md` 必填、只收文本、内存解析不落盘、**包内脚本不执行**、`allowed-tools` 不映射（`POST /api/skills/import`）。界面轮 12 把**主题色 5 套下线**（用户反馈“改不了”），改成 **白天 / 黑夜 / 跟随系统** 三档（`html[data-scheme]` + `matchMedia`，深色变量从 `@media` 搬进属性选择器）；Skill 从“一段提示词”扩成 **指令 + 5 个可声明工具 + 只读文本附件**（`.py/.md/.txt`，≤5 个 / ≤6000 字，新增 `GET /api/skills/tools`，**绝不执行**）——**新增 ISSUE-029**（工具只影响 focus 文案、附件不执行且存在提示注入面）；头像上传后进 `#avatar-crop-dialog` 自己拖动/缩放再存 128×128 JPEG（服务端仍不重新编码，归 ISSUE-025）；审查页顶部改为**标签行**并删掉整段对话式叙述（**ISSUE-027 关闭**）；`refreshHistory()` 让审查/确认后侧栏历史立即更新（无推送，归 ISSUE-022）；未命中规则改“这一条没有发现需要修改的地方”；`segment.py` 修 4 类误切 + 目录短标题 + 前言标注；逐条审查左目录与原文、右意见与“采用修改/保留原文/撤销”，三块各自滚动。界面轮 10 把账户弹窗改成 **B 端设置形态**（左侧分区导航“个人信息 / 通用 / 数据管理 / 关于”，右侧面板切换；弹窗 760×560，窄屏导航转横向），通用区新增**主题色 5 套**（只换 `--accent`，风险语义色不动）与**界面字号 小/标准/大**（`--ui-text-scale` + 全量 `font-size: calc(...)`），个人信息补只读注册时间，数据管理加两张统计卡，关于区显示版本与政策入口；侧栏左下角**删掉昵称/邮箱**，只留“退出登录 + 头像”——**ISSUE-025** 补“偏好只在本机、无手动深色开关”，**ISSUE-022** 补“设置面板只做前端偏好、统计按需拉取”。界面轮 9 把 Skill 仓库列表改成**一行折叠**（点名称展开审查重点）、自建 Skill 可 `PATCH /api/skills/{id}` 编辑（推荐只读、可“存为我的”），右栏面板收紧凑；侧栏“退出登录”右侧加**圆形头像** → `#account-dialog`（换头像 / 改昵称 / 减少动效 / 自动聚焦 / 清除本机缓存 / 清空审查记录，两个清除动作都二次确认）；头像压成 128×128 JPEG 存 data URL（`users.avatar` 列 + 老库 `ALTER TABLE`）；厂商目录 10→20；API 配置 Key 输入改 `autocomplete="new-password"` 等属性，解决“点输入框弹出浏览器快捷填入账号密码”——**ISSUE-025** 补“无改密码/注销账号、头像不做服务端重编码”，**ISSUE-022** 补“清空记录逐条 DELETE、无批量接口”。界面轮 8 定位“注册显示 not found”是 **8000 端口跑着旧进程**（`openapi` 0.9.0，无 `/api/auth/*`）→ 重启为 1.0.0；并给 Skill 仓库加“从 Markdown 导入”（拖拽文件/文件夹 + 两个选择入口，前端解析 frontmatter/标题/首段，逐条 `POST /api/skills`，同名跳过、单次 30 个 / 单文件 200 KB）。**新增 ISSUE-026**（开发服务未开 `--reload`，前后端版本可能错位）。界面轮 7 把 Skill 仓库从弹窗改为独立页面 `#/skills`、原生 select 换成自绘 listbox、页脚铺满并贴右降高、输入区 880→720。界面轮 6 把“当前审查”改成侧栏“审查历史”子目录（记录可改名/置顶/删除，`PATCH|DELETE /api/reviews/{id}`），Skill 仓库入口收到侧栏、下拉末项固定为仓库，主区铺满屏幕，登录弹窗定高且登录/注册都必须手勾同意；**ISSUE-025** 补“同意条款未留痕（`consent_version`/`consent_at`）”与“删记录只清本机痕迹”；界面轮 5 按 ADR-013 增加账号、审查记录、Skill 仓库与 BYOK（**ISSUE-025**：账号/密钥的运维边界——密码找回、登录限流、主密钥备份、Cookie `Secure`、多 worker 运行时）；ISSUE-024 仍待做“这份报告怎么读”；ISSUE-021/020/009 与上轮一致（H39 故意不修、silver gold 待复核、覆盖率 52.4%）。
+> 本轮变化：界面轮 14 回应“离 agent 越走越远”——按 **ADR-015** 真正加了一层 Agent 能力，同时守住“规则唯一判级”：①**多智能体专家并行**（`app/nodes/experts.py`）：`validate_extraction` 之后按 `clause_type` + 关键词**确定性路由**出“付款 / 交付 / 争议”三个专家，LangGraph 并行 fan-out，汇合后进 `evaluate_rules`；专家输出 `ExpertOpinion`/`ExpertDraft` **没有 `risk_level`**、引文必须能在条款原文定位（否则丢弃并记 `quote_not_found`），失败/无 Key 只写 `expert_notes`；并行分支只写带 `operator.add` 的字段，`degraded_steps`/`warnings` 由汇合节点单点写（避免并发写冲突）；**关闭 ISSUE-016**；②**只读工具层**（`app/services/tools.py` + `app/nodes/research.py`）：`rules` 之后插一次 `research_tools`，4 个本地工具（条款目录 / 关键词定位 / 字段回读 / 知识检索）+ **MCP stdio JSON-RPC 子集**（`initialize → tools/list → tools/call`，零新依赖、`shell=False`、超时杀进程、单行 ≤1 MB、服务器只来自 `.env`）；LLM 规划 ≤3 次，**无 LLM 时退化为确定性检索**（离线也能演示）；白名单外的调用只记 `ok=False` 不执行；每次调用留 `ToolCallRecord`（参数/摘要截断、耗时、成败、引用）；③解释侧新增 `<untrusted_experts>` / `<untrusted_tools>` 两段数据区并做结束标签转义，引用白名单扩成“本条 RAG 命中 ∪ 工具返回的 citation”；④逐条审查页新增“参考 · 专家”区块（**中性色，明确写“不代表风险等级”**）与折叠的“Agent 轨迹”；⑤两个开关 `AGENTS_ENABLED` / `TOOLS_ENABLED` 默认 `false`，关闭时拓扑与结论和原来**完全一致**（有对照测试）；`API_VERSION` 1.0.0 → **1.1.0**；**新增 ISSUE-032**（额外调用成本、MCP 信任边界、真实外部 API 未接）。界面轮 13 按 5 条反馈做：①**上传上限 15→30 MB**（`MAX_UPLOAD_MB` 单一配置源，前端 `MAX_BYTES`、错误文案、首屏提示同步，测试钉住）；②**图片 PDF 本地 OCR**——`pypdfium2` 渲染 + `rapidocr-onnxruntime`（离线 ONNX），只在整份 PDF 文本 < 50 字或单页 < 10 字时触发，≤20 页、逐页降级，OCR 文本只进 `raw_text`、**不参与判级**（**新增 ISSUE-030**）；③桌面 4 个外部 Skill 包复制进 `app/resources/skills/` 作 `builtin:*`，`instruction` 提炼关注方向、原 `SKILL.md` 与 references 作只读附件（**新增 ISSUE-031**：来源/授权未确认、正文截断到 6000 字）；④“两个付款条件”定位为旧切分把双语标题后的英文段再切成一条并吞掉后 4 条 → 切分侧 `_merge_duplicate_headings()` + 展示侧 `_merge_adjacent_duplicates()` 双层合并（旧记录不重跑也能修正）；结果页合同名 / Skill / 审查重点 / 状态收成**同一行标签**；左栏新增**原文全文** tab（`contract_text` 一次返回，按 `\n\n` 分段、段内 `<br>`，保持原文件排版，不再机械拆分）；⑤**zip Skill 包导入**——根目录 `SKILL.md` 必填、只收文本、内存解析不落盘、**包内脚本不执行**、`allowed-tools` 不映射（`POST /api/skills/import`）。界面轮 12 把**主题色 5 套下线**（用户反馈“改不了”），改成 **白天 / 黑夜 / 跟随系统** 三档（`html[data-scheme]` + `matchMedia`，深色变量从 `@media` 搬进属性选择器）；Skill 从“一段提示词”扩成 **指令 + 5 个可声明工具 + 只读文本附件**（`.py/.md/.txt`，≤5 个 / ≤6000 字，新增 `GET /api/skills/tools`，**绝不执行**）——**新增 ISSUE-029**（工具只影响 focus 文案、附件不执行且存在提示注入面）；头像上传后进 `#avatar-crop-dialog` 自己拖动/缩放再存 128×128 JPEG（服务端仍不重新编码，归 ISSUE-025）；审查页顶部改为**标签行**并删掉整段对话式叙述（**ISSUE-027 关闭**）；`refreshHistory()` 让审查/确认后侧栏历史立即更新（无推送，归 ISSUE-022）；未命中规则改“这一条没有发现需要修改的地方”；`segment.py` 修 4 类误切 + 目录短标题 + 前言标注；逐条审查左目录与原文、右意见与“采用修改/保留原文/撤销”，三块各自滚动。界面轮 10 把账户弹窗改成 **B 端设置形态**（左侧分区导航“个人信息 / 通用 / 数据管理 / 关于”，右侧面板切换；弹窗 760×560，窄屏导航转横向），通用区新增**主题色 5 套**（只换 `--accent`，风险语义色不动）与**界面字号 小/标准/大**（`--ui-text-scale` + 全量 `font-size: calc(...)`），个人信息补只读注册时间，数据管理加两张统计卡，关于区显示版本与政策入口；侧栏左下角**删掉昵称/邮箱**，只留“退出登录 + 头像”——**ISSUE-025** 补“偏好只在本机、无手动深色开关”，**ISSUE-022** 补“设置面板只做前端偏好、统计按需拉取”。界面轮 9 把 Skill 仓库列表改成**一行折叠**（点名称展开审查重点）、自建 Skill 可 `PATCH /api/skills/{id}` 编辑（推荐只读、可“存为我的”），右栏面板收紧凑；侧栏“退出登录”右侧加**圆形头像** → `#account-dialog`（换头像 / 改昵称 / 减少动效 / 自动聚焦 / 清除本机缓存 / 清空审查记录，两个清除动作都二次确认）；头像压成 128×128 JPEG 存 data URL（`users.avatar` 列 + 老库 `ALTER TABLE`）；厂商目录 10→20；API 配置 Key 输入改 `autocomplete="new-password"` 等属性，解决“点输入框弹出浏览器快捷填入账号密码”——**ISSUE-025** 补“无改密码/注销账号、头像不做服务端重编码”，**ISSUE-022** 补“清空记录逐条 DELETE、无批量接口”。界面轮 8 定位“注册显示 not found”是 **8000 端口跑着旧进程**（`openapi` 0.9.0，无 `/api/auth/*`）→ 重启为 1.0.0；并给 Skill 仓库加“从 Markdown 导入”（拖拽文件/文件夹 + 两个选择入口，前端解析 frontmatter/标题/首段，逐条 `POST /api/skills`，同名跳过、单次 30 个 / 单文件 200 KB）。**新增 ISSUE-026**（开发服务未开 `--reload`，前后端版本可能错位）。界面轮 7 把 Skill 仓库从弹窗改为独立页面 `#/skills`、原生 select 换成自绘 listbox、页脚铺满并贴右降高、输入区 880→720。界面轮 6 把“当前审查”改成侧栏“审查历史”子目录（记录可改名/置顶/删除，`PATCH|DELETE /api/reviews/{id}`），Skill 仓库入口收到侧栏、下拉末项固定为仓库，主区铺满屏幕，登录弹窗定高且登录/注册都必须手勾同意；**ISSUE-025** 补“同意条款未留痕（`consent_version`/`consent_at`）”与“删记录只清本机痕迹”；界面轮 5 按 ADR-013 增加账号、审查记录、Skill 仓库与 BYOK（**ISSUE-025**：账号/密钥的运维边界——密码找回、登录限流、主密钥备份、Cookie `Secure`、多 worker 运行时）；ISSUE-024 仍待做“这份报告怎么读”；ISSUE-021/020/009 与上轮一致（H39 故意不修、silver gold 待复核、覆盖率 52.4%）。
 > 阅读提示：已关闭条目仍保留“决策前”的问题/选项/建议，最终以 **状态** 与 **决策** 段落为准。
 
 ---
@@ -27,7 +27,7 @@
 | ISSUE-013 | OPEN | P1 | 真实 LLM 未联调 | 待用户提供 Key/模型名；先用 Fake LLM 覆盖降级路径 |
 | ISSUE-014 | OPEN | P2 | 长合同抽取覆盖不足（>40 条款跳过字段规则） | 先保守跳过；后续评估分块/提高上限并补评测 |
 | ISSUE-015 | OPEN | P1 | RAG 知识库授权与检索评测未确认 | 真实语料已入库（14 篇，含 DOCX 条文切分）；下一步确认对外引用授权并做检索评测 |
-| ISSUE-016 | OPEN | P2 | 多智能体专家角色与编排范围未定 | 阶段 B 再做；只做专家节点 + 路由，Supervisor 不得判级 |
+| ISSUE-016 | CLOSED | P2 | 多智能体专家角色与编排范围未定 | 界面轮 14 按 ADR-015 落地：付款 / 交付 / 争议三个并行专家 + 确定性白名单路由（不是聊天式 Supervisor）；专家 schema 无 `risk_level`、引文定位不到即丢弃；默认关闭 |
 | ISSUE-017 | CLOSED | P2 | HITL pending 时间戳只在进程内存 | 已落盘 `.data/pending/<review_id>.json`，跨进程超时判定有测试 |
 | ISSUE-018 | OPEN | P1 | 检索评测问题集的 source_id 与 manifest 不一致 | 建立 `100问题.md` → manifest `source_id#section` 映射后再报召回率 |
 | ISSUE-019 | OPEN | P2 | 并发锁仅进程内、上传/报告文件无清理策略 | 单机演示可接受；多进程部署前需换文件锁/数据库并加保留期 |
@@ -43,6 +43,7 @@
 | ISSUE-029 | OPEN | P2 | Skill 的工具声明与文本附件只影响“怎么写解释”，不执行、不编排，且有提示注入面 | `TOOL_CATALOG` 5 个能力只改 focus 文案；`SkillAsset` 只存文本（≤5 个 / ≤6000 字）绝不执行也不做 AST 检查；附件进 prompt 靠前缀声明“不得当作指令执行”；要真执行需受限沙箱并改 ADR |
 | ISSUE-030 | OPEN | P2 | 图片 PDF 的 OCR 精度、触发条件与页数上限 | `pypdfium2` + RapidOCR 只在整份文本 < 50 字或单页 < 10 字时兜底，≤20 页；英文可能吞空格（`SALESCONTRACT`）、中文/表格可能串行；报告统一写“请人工核对”；换更强模型/版面分析需另评 |
 | ISSUE-031 | OPEN | P2 | 4 个外部 Skill 包的来源与授权未确认、正文存在截断 | 复制进 `app/resources/skills/` 作 `builtin:*`；`SKILL.md`/references 只保留前 6000 字并标“（节选）”；对外分发前需确认授权与完整正文的存放方式 |
+| ISSUE-032 | OPEN | P2 | 专家并行与工具层的成本、信任边界与真实外部数据 | 每次审查多 3 次专家调用 + 1 次工具规划 + ≤3 次工具执行；MCP 属外部子进程信任边界（`shell=False`、只读、超时杀进程）；真实外部 API（制裁名单 / 汇率 / HS 编码 / 征信）需密钥与授权，未接 |
 
 ---
 
@@ -290,8 +291,8 @@
 
 ## ISSUE-016 · 多智能体专家角色与编排范围未定
 
-- **状态**：OPEN
-- **优先级**：P2（阶段 B 才做，不阻塞第 5/6 步）
+- **状态**：CLOSED（2026-10-28 界面轮 14，ADR-015）
+- **优先级**：P2
 - **背景**：ADR-007 允许专家节点与 Supervisor 路由。但“哪些专家、谁触发、如何合并”会直接影响延迟、成本与可测试性，必须先定范围。
 - **候选角色**：
   | 角色 | 输入 | 输出（禁止 `risk_level`） |
@@ -302,6 +303,17 @@
 - **约束（不可变）**：专家只能依据既有规则结果补充解释与建议；不得改级、不得新增 red/yellow；Supervisor 只做白名单路由，不做判级；专家失败必须回退到单节点解释。
 - **需要用户确认**：是否需要专家节点、专家资料（30–50 组“问题条款→改写”对照、让步顺序、品类模板）、是否接受额外 LLM 调用成本。
 - **默认建议**：阶段 B 先做 2 个专家（付款、争议解决），用开关 `AGENTS_ENABLED=false` 默认关闭；先补 `test_agents_cannot_override_rule_level` 与 `test_supervisor_whitelist`。
+- **解决方式（界面轮 14）**：用户“时间还有很多”，明确要真正的 Agent 能力，按 ADR-015 落地 **三个专家**：
+  1. `app/nodes/experts.py`：`payment / delivery / dispute` 三个并行分支，路由由 `select_experts` 用
+     `clause_type + 关键词` 确定性选择（等价于“Supervisor 只做路由”，但零 LLM 成本、可单测）；
+  2. `ExpertOpinion` / `ExpertDraft` 的 `extra="forbid"` 且**没有 `risk_level`**（`test_expert_draft_schema_forbids_risk_level`）；
+     引文必须 `locate_quote` 命中，否则丢弃并记 `expert:<id>:quote_not_found`；
+  3. 并行分支只写带 `operator.add` 的字段，`degraded_steps` / `warnings` / `expert_status` 由
+     `collect_expert_findings` 单点写，避免并发写冲突；
+  4. 开 / 关专家时 `rule_id` 与 `overall_level` 完全一致（`test_expert_findings_are_grounded_and_do_not_change_level`）；
+  5. 逐条审查页新增“参考 · 专家”区块（中性色、明确写“不代表风险等级”）与折叠的“Agent 轨迹”。
+- **仍未解决**：专家资料（“问题条款→改写”对照、让步顺序、品类模板）仍需用户提供；成本与外部数据见 ISSUE-032。
+- **证据**：`app/nodes/experts.py`、`app/graph.py`、`tests/test_agents.py`、ADR-015。
 
 ---
 
@@ -595,6 +607,34 @@
   - 原包升级时用脚本重新提炼 `instruction`，并在 `_PACKAGE_SPECS` 记录版本号与提炼日期；
   - 保留“内置只读、用户不可改”的边界；用户要改就“存为我的”复制一份。
 - **证据**：`app/resources/skills/`（4 个包目录）、`app/services/skill_catalog.py`（`_PACKAGE_SPECS` / `_package_assets` / `packaged_skills`）、`tests/test_accounts.py`（`test_packaged_external_skills_are_builtin`）、ADR-014。
+
+---
+
+## ISSUE-032 · 专家并行与工具层的成本、信任边界与真实外部数据
+
+- **状态**：OPEN
+- **优先级**：P2
+- **背景**：界面轮 14 按 ADR-015 加入“三个并行专家 + 只读工具层（本地工具 / MCP）”。这套能力**默认关闭**
+  （`AGENTS_ENABLED=false`、`TOOLS_ENABLED=false`），打开后才会产生额外调用与外部进程。
+- **问题**：
+  1. **成本不可见**：一次审查会多 3 次专家调用（每个专家 1 次）+ 1 次工具规划 + ≤3 次工具执行；
+     UI 没有显示“本次额外调用 N 次 / 约多少 token”，用户开开关后可能被账单吓到；
+  2. **MCP 是外部子进程**：虽然 `shell=False`、参数白名单、单行 ≤1 MB、超时杀进程、只注册只读工具，
+     但服务器本身来自 `.env`（运维配置），它返回的内容会被拼进解释提示词——仍属信任边界，
+     与 `SkillAsset` 的“绝不执行”不同（这里是真的跑进程）；
+  3. **真实外部数据未接**：制裁名单、汇率、HS 编码、企业征信都需密钥与用户授权，且与 ADR-006
+     “单机、无额外基础设施、可离线复现”冲突；当前只留 `McpToolClient` 接口；
+  4. **专家质量依赖模型常识**：没有“问题条款→改写”对照、让步顺序、品类模板，专家意见会比较泛；
+  5. **专家之间的交互被刻意去掉**：并行分支不能互相追问（拓扑固定），如果将来要“专家辩论”，
+     必须新写 ADR 并解决成本 / 可测性。
+- **默认建议**：
+  - UI 上显示“本次额外 N 次模型调用”，并在设置里说明开启后的成本；
+  - MCP 只允许运维在 `.env` 配置、只连本地命令；若将来允许远端，必须加超时、限流、内容过滤与审计日志；
+  - 真实外部 API 按“先离线数据（如 OpenSanctions 离线包）→ 再接在线”的顺序推进，每次接入都要
+    用户给出授权范围；
+  - 专家资料由用户提供后再补 prompt 与 fixture，不靠模型自由发挥。
+- **证据**：`app/services/tools.py`（MCP 客户端与白名单）、`app/nodes/experts.py`、`app/nodes/research.py`、
+  `tests/test_tools.py`（伪 MCP 服务器）、`tests/test_agents.py`、ADR-015。
 
 ---
 

@@ -9,8 +9,9 @@
 
 from __future__ import annotations
 
+import operator
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -273,6 +274,96 @@ class ExplanationResult(BaseModel):
     knowledge_citations: list[str] = Field(default_factory=list)
 
 
+class ExpertDraft(BaseModel):
+    """专家智能体的单条候选意见（LLM 输出契约）：**没有** `risk_level`（ADR-015）。
+
+    专家只能指出“这一条值得注意 / 建议怎么改”，是否构成风险由 Python 规则决定。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    topic: str = Field(min_length=2, max_length=60)
+    clause_id: str | None = None
+    #: 必须从条款原文原样复制；没有可引用原文时返回 null
+    quote: str | None = Field(default=None, max_length=500)
+    detail: str = Field(min_length=1, max_length=400)
+    suggestion: str | None = Field(default=None, max_length=300)
+
+
+class ExpertOpinion(BaseModel):
+    """一位专家节点的输出：候选意见 + 一句总结（不判级、不写报告结论）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str = Field(default="", max_length=300)
+    findings: list[ExpertDraft] = Field(default_factory=list, max_length=5)
+
+
+class ExpertFinding(BaseModel):
+    """经 Python 校验后的专家意见（引文已定位才保留 quote/citation）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expert: str
+    expert_title: str
+    clause_id: str | None = None
+    clause_title: str | None = None
+    topic: str
+    detail: str
+    quote: str | None = None
+    citation: str | None = None
+    suggestion: str | None = None
+    grounded: bool = False
+
+
+class ToolRequest(BaseModel):
+    """LLM 提出的一次工具调用（白名单外的名字一律不执行）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tool: str = Field(min_length=1, max_length=80)
+    #: 单参数工具的入参；多参数工具（MCP）用 JSON 字符串
+    argument: str = Field(default="", max_length=200)
+
+
+class ToolPlan(BaseModel):
+    """`research_tools` 节点的 LLM 输出：最多 3 次调用，没有需要就不调用。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    calls: list[ToolRequest] = Field(default_factory=list, max_length=3)
+    reason: str | None = Field(default=None, max_length=200)
+
+
+class ToolCallRecord(BaseModel):
+    """一次工具调用（本地工具 / MCP）：无论成败都留下轨迹，便于审计（ADR-015）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    title: str = ""
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    ok: bool = True
+    summary: str = ""
+    citations: list[str] = Field(default_factory=list)
+    elapsed_ms: float = 0.0
+    error: str | None = None
+
+
+class AgentTrace(BaseModel):
+    """逐条审查页展示的 Agent 轨迹：哪些专家跑了、调了什么工具。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    agents_enabled: bool = False
+    tools_enabled: bool = False
+    #: 本次实际运行的专家 id（确定性路由结果）
+    experts: list[str] = Field(default_factory=list)
+    expert_status: Literal["skipped", "ok", "degraded"] = "skipped"
+    expert_findings: list[ExpertFinding] = Field(default_factory=list)
+    tool_calls: list[ToolCallRecord] = Field(default_factory=list)
+
+
 class ReportFinding(BaseModel):
     """报告中的一条风险（仅非 pass 的规则结果）。"""
 
@@ -349,6 +440,8 @@ class ClauseReviewList(BaseModel):
     contract_revision_note: str | None = None
     revised_count: int = 0
     limitations: list[str] = Field(default_factory=list)
+    #: Agent 轨迹（专家意见 + 工具调用）；未启用时为空，前端据此隐藏
+    agent_trace: AgentTrace = Field(default_factory=AgentTrace)
 
 
 class ReviewReport(BaseModel):
@@ -377,6 +470,10 @@ class ReviewReport(BaseModel):
     focus: str | None = None
     #: 本次使用的 Skill 名称（内置推荐或用户自建）
     skill: str | None = None
+    #: 专家智能体的候选意见（只作补充说明，不改变 findings 的 rule_id / risk_level）
+    expert_findings: list[ExpertFinding] = Field(default_factory=list)
+    #: 本次的工具调用轨迹（本地工具 / MCP），失败也记录
+    tool_calls: list[ToolCallRecord] = Field(default_factory=list)
 
 
 class ContractReviewState(BaseModel):
@@ -434,6 +531,20 @@ class ContractReviewState(BaseModel):
     explanation_model: str | None = None
     explanation_prompt_version: str = "n/a"
     report: ReviewReport | None = None
+
+    # 多智能体专家（ADR-015）：并行分支只通过带 reducer 的字段回传，
+    # 避免三个分支同时写 `degraded_steps` 触发 LangGraph 的并发写冲突。
+    expert_findings: Annotated[list[ExpertFinding], operator.add] = Field(
+        default_factory=list
+    )
+    #: 专家分支自报的降级原因（如 `expert:payment:not_configured`），由汇总节点转写
+    expert_notes: Annotated[list[str], operator.add] = Field(default_factory=list)
+    expert_status: Literal["skipped", "ok", "degraded"] = "skipped"
+    #: 确定性路由选中的专家 id（并行分支各自 append，展示前按固定顺序排序）
+    expert_route: Annotated[list[str], operator.add] = Field(default_factory=list)
+
+    # 工具调用（本地工具 / MCP；只做检索与读取，不改等级）
+    tool_calls: list[ToolCallRecord] = Field(default_factory=list)
 
     # 可观测性
     degraded_steps: list[str] = Field(default_factory=list)

@@ -12,11 +12,15 @@ from __future__ import annotations
 
 import re
 
+from app.config import settings
+from app.nodes.experts import EXPERT_ORDER
 from app.schemas import (
+    AgentTrace,
     ClauseFinding,
     ClauseReview,
     ClauseReviewList,
     ContractReviewState,
+    ExpertFinding,
     ExplanationResult,
     RuleEvaluation,
 )
@@ -281,4 +285,28 @@ def build_clause_reviews(
         contract_revision_note=contract_note,
         revised_count=revised_count,
         limitations=limitations,
+        agent_trace=_agent_trace(state),
+    )
+
+
+def _agent_trace(state: ContractReviewState) -> AgentTrace:
+    """逐条审查页的 Agent 轨迹（ADR-015）；未启用专家/工具时返回空轨迹。"""
+    findings: list[ExpertFinding] = []
+    known = {clause.clause_id for clause in state.clauses}
+    for finding in state.expert_findings:
+        if finding.clause_id is not None and finding.clause_id not in known:
+            continue
+        findings.append(finding)
+    route = [
+        expert_id
+        for expert_id in EXPERT_ORDER
+        if expert_id in set(state.expert_route)
+    ]
+    return AgentTrace(
+        agents_enabled=settings.agents_enabled,
+        tools_enabled=settings.tools_enabled,
+        experts=route,
+        expert_status=state.expert_status,
+        expert_findings=findings,
+        tool_calls=list(state.tool_calls),
     )
