@@ -2,7 +2,7 @@
 
 面向**国际货物销售合同**的 AI 预审智能体：上传合同 → 条款切分 →（可选）**付款 / 交付 / 争议三个专家并行**给参考意见（不判级）→ LLM 抽取关键要素 → **Python 规则引擎判定红/黄/绿风险**（唯一等级来源）→ 红色风险经 **LangGraph `interrupt()` 真人工确认** →（可选）**只读工具 / MCP 检索补材料** → LLM 依据规则结果与原文生成解释 → 输出可追溯报告。
 
-> 当前处于**第四阶段（测试与评测）第 4 轮 + 界面轮 14**：主干 `ingest → precheck → segment → extract → validate → [专家并行?] → rules → [条件边] → human_review → [research_tools?] → explain_risks → report` 已全部打通，支持 **TXT / Markdown / PDF（文本型或图片型）/ DOCX** 解析（单个文件 ≤ 30 MB；图片/扫描 PDF 用本地 OCR 补文本，**OCR 只产文本、不参与判级**）、**先判断上传对象是不是合同**（论文/法规直接拒绝，不进入判级）、标题式条款切分、LLM 17 字段要素抽取与 Python 引文校验，**13 条规则**（11 条文本 + 2 条字段，`version: 5` 已覆盖中文与主要英文写法，保额判定改为“保险语境邻近”），红色风险触发 **LangGraph `interrupt()` 真暂停**，经 `Command(resume=...)` 恢复后由 LLM 生成**带原文与知识引用**的解释。**界面轮 14 按 ADR-015 加了可选 Agent 层**：`AGENTS_ENABLED` 打开后三个专家并行出“值得注意的点 + 修改方向 + 原文引文”（schema 无 `risk_level`、引文定位不到即丢弃），`TOOLS_ENABLED` 打开后在规则之后跑一次只读工具规划（4 个本地工具 + MCP stdio/JSON-RPC 子集，无 Key 走确定性检索）；**两个开关默认关闭，关闭时链路与结论和原来逐字一致**。交付入口：**极简 C 端页“上传合同 → 看风险点”（FastAPI 托管）+ CLI + API；Streamlit 保留为备用界面**；Skill 仓库内置 **11 个**（含 4 个外部包 `builtin:*`），支持 Markdown / 文件夹 / **zip 包**导入（只读、不执行），结果页可切左栏“原文全文”看完整原文、右栏看到“参考 · 专家”与折叠的“Agent 轨迹”。未配置 `LLM_API_KEY` 时抽取降级、解释回退规则理由，字段规则标记跳过。评测：50 份模拟合同 + 21 个 silver gold 现象 + **四批留出集 40 份**；**当前唯一未被“消耗”的 holdout4 给出规则级 P=1.00 / R=0.889 / F1=0.941**（唯一漏报 H39，故意不修；silver gold 待人工复核）。详见 [`docs/devlog/00_PROJECT_STATE.md`](docs/devlog/00_PROJECT_STATE.md)。
+> 当前处于**第四阶段（测试与评测）第 4 轮 + 界面轮 15**：主干 `ingest → precheck → segment → extract → validate → [专家并行?] → rules → [条件边] → human_review → [research_tools?] → explain_risks → report` 已全部打通，支持 **TXT / Markdown / PDF（文本型或图片型）/ DOCX** 解析（单个文件 ≤ 30 MB；图片/扫描 PDF 用本地 OCR 补文本，**OCR 只产文本、不参与判级**）、**先判断上传对象是不是合同**（论文/法规直接拒绝，不进入判级）、标题式条款切分、LLM 17 字段要素抽取与 Python 引文校验，**13 条规则**（11 条文本 + 2 条字段，`version: 5` 已覆盖中文与主要英文写法，保额判定改为“保险语境邻近”），红色风险触发 **LangGraph `interrupt()` 真暂停**，经 `Command(resume=...)` 恢复后由 LLM 生成**带原文与知识引用**的解释。**界面轮 14 按 ADR-015 加了可选 Agent 层**：`AGENTS_ENABLED` 打开后三个专家并行出“值得注意的点 + 修改方向 + 原文引文”（schema 无 `risk_level`、引文定位不到即丢弃），`TOOLS_ENABLED` 打开后在规则之后跑一次只读工具规划（4 个本地工具 + MCP stdio/JSON-RPC 子集，无 Key 走确定性检索）；**两个开关默认关闭，关闭时链路与结论和原来逐字一致**。交付入口：**极简 C 端页“上传合同 → 看风险点”（FastAPI 托管）+ CLI + API；Streamlit 保留为备用界面**；Skill 仓库内置 **11 个**（含 4 个外部包 `builtin:*`），支持 Markdown / 文件夹 / **zip 包**导入（只读、不执行），结果页可切左栏“原文全文”看完整原文、右栏看到“参考 · 专家”与折叠的“Agent 轨迹”。未配置 `LLM_API_KEY` 时抽取降级、解释回退规则理由，字段规则标记跳过。评测：50 份模拟合同 + 21 个 silver gold 现象 + **四批留出集 40 份**；**当前唯一未被“消耗”的 holdout4 给出规则级 P=1.00 / R=0.889 / F1=0.941**（唯一漏报 H39，故意不修；silver gold 待人工复核）；**检索评测按 ADR-016 落地**：100 题 → **95 题可评测**（5 题语料未覆盖，不进分母），ranking `lenient` R@3 **0.958** / `strict` R@3 **0.758**（点名条号/来源加权后）。详见 [`docs/devlog/00_PROJECT_STATE.md`](docs/devlog/00_PROJECT_STATE.md)。
 
 > 上传先过“文档类型闸门”（ADR-012）：抬头 / 合同编号 / 买卖双方 / 条款结构 / 交易要素打分，叠加论文与法规的反向信号；判否时状态为 `not_contract`，只出“未执行审查”的报告，**不切条款、不抽取、不判级、不触发人工确认**。
 
@@ -11,9 +11,9 @@
 | 阶段 | 状态 | 说明 |
 |---|---|---|
 | 1. GitHub 调研 | ✅ | 8 个开源项目源码级分析，产出借鉴/不借鉴清单 |
-| 2. 架构设计 | ✅ | ADR-001 ~ ADR-015 全部已接受 |
-| 3. 代码实现 | ✅ 第 6 步 + 界面轮 14 | 环境、13 节点图（含文档类型闸门、3 个并行专家、`research_tools`）、规则引擎（13 条规则）、PDF（文本型 + 图片型 OCR）/DOCX/TXT 解析（≤30 MB）、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭；本机 `.env` 已开启，真实语料 14 篇：模型不可用时解释回退规则理由，但仍列出检索到的 `source_id#section`）、**多智能体专家并行 + 只读工具层（本地 4 个工具 + MCP stdio，默认关闭）**、FastAPI + 两屏 Web 前端（同一行标签 + 左栏“条款目录 / 原文全文” + 右栏意见，三块各自滚动；规则意见下有“参考 · 专家”中性色区块 + 折叠的 Agent 轨迹）+ 账号/审查历史（改名/置顶/删除）/Skill 仓库独立页（内置 11 个、Markdown/文件夹/zip 导入、查看与编辑、可声明工具 + 只读附件）/账户设置（B 端分区：个人信息 / 通用（白天·黑夜·跟随系统 + 字号三档）/ 数据管理 / 关于）/BYOK（20 个厂商）+ Streamlit、386 个测试 |
-| 4. 测试与评测 | ⏳ 第 4 轮完成 | 50 份模拟合同 + 21 个 silver gold 现象 + 四批留出集 40 份；三组指标（rule/contract/coverage）；**holdout4（唯一未消耗）P=1.00 / R=0.889 / F1=0.941，silver gold 待人工复核**；检索评测未做 |
+| 2. 架构设计 | ✅ | ADR-001 ~ ADR-016 全部已接受 |
+| 3. 代码实现 | ✅ 第 6 步 + 界面轮 15 | 环境、13 节点图（含文档类型闸门、3 个并行专家、`research_tools`）、规则引擎（13 条规则）、PDF（文本型 + 图片型 OCR）/DOCX/TXT 解析（≤30 MB）、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭；本机 `.env` 已开启，真实语料 14 篇：模型不可用时解释回退规则理由，但仍列出检索到的 `source_id#section`；**点名条号/来源只改排序、不改判级**）、**多智能体专家并行 + 只读工具层（本地 4 个工具 + MCP stdio，默认关闭）**、FastAPI + 两屏 Web 前端（同一行标签 + 左栏“条款目录 / 原文全文” + 右栏意见，三块各自滚动；规则意见下有“参考 · 专家”中性色区块 + 折叠的 Agent 轨迹）+ 账号/审查历史（改名/置顶/删除）/Skill 仓库独立页（内置 11 个、Markdown/文件夹/zip 导入、查看与编辑、可声明工具 + 只读附件）/账户设置（B 端分区：个人信息 / 通用（白天·黑夜·跟随系统 + 字号三档）/ 数据管理 / 关于）/BYOK（20 个厂商）+ Streamlit、398 个测试 |
+| 4. 测试与评测 | ⏳ 第 4 轮完成 + 检索评测 | 50 份模拟合同 + 21 个 silver gold 现象 + 四批留出集 40 份；三组指标（rule/contract/coverage）；**holdout4（唯一未消耗）P=1.00 / R=0.889 / F1=0.941，silver gold 待人工复核**；**检索评测已落地（ADR-016）**：95 题可评测、ranking/production × lenient/strict，lenient R@3 0.958 / strict R@3 0.758；剩 4 题语义指代（ISSUE-033） |
 | 5. 文档与交付 | ⏳ 进行中 | 开发日志、ADR、交接文档、评测结果与 RAG 资料清单已建立 |
 
 ## 技术栈
@@ -77,7 +77,7 @@ py -3.12 -m venv .venv
 
 # 6) 测试与静态检查
 .\.venv\Scripts\python.exe -m pytest
-# 386 passed
+# 398 passed
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
@@ -105,6 +105,18 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe eval\run_eval.py --contracts data\contracts_holdout2 `
   --gold data\eval\gold_holdout2.json --gold-rules data\eval\gold_holdout2.json --tag holdout2
 # 12 份：TP=9 FP=0 FN=0 TN=123（修掉子串误命中与窗口截断后）
+
+# 9) 检索评测（不调用 LLM，不需要 Key；ADR-016）
+# ① 题目或语料一变，必须重建 gold（否则 pytest 的 gold 过期守卫会失败）
+.\.venv\Scripts\python.exe -m eval.rag_gold --write
+# 100 题 → 95 题可评测（5 题语料未覆盖：#42/#69/#86/#87/#88），写 data/eval/gold_rag.json
+
+# ② 同时报两套口径：ranking（top-5 不过阈值）与 production（RAG_TOP_K=3 / RAG_MIN_SCORE=1.0）
+.\.venv\Scripts\python.exe -m eval.run_rag_eval
+# ranking lenient  R@1 0.747 / R@3 0.958 / R@5 0.979 / MRR 0.849
+# ranking strict   R@1 0.305 / R@3 0.758 / R@5 0.821 / MRR 0.524
+# 结果文件：eval/results/rag-20261028.json（含语料 chunk_count 与两个阈值）
+# 报数纪律：必须同时说明“哪套口径 + 哪个子集”，不能写成“线上召回率”
 ```
 
 环境变量：复制 `.env.example` 为 `.env` 后填写。**不要提交真实 Key**（`.env` 已在 `.gitignore`）。
@@ -279,6 +291,9 @@ eval/
   prepare_contracts.py   # 模拟合同 → data/contracts/ + data/eval/gold_contracts.json
   metrics.py             # rule_level / contract_level / coverage 三组指标（纯计算）
   run_eval.py            # 规则级评测 + 指标 → eval/results/rules[-tag]-YYYYMMDD.json
+  rag_gold.py            # 100问题.md → data/eval/gold_rag.json（两层映射 / --write 落盘 / gaps 不进分母）
+  rag_eval.py            # 检索指标纯计算（recall@k / MRR / 分组 / 未命中明细）
+  run_rag_eval.py        # 检索评测（ranking + production × lenient/strict）→ eval/results/rag-YYYYMMDD.json
   results/               # 评测结果（JSON）
 data/samples/            # 2 份自拟脱敏合同（含风险 / 全部通过）
 data/contracts/          # 50 份模拟合同（生成物，可重建）
@@ -286,9 +301,9 @@ data/contracts_holdout/  # 8 份留出合同（H01–H08）→ 已消耗，回�
 data/contracts_holdout2/ # 12 份留出合同（H09–H20）→ 已消耗，回归守卫
 data/contracts_holdout3/ # 8 份留出合同（H21–H28）→ 第 4 轮已消耗，回归守卫
 data/contracts_holdout4/ # 12 份留出合同（H29–H40）→ 唯一未消耗，对外报数用这一批
-data/eval/               # gold_contracts.json（105 条检索期望）/ gold_rules.json（21 个 silver 现象）/ gold_holdout{,2,3,4}.json
+data/eval/               # gold_contracts.json（105 条检索期望）/ gold_rules.json（21 个 silver 现象）/ gold_holdout{,2,3,4}.json / gold_rag.json（100 题检索 gold）+ rag_label_map.yaml（27 个手判标签）
 data/knowledge/          # 真实语料 14 篇 + manifest（RAG 默认关闭）；模拟合同1..6.md 为评测来源，不进 manifest
-tests/                   # 386 个测试（账号/记录/Skill/BYOK/zip 39 / API 17 / 前端 24 / 文档类型 11 / OCR 5 / 多智能体 12 / 工具与 MCP 23 / 报告导出 3 / pending 11 / RAG 22 + 解释 15 / HITL 17 / 指标 11 / 规则 53 含四批留出回归，无需 Key）
+tests/                   # 398 个测试（账号/记录/Skill/BYOK/zip 39 / API 17 / 前端 24 / 文档类型 11 / OCR 5 / 多智能体 12 / 工具与 MCP 23 / 报告导出 3 / pending 11 / 检索评测 12 / RAG 22 + 解释 15 / HITL 17 / 指标 11 / 规则 53 含四批留出回归，无需 Key）
 tests/fakes.py           # Fake LLM（实现 StructuredLLM 协议）
 docs/devlog/             # 项目状态、调研、ADR、开发日志、交接、待决事项、RAG 资料清单
 ```
@@ -320,7 +335,7 @@ docs/devlog/             # 项目状态、调研、ADR、开发日志、交接�
 - 条款数超过 `MAX_EXTRACT_CLAUSES`（默认 40）时只抽取部分条款，字段规则跳过；长合同精度有限。
 - **中文 PDF / 复杂版式未验证**；真实模型抽取与解释效果**无数据**。
 - **RAG 语料为真实法律文本（CISG / Incoterms / 民法典 / 司法解释等 14 篇）**，但**授权边界未确认**：`license` 字段只是当前标注，能否在演示/答辩中展示原文需业务/法务确认（ISSUE-015）；`effective_date` 取自文件标题，对外引用前需复核。
-- RAG 是词法检索（BM25），同义改写召回有限；`RAG_TOP_K` / `RAG_MIN_SCORE` 尚未用评测集调优；`100问题.md` 的 source_id 与 manifest 不一致，**尚未跑检索评测**（ISSUE-018）。
+- RAG 是词法检索（BM25），同义改写与跨语言提问召回有限；`RAG_TOP_K` / `RAG_MIN_SCORE` 仍用默认值（只在评测里验证过“没有把结果挤空”）；点名条号 / 法律名只做**排序加权**，不改判级。检索评测已在界面轮 15 按 ADR-016 落地（95 题可评测，lenient R@3 0.958 / strict R@3 0.758），但**剩 4 道不点条号的语义指代题**仍未进 top-5，同义改写与中英互问也仍靠词面共现（ISSUE-033）；且指标只对该题库成立，不能外推成“线上召回率”。
 - 解释按风险条数逐条调用，4 条风险 ≈ 4 次 LLM 调用；成本与延迟随风险数线性增长（上限 20 条）。
 - **API/UI 只做了单机单 worker**：并发锁是进程内 `RLock`；多 worker 部署前需换文件锁/数据库锁；上传与 pending 文件无保留期清理（ISSUE-019）；`LLMRuntime` 也是进程内字典，多 worker 时 `resume` 会退回环境默认模型（等级不受影响）。
 - **账号与密钥是演示形态**：无找回密码/邮箱验证/登录失败限流；Cookie 未加 `Secure`（本地 HTTP，`HttpOnly` + `SameSite=Lax` 已有）；`.data/app.sqlite` 与 `.data/secret.key` 必须一起备份，缺主密钥则已存 Key 无法解密（ISSUE-025）。
@@ -358,3 +373,4 @@ docs/devlog/             # 项目状态、调研、ADR、开发日志、交接�
 - 评测方法、silver gold 与留出验证：[`ADR-011`](docs/devlog/02_ARCHITECTURE_DECISIONS/ADR-011-评测方法silver-gold与留出验证.md)
 - 图片 PDF 的 OCR 与外部 Skill 包 / zip 导入：[`ADR-014`](docs/devlog/02_ARCHITECTURE_DECISIONS/ADR-014-图片PDF的OCR与外部Skill包.md)
 - 多智能体专家并行与只读工具层（本地工具 / MCP）：[`ADR-015`](docs/devlog/02_ARCHITECTURE_DECISIONS/ADR-015-多智能体专家与只读工具层.md)
+- 检索评测与条号加权（gold 两层映射 / 双口径 / 只改排序）：[`ADR-016`](docs/devlog/02_ARCHITECTURE_DECISIONS/ADR-016-检索评测与条号加权.md)

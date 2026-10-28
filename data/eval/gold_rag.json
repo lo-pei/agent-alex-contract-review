@@ -1,0 +1,2026 @@
+{
+  "version": 1,
+  "provenance": "AI 构造、可复核：标签→语料映射登记在 data/eval/rag_label_map.yaml，通用条号（CISG/CC/LAW/JI-CC）由 eval/rag_gold.py 解析；strict=条文原文，lenient=再含 CISG-KEY 解读稿",
+  "generated_at": "2026-10-28T17:16:11.376333+00:00",
+  "corpus": {
+    "chunk_count": 1834,
+    "sources": [
+      "CISG-EN",
+      "CISG-KEY",
+      "CISG-ZH",
+      "CN-CIVIL-CODE",
+      "CN-LAW-APPLICATION",
+      "INCOTERMS-2020",
+      "RISK-REDLINE",
+      "SPC-CONTRACT-2023",
+      "SPC-GENERAL-2022",
+      "SPC-INSURANCE-2009",
+      "SPC-JURISDICTION-2022",
+      "SPC-LAW-APPLICATION-2023",
+      "SPC-TREATY-2023",
+      "UCP600-ARB"
+    ]
+  },
+  "question_count": 100,
+  "resolved_count": 95,
+  "unresolved_count": 5,
+  "questions": [
+    {
+      "id": 1,
+      "group": "一、CISG：根本违约（第25条）及其辐射条款",
+      "question": "CISG第25条根本违约的“实质剥夺”标准，与中国法“不能实现合同目的”有什么区别",
+      "section_hint": "根本违约定义；与国内法解除标准的区分",
+      "labels": [
+        "CISG-25"
+      ],
+      "expected": [
+        "CISG-ZH#s27",
+        "CISG-EN#s26",
+        "CISG-KEY#s25"
+      ],
+      "strict": [
+        "CISG-ZH#s27",
+        "CISG-EN#s26"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 2,
+      "group": "一、CISG：根本违约（第25条）及其辐射条款",
+      "question": "迟延交货本身是否自动构成CISG第25条的根本违约",
+      "section_hint": "迟延交货与根本违约的关系",
+      "labels": [
+        "CISG-25"
+      ],
+      "expected": [
+        "CISG-ZH#s27",
+        "CISG-EN#s26",
+        "CISG-KEY#s25"
+      ],
+      "strict": [
+        "CISG-ZH#s27",
+        "CISG-EN#s26"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 3,
+      "group": "一、CISG：根本违约（第25条）及其辐射条款",
+      "question": "根本违约的“可预见性”举证责任在哪一方，是守约方还是违约方",
+      "section_hint": "主观要件；举证责任分配",
+      "labels": [
+        "CISG-25"
+      ],
+      "expected": [
+        "CISG-ZH#s27",
+        "CISG-EN#s26",
+        "CISG-KEY#s25"
+      ],
+      "strict": [
+        "CISG-ZH#s27",
+        "CISG-EN#s26"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 4,
+      "group": "一、CISG：根本违约（第25条）及其辐射条款",
+      "question": "单一质量指标不符但货物仍可转售，能否认定为根本违约",
+      "section_hint": "实质剥夺的判断；最高人民法院（2013）民四终字第35号",
+      "labels": [
+        "CISG-25"
+      ],
+      "expected": [
+        "CISG-ZH#s27",
+        "CISG-EN#s26",
+        "CISG-KEY#s25"
+      ],
+      "strict": [
+        "CISG-ZH#s27",
+        "CISG-EN#s26"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 5,
+      "group": "一、CISG：根本违约（第25条）及其辐射条款",
+      "question": "CISG第25条“有权期待的东西”是指合同约定的具体指标，还是货物的商业价值",
+      "section_hint": "“有权期待”的解释",
+      "labels": [
+        "CISG-25"
+      ],
+      "expected": [
+        "CISG-ZH#s27",
+        "CISG-EN#s26",
+        "CISG-KEY#s25"
+      ],
+      "strict": [
+        "CISG-ZH#s27",
+        "CISG-EN#s26"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 6,
+      "group": "一、CISG：根本违约（第25条）及其辐射条款",
+      "question": "卖方交付替代货物的条件是否要求根本违约",
+      "section_hint": "交付替代货物的根本违约门槛",
+      "labels": [
+        "CISG-46(2)"
+      ],
+      "expected": [
+        "CISG-ZH#s47",
+        "CISG-EN#s47"
+      ],
+      "strict": [
+        "CISG-ZH#s47",
+        "CISG-EN#s47"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 7,
+      "group": "一、CISG：根本违约（第25条）及其辐射条款",
+      "question": "买方依据第49(1)(b)条宣告无效，是否需要先证明根本违约",
+      "section_hint": "额外期限届满作为独立通道",
+      "labels": [
+        "CISG-49(1)(b)"
+      ],
+      "expected": [
+        "CISG-ZH#s50",
+        "CISG-EN#s50"
+      ],
+      "strict": [
+        "CISG-ZH#s50",
+        "CISG-EN#s50"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 8,
+      "group": "一、CISG：根本违约（第25条）及其辐射条款",
+      "question": "预期根本违约（第72条）与一般根本违约（第25条）在证明时点上有何不同",
+      "section_hint": "预期根本违约；时间节点",
+      "labels": [
+        "CISG-72"
+      ],
+      "expected": [
+        "CISG-ZH#s74",
+        "CISG-EN#s73",
+        "CISG-KEY#s59"
+      ],
+      "strict": [
+        "CISG-ZH#s74",
+        "CISG-EN#s73"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 9,
+      "group": "一、CISG：根本违约（第25条）及其辐射条款",
+      "question": "分批交货合同中，某一批的根本违约何时可以扩展到整个合同",
+      "section_hint": "第73(2)(3)条；充分理由；相互依存",
+      "labels": [
+        "CISG-73"
+      ],
+      "expected": [
+        "CISG-ZH#s75",
+        "CISG-EN#s74",
+        "CISG-KEY#s60"
+      ],
+      "strict": [
+        "CISG-ZH#s75",
+        "CISG-EN#s74"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 10,
+      "group": "一、CISG：根本违约（第25条）及其辐射条款",
+      "question": "根本违约是否要求违约方“实际预见到”损害，还是“应当预见”即可",
+      "section_hint": "“预知”与“理应预知”的区分",
+      "labels": [
+        "CISG-25"
+      ],
+      "expected": [
+        "CISG-ZH#s27",
+        "CISG-EN#s26",
+        "CISG-KEY#s25"
+      ],
+      "strict": [
+        "CISG-ZH#s27",
+        "CISG-EN#s26"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 11,
+      "group": "二、CISG：货物不符与通知失权（第35—39条）",
+      "question": "CISG第39(2)条的两年期限是诉讼时效还是除斥期间，能否中断或延长",
+      "section_hint": "两年期限的性质",
+      "labels": [
+        "CISG-39(2)"
+      ],
+      "expected": [
+        "CISG-ZH#s40",
+        "CISG-EN#s40",
+        "CISG-KEY#s39"
+      ],
+      "strict": [
+        "CISG-ZH#s40",
+        "CISG-EN#s40"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 12,
+      "group": "二、CISG：货物不符与通知失权（第35—39条）",
+      "question": "买方未在收货后两年内发出不符通知，是否还可以主张减价",
+      "section_hint": "失权后果；第44条的有限救济保留",
+      "labels": [
+        "CISG-39(2)",
+        "CISG-44"
+      ],
+      "expected": [
+        "CISG-ZH#s40",
+        "CISG-EN#s40",
+        "CISG-KEY#s39",
+        "CISG-ZH#s45",
+        "CISG-EN#s45",
+        "CISG-KEY#s44"
+      ],
+      "strict": [
+        "CISG-ZH#s40",
+        "CISG-EN#s40",
+        "CISG-ZH#s45",
+        "CISG-EN#s45"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 13,
+      "group": "二、CISG：货物不符与通知失权（第35—39条）",
+      "question": "第39(1)条要求通知“说明不符的性质”，笼统说“货物有问题”是否足够",
+      "section_hint": "通知的具体性要求",
+      "labels": [
+        "CISG-39(1)"
+      ],
+      "expected": [
+        "CISG-ZH#s40",
+        "CISG-EN#s40",
+        "CISG-KEY#s39"
+      ],
+      "strict": [
+        "CISG-ZH#s40",
+        "CISG-EN#s40"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 14,
+      "group": "二、CISG：货物不符与通知失权（第35—39条）",
+      "question": "卖方参与和解谈判是否构成对第39条通知期限的默示弃权",
+      "section_hint": "默示弃权的门槛",
+      "labels": [
+        "CISG-39",
+        "CLOUT"
+      ],
+      "expected": [
+        "CISG-ZH#s40",
+        "CISG-EN#s40",
+        "CISG-KEY#s39"
+      ],
+      "strict": [
+        "CISG-ZH#s40",
+        "CISG-EN#s40"
+      ],
+      "unresolved": [
+        {
+          "label": "CLOUT",
+          "reason": "语料未收录 CLOUT 判例摘要库"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "group": "二、CISG：货物不符与通知失权（第35—39条）",
+      "question": "买方单方委托检验，未通知卖方参与，检验结论的证明力如何",
+      "section_hint": "检验的及时性与适当性；单方检验",
+      "labels": [
+        "CISG-38"
+      ],
+      "expected": [
+        "CISG-EN#s39",
+        "CISG-KEY#s38"
+      ],
+      "strict": [
+        "CISG-EN#s39"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 16,
+      "group": "二、CISG：货物不符与通知失权（第35—39条）",
+      "question": "货物由买方再发运时，第38(3)条推迟检验的条件是什么",
+      "section_hint": "再发运场景的检验推迟",
+      "labels": [
+        "CISG-38(3)"
+      ],
+      "expected": [
+        "CISG-EN#s39",
+        "CISG-KEY#s38"
+      ],
+      "strict": [
+        "CISG-EN#s39"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 17,
+      "group": "二、CISG：货物不符与通知失权（第35—39条）",
+      "question": "卖方“知道或不可能不知道”不符且未披露，买方是否仍受第39条两年期限约束",
+      "section_hint": "第40条对第38—39条的排除",
+      "labels": [
+        "CISG-40"
+      ],
+      "expected": [
+        "CISG-ZH#s41",
+        "CISG-EN#s41",
+        "CISG-KEY#s40"
+      ],
+      "strict": [
+        "CISG-ZH#s41",
+        "CISG-EN#s41"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 18,
+      "group": "二、CISG：货物不符与通知失权（第35—39条）",
+      "question": "合同约定的保证期长于两年时，第39(2)条的两年期限是否仍然适用",
+      "section_hint": "“保证期优先”规则",
+      "labels": [
+        "CISG-39(2)"
+      ],
+      "expected": [
+        "CISG-ZH#s40",
+        "CISG-EN#s40",
+        "CISG-KEY#s39"
+      ],
+      "strict": [
+        "CISG-ZH#s40",
+        "CISG-EN#s40"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 19,
+      "group": "二、CISG：货物不符与通知失权（第35—39条）",
+      "question": "第35(2)(b)条“特定目的”的通知，买方须在何时作出",
+      "section_hint": "缔约时通知；依赖卖方技能",
+      "labels": [
+        "CISG-35(2)(b)"
+      ],
+      "expected": [
+        "CISG-ZH#s37",
+        "CISG-EN#s36",
+        "CISG-KEY#s35"
+      ],
+      "strict": [
+        "CISG-ZH#s37",
+        "CISG-EN#s36"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 20,
+      "group": "二、CISG：货物不符与通知失权（第35—39条）",
+      "question": "买方在缔约时知道或不可能不知道不符，卖方是否绝对不承担责任",
+      "section_hint": "买方事先知情",
+      "labels": [
+        "CISG-35(3)"
+      ],
+      "expected": [
+        "CISG-ZH#s37",
+        "CISG-EN#s36",
+        "CISG-KEY#s35"
+      ],
+      "strict": [
+        "CISG-ZH#s37",
+        "CISG-EN#s36"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 21,
+      "group": "三、CISG：损害赔偿、利息与减损（第74—78条）",
+      "question": "第74条可预见性的时间基准是缔约时还是违约时",
+      "section_hint": "可预见性的时间点",
+      "labels": [
+        "CISG-74"
+      ],
+      "expected": [
+        "CISG-ZH#s76",
+        "CISG-EN#s75",
+        "CISG-KEY#s61"
+      ],
+      "strict": [
+        "CISG-ZH#s76",
+        "CISG-EN#s75"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 22,
+      "group": "三、CISG：损害赔偿、利息与减损（第74—78条）",
+      "question": "第75条替代交易的“合理方式”和“合理时间”如何判断",
+      "section_hint": "替代交易的限制条件",
+      "labels": [
+        "CISG-75"
+      ],
+      "expected": [
+        "CISG-ZH#s77",
+        "CISG-EN#s76",
+        "CISG-KEY#s62"
+      ],
+      "strict": [
+        "CISG-ZH#s77",
+        "CISG-EN#s76"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 23,
+      "group": "三、CISG：损害赔偿、利息与减损（第74—78条）",
+      "question": "第76条时价差额的时间点，接收货物后宣告无效与接收前宣告无效有何不同",
+      "section_hint": "时价的时间基准",
+      "labels": [
+        "CISG-76(1)"
+      ],
+      "expected": [
+        "CISG-ZH#s78",
+        "CISG-EN#s77",
+        "CISG-KEY#s63"
+      ],
+      "strict": [
+        "CISG-ZH#s78",
+        "CISG-EN#s77"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 24,
+      "group": "三、CISG：损害赔偿、利息与减损（第74—78条）",
+      "question": "第74条的可预见性限制是否同样约束第75条和第76条的计算",
+      "section_hint": "可预见性对具体计算方法的约束",
+      "labels": [
+        "CISG-74",
+        "CISG-75",
+        "CISG-76"
+      ],
+      "expected": [
+        "CISG-ZH#s76",
+        "CISG-EN#s75",
+        "CISG-KEY#s61",
+        "CISG-ZH#s77",
+        "CISG-EN#s76",
+        "CISG-KEY#s62",
+        "CISG-ZH#s78",
+        "CISG-EN#s77",
+        "CISG-KEY#s63"
+      ],
+      "strict": [
+        "CISG-ZH#s76",
+        "CISG-EN#s75",
+        "CISG-ZH#s77",
+        "CISG-EN#s76",
+        "CISG-ZH#s78",
+        "CISG-EN#s77"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 25,
+      "group": "三、CISG：损害赔偿、利息与减损（第74—78条）",
+      "question": "CISG第78条是否规定了利率，没有约定时如何确定",
+      "section_hint": "利率空缺与确定路径",
+      "labels": [
+        "CISG-78"
+      ],
+      "expected": [
+        "CISG-ZH#s80",
+        "CISG-EN#s79",
+        "CISG-KEY#s65"
+      ],
+      "strict": [
+        "CISG-ZH#s80",
+        "CISG-EN#s79"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 26,
+      "group": "三、CISG：损害赔偿、利息与减损（第74—78条）",
+      "question": "第77条减损义务违反的后果是独立责任还是赔偿额扣减",
+      "section_hint": "减损的不真正义务性质",
+      "labels": [
+        "CISG-77"
+      ],
+      "expected": [
+        "CISG-ZH#s79",
+        "CISG-EN#s78",
+        "CISG-KEY#s64"
+      ],
+      "strict": [
+        "CISG-ZH#s79",
+        "CISG-EN#s78"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 27,
+      "group": "三、CISG：损害赔偿、利息与减损（第74—78条）",
+      "question": "迟延付款造成的损失超过利息时，能否在第78条之外依第74条主张额外赔偿",
+      "section_hint": "利息与进一步损害赔偿的关系",
+      "labels": [
+        "CISG-78",
+        "CISG-74"
+      ],
+      "expected": [
+        "CISG-ZH#s80",
+        "CISG-EN#s79",
+        "CISG-KEY#s65",
+        "CISG-ZH#s76",
+        "CISG-EN#s75",
+        "CISG-KEY#s61"
+      ],
+      "strict": [
+        "CISG-ZH#s80",
+        "CISG-EN#s79",
+        "CISG-ZH#s76",
+        "CISG-EN#s75"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 28,
+      "group": "三、CISG：损害赔偿、利息与减损（第74—78条）",
+      "question": "第74条“包括利润在内的损失”是否包括间接损失和纯经济损失",
+      "section_hint": "损失范围",
+      "labels": [
+        "CISG-74"
+      ],
+      "expected": [
+        "CISG-ZH#s76",
+        "CISG-EN#s75",
+        "CISG-KEY#s61"
+      ],
+      "strict": [
+        "CISG-ZH#s76",
+        "CISG-EN#s75"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 29,
+      "group": "三、CISG：损害赔偿、利息与减损（第74—78条）",
+      "question": "替代交易价格明显偏离市场价时，第75条的差额是否仍可全额主张",
+      "section_hint": "替代交易的合理性审查",
+      "labels": [
+        "CISG-75"
+      ],
+      "expected": [
+        "CISG-ZH#s77",
+        "CISG-EN#s76",
+        "CISG-KEY#s62"
+      ],
+      "strict": [
+        "CISG-ZH#s77",
+        "CISG-EN#s76"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 30,
+      "group": "三、CISG：损害赔偿、利息与减损（第74—78条）",
+      "question": "第76条“时价”的地点如何确定，原应交付地无时价时如何处理",
+      "section_hint": "时价地点；替代地点与运费调整",
+      "labels": [
+        "CISG-76(2)"
+      ],
+      "expected": [
+        "CISG-ZH#s78",
+        "CISG-EN#s77",
+        "CISG-KEY#s63"
+      ],
+      "strict": [
+        "CISG-ZH#s78",
+        "CISG-EN#s77"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 31,
+      "group": "四、CISG：免责、中止与预期违约（第71—72条、第79—80条）",
+      "question": "第79条免责的三项要件是否要求障碍“不可预见”且“不可避免或克服”同时满足",
+      "section_hint": "免责的严格要件",
+      "labels": [
+        "CISG-79(1)"
+      ],
+      "expected": [
+        "CISG-ZH#s81",
+        "CISG-EN#s80",
+        "CISG-KEY#s66"
+      ],
+      "strict": [
+        "CISG-ZH#s81",
+        "CISG-EN#s80"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 32,
+      "group": "四、CISG：免责、中止与预期违约（第71—72条、第79—80条）",
+      "question": "供应商违约导致卖方无法交货，卖方能否依第79条免责",
+      "section_hint": "第三方原因的“双重满足”条件",
+      "labels": [
+        "CISG-79(2)"
+      ],
+      "expected": [
+        "CISG-ZH#s81",
+        "CISG-EN#s80",
+        "CISG-KEY#s66"
+      ],
+      "strict": [
+        "CISG-ZH#s81",
+        "CISG-EN#s80"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 33,
+      "group": "四、CISG：免责、中止与预期违约（第71—72条、第79—80条）",
+      "question": "第79条免责是否也免除实际履行义务，还是仅免除损害赔偿",
+      "section_hint": "免责的范围；与其他救济的关系",
+      "labels": [
+        "CISG-79(5)"
+      ],
+      "expected": [
+        "CISG-ZH#s81",
+        "CISG-EN#s80",
+        "CISG-KEY#s66"
+      ],
+      "strict": [
+        "CISG-ZH#s81",
+        "CISG-EN#s80"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 34,
+      "group": "四、CISG：免责、中止与预期违约（第71—72条、第79—80条）",
+      "question": "第79条是否要求遭遇障碍的一方发出通知，未通知的后果是什么",
+      "section_hint": "通知义务与损害责任",
+      "labels": [
+        "CISG-79(4)"
+      ],
+      "expected": [
+        "CISG-ZH#s81",
+        "CISG-EN#s80",
+        "CISG-KEY#s66"
+      ],
+      "strict": [
+        "CISG-ZH#s81",
+        "CISG-EN#s80"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 35,
+      "group": "四、CISG：免责、中止与预期违约（第71—72条、第79—80条）",
+      "question": "成本上涨、关税政策变化能否构成第79条的“障碍”",
+      "section_hint": "经济困难与障碍的界限",
+      "labels": [
+        "CISG-79"
+      ],
+      "expected": [
+        "CISG-ZH#s81",
+        "CISG-EN#s80",
+        "CISG-KEY#s66"
+      ],
+      "strict": [
+        "CISG-ZH#s81",
+        "CISG-EN#s80"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 36,
+      "group": "四、CISG：免责、中止与预期违约（第71—72条、第79—80条）",
+      "question": "第80条“己方原因”的门槛是否低于第79条的“障碍”",
+      "section_hint": "第80条与第79条的对比",
+      "labels": [
+        "CISG-80"
+      ],
+      "expected": [
+        "CISG-ZH#s82",
+        "CISG-EN#s81",
+        "CISG-KEY#s67"
+      ],
+      "strict": [
+        "CISG-ZH#s82",
+        "CISG-EN#s81"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 37,
+      "group": "四、CISG：免责、中止与预期违约（第71—72条、第79—80条）",
+      "question": "第80条排除的是全部救济还是仅损害赔偿",
+      "section_hint": "第80条的法律后果",
+      "labels": [
+        "CISG-80"
+      ],
+      "expected": [
+        "CISG-ZH#s82",
+        "CISG-EN#s81",
+        "CISG-KEY#s67"
+      ],
+      "strict": [
+        "CISG-ZH#s82",
+        "CISG-EN#s81"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 38,
+      "group": "四、CISG：免责、中止与预期违约（第71—72条、第79—80条）",
+      "question": "第71条中止履行的触发标准是“明显看出”还是“已经根本违约”",
+      "section_hint": "中止权的触发门槛",
+      "labels": [
+        "CISG-71"
+      ],
+      "expected": [
+        "CISG-ZH#s73",
+        "CISG-EN#s72",
+        "CISG-KEY#s58"
+      ],
+      "strict": [
+        "CISG-ZH#s73",
+        "CISG-EN#s72"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 39,
+      "group": "四、CISG：免责、中止与预期违约（第71—72条、第79—80条）",
+      "question": "第71条中止履行后，对方提供充分保证，中止方是否必须恢复履行",
+      "section_hint": "充分保证的效果",
+      "labels": [
+        "CISG-71(3)"
+      ],
+      "expected": [
+        "CISG-ZH#s73",
+        "CISG-EN#s72",
+        "CISG-KEY#s58"
+      ],
+      "strict": [
+        "CISG-ZH#s73",
+        "CISG-EN#s72"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 40,
+      "group": "四、CISG：免责、中止与预期违约（第71—72条、第79—80条）",
+      "question": "第72条预期根本违约宣告无效前，是否必须发出“合理通知”",
+      "section_hint": "通知要求与例外",
+      "labels": [
+        "CISG-72(2)"
+      ],
+      "expected": [
+        "CISG-ZH#s74",
+        "CISG-EN#s73",
+        "CISG-KEY#s59"
+      ],
+      "strict": [
+        "CISG-ZH#s74",
+        "CISG-EN#s73"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 41,
+      "group": "五、CISG：适用、排除与解释（第1—7条）",
+      "question": "当事人仅写“适用中华人民共和国法律”，是否足以排除CISG",
+      "section_hint": "排除CISG的明示要求",
+      "labels": [
+        "CISG-6",
+        "CISG-AC-16"
+      ],
+      "expected": [
+        "CISG-ZH#s8",
+        "CISG-EN#s7",
+        "CISG-KEY#s6"
+      ],
+      "strict": [
+        "CISG-ZH#s8",
+        "CISG-EN#s7"
+      ],
+      "unresolved": [
+        {
+          "label": "CISG-AC-16",
+          "reason": "语料未收录 CISG 咨询理事会第 16 号意见"
+        }
+      ]
+    },
+    {
+      "id": 42,
+      "group": "五、CISG：适用、排除与解释（第1—7条）",
+      "question": "CISG咨询委员会第16号意见对“选择缔约国法”与“排除CISG”的关系说了什么",
+      "section_hint": "第16号意见的核心立场",
+      "labels": [
+        "CISG-AC-16"
+      ],
+      "expected": [],
+      "strict": [],
+      "unresolved": [
+        {
+          "label": "CISG-AC-16",
+          "reason": "语料未收录 CISG 咨询理事会第 16 号意见"
+        }
+      ]
+    },
+    {
+      "id": 43,
+      "group": "五、CISG：适用、排除与解释（第1—7条）",
+      "question": "中国是否对CISG第1(1)(b)条作出保留，保留的后果是什么",
+      "section_hint": "第95条保留；对适用通道的影响",
+      "labels": [
+        "CISG-95",
+        "China Reservation"
+      ],
+      "expected": [
+        "CISG-ZH#s97",
+        "CISG-EN#s96",
+        "CISG-KEY#s82"
+      ],
+      "strict": [
+        "CISG-ZH#s97",
+        "CISG-EN#s96"
+      ],
+      "unresolved": [
+        {
+          "label": "China Reservation",
+          "reason": "语料无中国保留声明的专门文本（第 95 条保留仅在公约条文内提及）"
+        }
+      ]
+    },
+    {
+      "id": 44,
+      "group": "五、CISG：适用、排除与解释（第1—7条）",
+      "question": "第7(1)条“国际性质与统一适用”要求解释时不能径直使用国内法概念，这是什么含义",
+      "section_hint": "自治解释；homeward trend",
+      "labels": [
+        "CISG-7(1)"
+      ],
+      "expected": [
+        "CISG-ZH#s9",
+        "CISG-EN#s8",
+        "CISG-KEY#s7"
+      ],
+      "strict": [
+        "CISG-ZH#s9",
+        "CISG-EN#s8"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 45,
+      "group": "五、CISG：适用、排除与解释（第1—7条）",
+      "question": "第7(2)条漏洞填补的顺序是“一般原则优先”还是“国内法优先”",
+      "section_hint": "一般原则与国内法的层级",
+      "labels": [
+        "CISG-7(2)"
+      ],
+      "expected": [
+        "CISG-ZH#s9",
+        "CISG-EN#s8",
+        "CISG-KEY#s7"
+      ],
+      "strict": [
+        "CISG-ZH#s9",
+        "CISG-EN#s8"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 46,
+      "group": "五、CISG：适用、排除与解释（第1—7条）",
+      "question": "CISG第4条明确不覆盖合同效力，合同效力问题应依什么规则确定",
+      "section_hint": "第4条排除事项；准据法补充",
+      "labels": [
+        "CISG-4"
+      ],
+      "expected": [
+        "CISG-ZH#s6",
+        "CISG-EN#s5",
+        "CISG-KEY#s4"
+      ],
+      "strict": [
+        "CISG-ZH#s6",
+        "CISG-EN#s5"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 47,
+      "group": "五、CISG：适用、排除与解释（第1—7条）",
+      "question": "第2条消费合同排除中，“卖方善意不知”的举证责任在哪一方",
+      "section_hint": "消费合同排除的例外",
+      "labels": [
+        "CISG-2(a)"
+      ],
+      "expected": [
+        "CISG-ZH#s4",
+        "CISG-EN#s3",
+        "CISG-KEY#s2"
+      ],
+      "strict": [
+        "CISG-ZH#s4",
+        "CISG-EN#s3"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 48,
+      "group": "五、CISG：适用、排除与解释（第1—7条）",
+      "question": "第3(2)条“服务为主”的混合合同，判断标准是价值比例还是义务实质重心",
+      "section_hint": "preponderance标准",
+      "labels": [
+        "CISG-3(2)"
+      ],
+      "expected": [
+        "CISG-ZH#s5",
+        "CISG-EN#s4",
+        "CISG-KEY#s3"
+      ],
+      "strict": [
+        "CISG-ZH#s5",
+        "CISG-EN#s4"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 49,
+      "group": "五、CISG：适用、排除与解释（第1—7条）",
+      "question": "第6条排除CISG是否必须使用“CISG不适用”的明确措辞，还是可以从合同整体推断",
+      "section_hint": "排除的明示性与推断",
+      "labels": [
+        "CISG-6"
+      ],
+      "expected": [
+        "CISG-ZH#s8",
+        "CISG-EN#s7",
+        "CISG-KEY#s6"
+      ],
+      "strict": [
+        "CISG-ZH#s8",
+        "CISG-EN#s7"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 50,
+      "group": "五、CISG：适用、排除与解释（第1—7条）",
+      "question": "第8条解释当事人声明时，主观意图与理性第三人标准何者优先",
+      "section_hint": "第8(1)(2)条的层次",
+      "labels": [
+        "CISG-8"
+      ],
+      "expected": [
+        "CISG-ZH#s10",
+        "CISG-EN#s9",
+        "CISG-KEY#s8"
+      ],
+      "strict": [
+        "CISG-ZH#s10",
+        "CISG-EN#s9"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 51,
+      "group": "六、Incoterms 2020：术语选择与结构性风险",
+      "question": "集装箱海运为何不宜使用FOB/CFR/CIF，ICC推荐使用哪些术语",
+      "section_hint": "FCA/CPT集装箱最佳实践",
+      "labels": [
+        "INC-Guide"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s1",
+        "INCOTERMS-2020#s1-2",
+        "INCOTERMS-2020#s1-3",
+        "INCOTERMS-2020#s1-4",
+        "INCOTERMS-2020#s19"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s1",
+        "INCOTERMS-2020#s1-2",
+        "INCOTERMS-2020#s1-3",
+        "INCOTERMS-2020#s1-4",
+        "INCOTERMS-2020#s19"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 52,
+      "group": "六、Incoterms 2020：术语选择与结构性风险",
+      "question": "FOB、CFR、CIF的风险转移节点与集装箱货物实际交付节点之间为何会出现“空档”",
+      "section_hint": "风险转移节点；集装箱场景错配",
+      "labels": [
+        "INC-FOB/CFR/CIF"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s12",
+        "INCOTERMS-2020#s4",
+        "INCOTERMS-2020#s11"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s12",
+        "INCOTERMS-2020#s4",
+        "INCOTERMS-2020#s11"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 53,
+      "group": "六、Incoterms 2020：术语选择与结构性风险",
+      "question": "DDP下卖方是否有卸货义务",
+      "section_hint": "DDP卸货义务；买方卸货",
+      "labels": [
+        "INC-DDP A9"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s16",
+        "INCOTERMS-2020#s6"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s16",
+        "INCOTERMS-2020#s6"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 54,
+      "group": "六、Incoterms 2020：术语选择与结构性风险",
+      "question": "DDP卖方在目的地国无法作为importer of record时，应改用哪种术语",
+      "section_hint": "DDP结构性障碍；DAP替代",
+      "labels": [
+        "INC-DDP",
+        "INC-DAP"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s16",
+        "INCOTERMS-2020#s18",
+        "INCOTERMS-2020#s14"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s16",
+        "INCOTERMS-2020#s18",
+        "INCOTERMS-2020#s14"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 55,
+      "group": "六、Incoterms 2020：术语选择与结构性风险",
+      "question": "CIF下卖方的最低保险义务是ICC(A)还是ICC(C)，保额是多少",
+      "section_hint": "保险险别；110%保额",
+      "labels": [
+        "INC-CIF A5"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s7",
+        "INCOTERMS-2020#s12"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s7",
+        "INCOTERMS-2020#s12"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 56,
+      "group": "六、Incoterms 2020：术语选择与结构性风险",
+      "question": "CIP在Incoterms 2020中的最低保险义务与CIF有何不同",
+      "section_hint": "CIP升级至ICC(A)",
+      "labels": [
+        "INC-CIP A5",
+        "INC-CIF A5"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s7",
+        "INCOTERMS-2020#s13",
+        "INCOTERMS-2020#s12"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s7",
+        "INCOTERMS-2020#s13",
+        "INCOTERMS-2020#s12"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 57,
+      "group": "六、Incoterms 2020：术语选择与结构性风险",
+      "question": "FCA在Incoterms 2020中新增的“已装船提单”机制适用于什么场景",
+      "section_hint": "装船提单附加选项",
+      "labels": [
+        "INC-FCA A6/B6"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s9"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s9"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 58,
+      "group": "六、Incoterms 2020：术语选择与结构性风险",
+      "question": "FCA下卖方的装货义务是否取决于交货地点是卖方场所还是其他地点",
+      "section_hint": "装货义务的地点区分",
+      "labels": [
+        "INC-FCA A2"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s9"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s9"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 59,
+      "group": "六、Incoterms 2020：术语选择与结构性风险",
+      "question": "FOB术语下，理舱费和平舱费由谁承担，合同仅写“FOB”时如何解释",
+      "section_hint": "理舱/平舱费用；FOB stowed/trimmed",
+      "labels": [
+        "INC-FOB A2",
+        "FOB变形"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s11",
+        "INCOTERMS-2020#s19"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s11",
+        "INCOTERMS-2020#s19"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 60,
+      "group": "六、Incoterms 2020：术语选择与结构性风险",
+      "question": "DAP与DPU的唯一实质区别是什么",
+      "section_hint": "卸货义务归属",
+      "labels": [
+        "INC-DAP",
+        "INC-DPU"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s14",
+        "INCOTERMS-2020#s18",
+        "INCOTERMS-2020#s15"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s14",
+        "INCOTERMS-2020#s18",
+        "INCOTERMS-2020#s15"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 61,
+      "group": "六、Incoterms 2020：术语选择与结构性风险",
+      "question": "“风险已转移”能否作为对货物不符或根本违约的绝对抗辩",
+      "section_hint": "Incoterms风险的范围限定",
+      "labels": [
+        "INC-Risk",
+        "RISK-3"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s3",
+        "INCOTERMS-2020#s2"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s3",
+        "INCOTERMS-2020#s2"
+      ],
+      "unresolved": [
+        {
+          "label": "RISK-3",
+          "reason": "红线清单未按编号组织，无法对应具体条目"
+        }
+      ]
+    },
+    {
+      "id": 62,
+      "group": "六、Incoterms 2020：术语选择与结构性风险",
+      "question": "Incoterms与CISG在风险转移和违约救济上的分工是什么",
+      "section_hint": "并行适用；各自管辖范围",
+      "labels": [
+        "INC-General",
+        "CISG-4"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s1",
+        "INCOTERMS-2020#s1-2",
+        "INCOTERMS-2020#s1-3",
+        "INCOTERMS-2020#s1-4",
+        "INCOTERMS-2020#s2",
+        "INCOTERMS-2020#s18",
+        "CISG-ZH#s6",
+        "CISG-EN#s5",
+        "CISG-KEY#s4"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s1",
+        "INCOTERMS-2020#s1-2",
+        "INCOTERMS-2020#s1-3",
+        "INCOTERMS-2020#s1-4",
+        "INCOTERMS-2020#s2",
+        "INCOTERMS-2020#s18",
+        "CISG-ZH#s6",
+        "CISG-EN#s5"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 63,
+      "group": "六、Incoterms 2020：术语选择与结构性风险",
+      "question": "CFR下卖方支付到目的港的运费，是否意味着运输途中的风险也由卖方承担",
+      "section_hint": "费用终点与风险转移点的分离",
+      "labels": [
+        "INC-CFR A3/A4"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s4",
+        "INCOTERMS-2020#s12"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s4",
+        "INCOTERMS-2020#s12"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 64,
+      "group": "六、Incoterms 2020：术语选择与结构性风险",
+      "question": "FAS的风险转移是在“船边”还是“装上船”",
+      "section_hint": "船边交货；与FOB的区别",
+      "labels": [
+        "INC-FAS A4"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s10"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s10"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 65,
+      "group": "六、Incoterms 2020：术语选择与结构性风险",
+      "question": "EXW下出口清关由谁负责，卖方是否有装货义务",
+      "section_hint": "EXW的极端卖方义务最小化",
+      "labels": [
+        "INC-EXW A2/A7"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s8"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s8"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 66,
+      "group": "七、中国冲突法：《涉外民事关系法律适用法》（第2—6条、第41条）",
+      "question": "第41条“特征履行地法”与“最密切联系地法”之间是否存在先后顺位",
+      "section_hint": "特征履行与最密切联系的并列关系",
+      "labels": [
+        "LAW-41"
+      ],
+      "expected": [
+        "CN-LAW-APPLICATION#第四十一条"
+      ],
+      "strict": [
+        "CN-LAW-APPLICATION#第四十一条"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 67,
+      "group": "七、中国冲突法：《涉外民事关系法律适用法》（第2—6条、第41条）",
+      "question": "司法实践中第41条的特征履行方法是否处于“悬置状态”，原因是什么",
+      "section_hint": "特征履行方法的适用困境",
+      "labels": [
+        "LAW-41",
+        "实证研究"
+      ],
+      "expected": [
+        "CN-LAW-APPLICATION#第四十一条"
+      ],
+      "strict": [
+        "CN-LAW-APPLICATION#第四十一条"
+      ],
+      "unresolved": [
+        {
+          "label": "实证研究",
+          "reason": "标签指“实证研究”，不是语料文档"
+        }
+      ]
+    },
+    {
+      "id": 68,
+      "group": "七、中国冲突法：《涉外民事关系法律适用法》（第2—6条、第41条）",
+      "question": "第4条“强制性规定”直接适用，是否需要经过冲突规范的指引",
+      "section_hint": "直接适用；无须冲突规范",
+      "labels": [
+        "LAW-4"
+      ],
+      "expected": [
+        "CN-LAW-APPLICATION#第四条"
+      ],
+      "strict": [
+        "CN-LAW-APPLICATION#第四条"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 69,
+      "group": "七、中国冲突法：《涉外民事关系法律适用法》（第2—6条、第41条）",
+      "question": "《法律适用法解释（一）》第8条将哪些情形列为第4条的强制性规定",
+      "section_hint": "强制性规定的列举",
+      "labels": [
+        "JI-LAW-1 Art.8"
+      ],
+      "expected": [],
+      "strict": [],
+      "unresolved": [
+        {
+          "label": "JI-LAW-1 Art.8",
+          "reason": "语料只有《法律适用法解释（二）》，缺《解释（一）》第 8 条"
+        }
+      ]
+    },
+    {
+      "id": 70,
+      "group": "七、中国冲突法：《涉外民事关系法律适用法》（第2—6条、第41条）",
+      "question": "当事人选择外国法或约定境外仲裁，能否排除中国法强制性规定的适用",
+      "section_hint": "强制性规定对意思自治的限制",
+      "labels": [
+        "LAW-4",
+        "JI-LAW-1 Art.8"
+      ],
+      "expected": [
+        "CN-LAW-APPLICATION#第四条"
+      ],
+      "strict": [
+        "CN-LAW-APPLICATION#第四条"
+      ],
+      "unresolved": [
+        {
+          "label": "JI-LAW-1 Art.8",
+          "reason": "语料只有《法律适用法解释（二）》，缺《解释（一）》第 8 条"
+        }
+      ]
+    },
+    {
+      "id": 71,
+      "group": "七、中国冲突法：《涉外民事关系法律适用法》（第2—6条、第41条）",
+      "question": "第5条公共秩序保留的适用门槛是“损害社会公共利益”，还是“外国法规定与中国法不同”即可",
+      "section_hint": "公共秩序保留的高门槛",
+      "labels": [
+        "LAW-5"
+      ],
+      "expected": [
+        "CN-LAW-APPLICATION#第五条"
+      ],
+      "strict": [
+        "CN-LAW-APPLICATION#第五条"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 72,
+      "group": "七、中国冲突法：《涉外民事关系法律适用法》（第2—6条、第41条）",
+      "question": "第3条是否允许默示选择准据法",
+      "section_hint": "明示选择要求",
+      "labels": [
+        "LAW-3"
+      ],
+      "expected": [
+        "CN-LAW-APPLICATION#第三条"
+      ],
+      "strict": [
+        "CN-LAW-APPLICATION#第三条"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 73,
+      "group": "七、中国冲突法：《涉外民事关系法律适用法》（第2—6条、第41条）",
+      "question": "第6条多法域国家（如美国）的区域法律选择规则是什么",
+      "section_hint": "最密切联系区域",
+      "labels": [
+        "LAW-6"
+      ],
+      "expected": [
+        "CN-LAW-APPLICATION#第六条"
+      ],
+      "strict": [
+        "CN-LAW-APPLICATION#第六条"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 74,
+      "group": "七、中国冲突法：《涉外民事关系法律适用法》（第2—6条、第41条）",
+      "question": "第2条第2款最密切联系原则在合同领域是否被第41条排除",
+      "section_hint": "特别规定优先",
+      "labels": [
+        "LAW-2",
+        "LAW-41"
+      ],
+      "expected": [
+        "CN-LAW-APPLICATION#第二条",
+        "CN-LAW-APPLICATION#第四十一条"
+      ],
+      "strict": [
+        "CN-LAW-APPLICATION#第二条",
+        "CN-LAW-APPLICATION#第四十一条"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 75,
+      "group": "七、中国冲突法：《涉外民事关系法律适用法》（第2—6条、第41条）",
+      "question": "选择“中华人民共和国法律”是否等于选择了CISG，还是选择了《民法典》合同编",
+      "section_hint": "选择中国法与CISG适用的关系",
+      "labels": [
+        "LAW-41",
+        "CISG-6",
+        "CISG-AC-16"
+      ],
+      "expected": [
+        "CN-LAW-APPLICATION#第四十一条",
+        "CISG-ZH#s8",
+        "CISG-EN#s7",
+        "CISG-KEY#s6"
+      ],
+      "strict": [
+        "CN-LAW-APPLICATION#第四十一条",
+        "CISG-ZH#s8",
+        "CISG-EN#s7"
+      ],
+      "unresolved": [
+        {
+          "label": "CISG-AC-16",
+          "reason": "语料未收录 CISG 咨询理事会第 16 号意见"
+        }
+      ]
+    },
+    {
+      "id": 76,
+      "group": "八、中国《民法典》合同编及司法解释",
+      "question": "《民法典》第584条可预见性的时间点是“订立合同时”还是“违约时”",
+      "section_hint": "可预见性时间基准",
+      "labels": [
+        "CC-584"
+      ],
+      "expected": [
+        "CN-CIVIL-CODE#第五百八十四条"
+      ],
+      "strict": [
+        "CN-CIVIL-CODE#第五百八十四条"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 77,
+      "group": "八、中国《民法典》合同编及司法解释",
+      "question": "第584条与CISG第74条在“完全赔偿+可预见性限制”的结构上是否一致",
+      "section_hint": "结构对比",
+      "labels": [
+        "CC-584",
+        "CISG-74"
+      ],
+      "expected": [
+        "CN-CIVIL-CODE#第五百八十四条",
+        "CISG-ZH#s76",
+        "CISG-EN#s75",
+        "CISG-KEY#s61"
+      ],
+      "strict": [
+        "CN-CIVIL-CODE#第五百八十四条",
+        "CISG-ZH#s76",
+        "CISG-EN#s75"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 78,
+      "group": "八、中国《民法典》合同编及司法解释",
+      "question": "第580条第2款的“司法终止”在CISG中是否有对应条款",
+      "section_hint": "司法终止；CISG无直接对应",
+      "labels": [
+        "CC-580(2)",
+        "CISG"
+      ],
+      "expected": [
+        "CN-CIVIL-CODE#第五百八十条"
+      ],
+      "strict": [
+        "CN-CIVIL-CODE#第五百八十条"
+      ],
+      "unresolved": [
+        {
+          "label": "CISG",
+          "reason": "标签过于笼统（第 78 题“CISG 无直接对应”），无可定位片段"
+        }
+      ]
+    },
+    {
+      "id": 79,
+      "group": "八、中国《民法典》合同编及司法解释",
+      "question": "CISG第28条将实际履行能否获得判决交由法院地法决定，中国法院适用时指向哪一条",
+      "section_hint": "法院地法；第580条",
+      "labels": [
+        "CISG-28",
+        "CC-580"
+      ],
+      "expected": [
+        "CISG-ZH#s30",
+        "CISG-EN#s29",
+        "CISG-KEY#s28",
+        "CN-CIVIL-CODE#第五百八十条"
+      ],
+      "strict": [
+        "CISG-ZH#s30",
+        "CISG-EN#s29",
+        "CN-CIVIL-CODE#第五百八十条"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 80,
+      "group": "八、中国《民法典》合同编及司法解释",
+      "question": "《合同编通则解释》第1条合同解释方法是否可以直接替代CISG第7条的解释规则",
+      "section_hint": "国内法解释方法与CISG自治解释",
+      "labels": [
+        "JI-CC-1",
+        "CISG-7"
+      ],
+      "expected": [
+        "SPC-CONTRACT-2023#第一条",
+        "CISG-ZH#s9",
+        "CISG-EN#s8",
+        "CISG-KEY#s7"
+      ],
+      "strict": [
+        "SPC-CONTRACT-2023#第一条",
+        "CISG-ZH#s9",
+        "CISG-EN#s8"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 81,
+      "group": "八、中国《民法典》合同编及司法解释",
+      "question": "第502条批准生效要求，在CISG适用时是否仍须适用",
+      "section_hint": "合同效力问题回归国内法",
+      "labels": [
+        "CC-502",
+        "CISG-4"
+      ],
+      "expected": [
+        "CN-CIVIL-CODE#第五百零二条",
+        "CISG-ZH#s6",
+        "CISG-EN#s5",
+        "CISG-KEY#s4"
+      ],
+      "strict": [
+        "CN-CIVIL-CODE#第五百零二条",
+        "CISG-ZH#s6",
+        "CISG-EN#s5"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 82,
+      "group": "八、中国《民法典》合同编及司法解释",
+      "question": "第490条合同书签署成立规则，与CISG第23条“承诺生效时合同成立”是否冲突",
+      "section_hint": "成立时点；CISG优先",
+      "labels": [
+        "CC-490",
+        "CISG-23"
+      ],
+      "expected": [
+        "CN-CIVIL-CODE#第四百九十条",
+        "CISG-ZH#s25",
+        "CISG-EN#s24",
+        "CISG-KEY#s23"
+      ],
+      "strict": [
+        "CN-CIVIL-CODE#第四百九十条",
+        "CISG-ZH#s25",
+        "CISG-EN#s24"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 83,
+      "group": "八、中国《民法典》合同编及司法解释",
+      "question": "第577条违约责任形态与CISG第45条、第61条的救济累积结构有何异同",
+      "section_hint": "救济体系对比",
+      "labels": [
+        "CC-577",
+        "CISG-45",
+        "CISG-61"
+      ],
+      "expected": [
+        "CN-CIVIL-CODE#第五百七十七条",
+        "CISG-ZH#s46",
+        "CISG-EN#s46",
+        "CISG-ZH#s62",
+        "CISG-EN#s62"
+      ],
+      "strict": [
+        "CN-CIVIL-CODE#第五百七十七条",
+        "CISG-ZH#s46",
+        "CISG-EN#s46",
+        "CISG-ZH#s62",
+        "CISG-EN#s62"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 84,
+      "group": "八、中国《民法典》合同编及司法解释",
+      "question": "CISG第26条宣告无效通知是否要求“到达”，第27条发送主义是否适用于第26条",
+      "section_hint": "到达生效与发送主义的区分",
+      "labels": [
+        "CISG-26",
+        "CISG-27"
+      ],
+      "expected": [
+        "CISG-ZH#s28",
+        "CISG-EN#s27",
+        "CISG-KEY#s26",
+        "CISG-ZH#s29",
+        "CISG-EN#s28",
+        "CISG-KEY#s27"
+      ],
+      "strict": [
+        "CISG-ZH#s28",
+        "CISG-EN#s27",
+        "CISG-ZH#s29",
+        "CISG-EN#s28"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 85,
+      "group": "八、中国《民法典》合同编及司法解释",
+      "question": "《合同编通则解释》的施行日期和文号是什么",
+      "section_hint": "法释〔2023〕13号；2023年12月5日",
+      "labels": [
+        "JI-CC"
+      ],
+      "expected": [
+        "SPC-CONTRACT-2023#前言"
+      ],
+      "strict": [
+        "SPC-CONTRACT-2023#前言"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 86,
+      "group": "九、仲裁、管辖与制裁合规（交叉风险）",
+      "question": "“或裁或审”条款为何无效，与“先裁后审”的效力区别是什么",
+      "section_hint": "或裁或审无效；先裁后审有效",
+      "labels": [
+        "JI-Arbitration Art.7"
+      ],
+      "expected": [],
+      "strict": [],
+      "unresolved": [
+        {
+          "label": "JI-Arbitration Art.7",
+          "reason": "语料未收录《仲裁法解释》第 7 条"
+        }
+      ]
+    },
+    {
+      "id": 87,
+      "group": "九、仲裁、管辖与制裁合规（交叉风险）",
+      "question": "涉外管辖协议未写“非排他性”，是否被推定为排他性管辖",
+      "section_hint": "排他性推定规则",
+      "labels": [
+        "JI-Jurisdiction"
+      ],
+      "expected": [],
+      "strict": [],
+      "unresolved": [
+        {
+          "label": "JI-Jurisdiction",
+          "reason": "语料未收录民诉法解释关于排他性管辖推定的条文"
+        }
+      ]
+    },
+    {
+      "id": 88,
+      "group": "九、仲裁、管辖与制裁合规（交叉风险）",
+      "question": "不具有涉外因素的合同约定境外仲裁，仲裁协议在中国法下是否有效",
+      "section_hint": "涉外因素要求；境外仲裁无效风险",
+      "labels": [
+        "JI-Arbitration",
+        "民诉法解释第522条"
+      ],
+      "expected": [],
+      "strict": [],
+      "unresolved": [
+        {
+          "label": "JI-Arbitration",
+          "reason": "语料未收录《仲裁法解释》"
+        },
+        {
+          "label": "民诉法解释第522条",
+          "reason": "语料未收录民诉法解释"
+        }
+      ]
+    },
+    {
+      "id": 89,
+      "group": "九、仲裁、管辖与制裁合规（交叉风险）",
+      "question": "《出口管制法》是否属于《法律适用法》第4条的强制性规定，能否被合同准据法排除",
+      "section_hint": "出口管制法的强制性属性",
+      "labels": [
+        "LAW-4",
+        "出口管制法"
+      ],
+      "expected": [
+        "CN-LAW-APPLICATION#第四条"
+      ],
+      "strict": [
+        "CN-LAW-APPLICATION#第四条"
+      ],
+      "unresolved": [
+        {
+          "label": "出口管制法",
+          "reason": "语料未收录《出口管制法》原文"
+        }
+      ]
+    },
+    {
+      "id": 90,
+      "group": "九、仲裁、管辖与制裁合规（交叉风险）",
+      "question": "合同中的制裁条款仅写“包括但不限于不可抗力”，为何在制裁场景中可能无效",
+      "section_hint": "笼统不可抗力条款的局限",
+      "labels": [
+        "RISK-制裁条款",
+        "CISG-79"
+      ],
+      "expected": [
+        "RISK-REDLINE#s11",
+        "CISG-ZH#s81",
+        "CISG-EN#s80",
+        "CISG-KEY#s66"
+      ],
+      "strict": [
+        "RISK-REDLINE#s11",
+        "CISG-ZH#s81",
+        "CISG-EN#s80"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 91,
+      "group": "九、仲裁、管辖与制裁合规（交叉风险）",
+      "question": "中国法院对单边经济制裁构成不可抗力的支持率如何",
+      "section_hint": "严格审查；支持有限",
+      "labels": [
+        "RISK-制裁不可抗力"
+      ],
+      "expected": [
+        "RISK-REDLINE#s10",
+        "RISK-REDLINE#s18",
+        "RISK-REDLINE#s11"
+      ],
+      "strict": [
+        "RISK-REDLINE#s10",
+        "RISK-REDLINE#s18",
+        "RISK-REDLINE#s11"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 92,
+      "group": "九、仲裁、管辖与制裁合规（交叉风险）",
+      "question": "DDP下卖方无法完成进口清关时，货物滞留的仓储费和罚款由谁承担",
+      "section_hint": "DDP费用分配；卖方承担",
+      "labels": [
+        "INC-DDP A9",
+        "RISK-DDP"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s16",
+        "INCOTERMS-2020#s6",
+        "RISK-REDLINE#s9"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s16",
+        "INCOTERMS-2020#s6",
+        "RISK-REDLINE#s9"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 93,
+      "group": "九、仲裁、管辖与制裁合规（交叉风险）",
+      "question": "CISG第79条免责是否要求“及时通知”，未通知是否导致对扩大的损害负责",
+      "section_hint": "通知义务；损害责任",
+      "labels": [
+        "CISG-79(4)"
+      ],
+      "expected": [
+        "CISG-ZH#s81",
+        "CISG-EN#s80",
+        "CISG-KEY#s66"
+      ],
+      "strict": [
+        "CISG-ZH#s81",
+        "CISG-EN#s80"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 94,
+      "group": "九、仲裁、管辖与制裁合规（交叉风险）",
+      "question": "第74条可预见性限制是否同样约束第75条替代交易的差额计算",
+      "section_hint": "可预见性对具体计算方法的约束",
+      "labels": [
+        "CISG-74",
+        "CISG-75"
+      ],
+      "expected": [
+        "CISG-ZH#s76",
+        "CISG-EN#s75",
+        "CISG-KEY#s61",
+        "CISG-ZH#s77",
+        "CISG-EN#s76",
+        "CISG-KEY#s62"
+      ],
+      "strict": [
+        "CISG-ZH#s76",
+        "CISG-EN#s75",
+        "CISG-ZH#s77",
+        "CISG-EN#s76"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 95,
+      "group": "九、仲裁、管辖与制裁合规（交叉风险）",
+      "question": "第39条两年期限起算点是“实际交付”还是“应当交付”",
+      "section_hint": "实际交付日起算",
+      "labels": [
+        "CISG-39(2)"
+      ],
+      "expected": [
+        "CISG-ZH#s40",
+        "CISG-EN#s40",
+        "CISG-KEY#s39"
+      ],
+      "strict": [
+        "CISG-ZH#s40",
+        "CISG-EN#s40"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 96,
+      "group": "九、仲裁、管辖与制裁合规（交叉风险）",
+      "question": "Incoterms中“风险”的范围是否包括货物不符和迟延交付",
+      "section_hint": "风险限于货物毁损灭失",
+      "labels": [
+        "INC-Risk"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s3",
+        "INCOTERMS-2020#s2"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s3",
+        "INCOTERMS-2020#s2"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 97,
+      "group": "九、仲裁、管辖与制裁合规（交叉风险）",
+      "question": "CISG第6条排除公约是否必须明示，还是可以从选择非缔约国法律中推断",
+      "section_hint": "明示排除；选择非缔约国法的效果",
+      "labels": [
+        "CISG-6",
+        "CISG-AC-16"
+      ],
+      "expected": [
+        "CISG-ZH#s8",
+        "CISG-EN#s7",
+        "CISG-KEY#s6"
+      ],
+      "strict": [
+        "CISG-ZH#s8",
+        "CISG-EN#s7"
+      ],
+      "unresolved": [
+        {
+          "label": "CISG-AC-16",
+          "reason": "语料未收录 CISG 咨询理事会第 16 号意见"
+        }
+      ]
+    },
+    {
+      "id": 98,
+      "group": "九、仲裁、管辖与制裁合规（交叉风险）",
+      "question": "第7(1)条“诚信原则”是否直接创设独立的请求权基础",
+      "section_hint": "诚信作为解释工具而非独立规范",
+      "labels": [
+        "CISG-7(1)"
+      ],
+      "expected": [
+        "CISG-ZH#s9",
+        "CISG-EN#s8",
+        "CISG-KEY#s7"
+      ],
+      "strict": [
+        "CISG-ZH#s9",
+        "CISG-EN#s8"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 99,
+      "group": "九、仲裁、管辖与制裁合规（交叉风险）",
+      "question": "《涉外民事关系法律适用法》第41条与CISG第1条在适用顺序上是什么关系",
+      "section_hint": "CISG优先判断；第41条补充",
+      "labels": [
+        "LAW-41",
+        "CISG-1"
+      ],
+      "expected": [
+        "CN-LAW-APPLICATION#第四十一条",
+        "CISG-ZH#s3",
+        "CISG-EN#s2",
+        "CISG-KEY#s1"
+      ],
+      "strict": [
+        "CN-LAW-APPLICATION#第四十一条",
+        "CISG-ZH#s3",
+        "CISG-EN#s2"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": 100,
+      "group": "九、仲裁、管辖与制裁合规（交叉风险）",
+      "question": "集装箱场景下使用FOB，装船前的货物灭失风险由谁承担，Incoterms与CISG如何衔接",
+      "section_hint": "FOB风险转移节点；CISG第67条补充",
+      "labels": [
+        "INC-FOB",
+        "CISG-67"
+      ],
+      "expected": [
+        "INCOTERMS-2020#s11",
+        "CISG-ZH#s68",
+        "CISG-EN#s68",
+        "CISG-KEY#s54"
+      ],
+      "strict": [
+        "INCOTERMS-2020#s11",
+        "CISG-ZH#s68",
+        "CISG-EN#s68"
+      ],
+      "unresolved": []
+    }
+  ]
+}

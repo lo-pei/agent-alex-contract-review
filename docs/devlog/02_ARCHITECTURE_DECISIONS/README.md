@@ -1,8 +1,8 @@
 ﻿# 架构决策记录（ADR）索引
 
-> 更新时间：2026-10-28（界面轮 14：多智能体专家并行 + 只读工具层（本地工具 / MCP），新增 ADR-015；界面轮 13：图片 PDF 本地 OCR、外部 Skill 包内置、zip 导入，新增 ADR-014；界面轮 12：配色三档 / Skill 工具与附件 / 头像裁剪 / 左原文右意见；界面轮 5：账号 / 审查记录 / Skill 仓库 / BYOK，新增 ADR-013；界面轮 4：主区两屏 + 侧栏保留；界面轮 3 + 文档类型闸门：规则 version 5、holdout4 盲测、ADR-009 第 3 轮补充、ADR-012）
-> 阶段：**第三阶段代码实现已打通 CLI + FastAPI + 两屏 Web 前端（Streamlit 备用）；第四阶段进行中（规则 13 条 + 三组评测指标 + 四批留出集）**
-> 说明：ADR-001 ~ ADR-015 全部为“已接受”。后续如需变更，写新 ADR 并在原 ADR 标注“已替代”，不直接改写历史结论。
+> 更新时间：2026-10-28（界面轮 15：检索评测 gold 两层映射 + ranking/production 双口径 + 点名条号/来源排序加权，新增 ADR-016；界面轮 14：多智能体专家并行 + 只读工具层（本地工具 / MCP），新增 ADR-015；界面轮 13：图片 PDF 本地 OCR、外部 Skill 包内置、zip 导入，新增 ADR-014；界面轮 12：配色三档 / Skill 工具与附件 / 头像裁剪 / 左原文右意见；界面轮 5：账号 / 审查记录 / Skill 仓库 / BYOK，新增 ADR-013；界面轮 4：主区两屏 + 侧栏保留；界面轮 3 + 文档类型闸门：规则 version 5、holdout4 盲测、ADR-009 第 3 轮补充、ADR-012）
+> 阶段：**第三阶段代码实现已打通 CLI + FastAPI + 两屏 Web 前端（Streamlit 备用）；第四阶段进行中（规则 13 条 + 三组评测指标 + 四批留出集 + 检索评测 95 题）**
+> 说明：ADR-001 ~ ADR-016 全部为“已接受”。后续如需变更，写新 ADR 并在原 ADR 标注“已替代”，不直接改写历史结论。
 
 ## 为什么需要 ADR
 
@@ -32,6 +32,7 @@
 | ADR-013 | 账号体系、审查记录、Skill 仓库与 BYOK | **已接受（已实现）** | 账号/会话/Skill/记录/模型配置落本地 SQLite（零新依赖）；口令 PBKDF2 + 会话只存 token 哈希；API Key 标准库密文盒加密、接口只回尾号；按 `review_id` 登记 `LLMRuntime` + `ContextVar` 作用域；**审查重点 / Skill 只进 `<untrusted_focus>`，不得改等级**；侧栏只留登录入口，右侧主区为对话式首屏；`API_VERSION` 1.0.0 | [ADR-013-账号体系与BYOK.md](./ADR-013-账号体系与BYOK.md) |
 | ADR-014 | 图片 PDF 的本地 OCR 与外部 Skill 包 / zip 导入 | **已接受（已实现）** | 上传上限 15→30 MB（单一配置源）；**只在 PDF 无文本层时**用 `pypdfium2` + `rapidocr-onnxruntime` 本地 OCR（离线、≤20 页、逐页降级），OCR 文本只进 `raw_text`、**不参与判级**；4 个外部 Skill 包复制到 `app/resources/skills/` 作 `builtin:*`；zip 导入只读文本、根目录 `SKILL.md` 必填、**不执行包内脚本**、`allowed-tools` 不映射 | [ADR-014-图片PDF的OCR与外部Skill包.md](./ADR-014-图片PDF的OCR与外部Skill包.md) |
 | ADR-015 | 多智能体专家并行 + 只读工具层（本地工具 / MCP） | **已接受（已实现）** | `validate` 之后并行跑“付款 / 交付 / 争议”三个专家，路由是确定性 Python 白名单（不是聊天式 Supervisor）；专家 schema **无 `risk_level`**、引文定位不到就丢弃；`rules` 之后插入一次 `research_tools`：4 个本地只读工具 + MCP（stdio/JSON-RPC 子集、零新依赖、`shell=False`、超时杀进程），无 LLM 时退化为确定性检索；**两个开关默认关闭，关闭时拓扑与结论和原来完全一致** | [ADR-015-多智能体专家与只读工具层.md](./ADR-015-多智能体专家与只读工具层.md) |
+| ADR-016 | 检索评测与条号加权 | **已接受（已实现）** | `100问题.md` 的概念标签经“通用条号正则 + 人工 YAML”两层映射成 `source_id#section`，一个标签允许多条可接受片段（中文原文 / 英文原文 / 解读稿）；`gaps` 显式登记、**缺口不进分母**（95 / 100）；同时报 `ranking`（top-5、`min_score=0`）与 `production`（真实 `RAG_TOP_K`/`RAG_MIN_SCORE`）× `lenient` / `strict`，**禁止混读**；检索侧只做**排序加权**（点名条号 ×2.5、条文原文 ×1.1、点名来源 ×1.15），不打分新片段、不过滤、不改判级；gold 过期即失败 | [ADR-016-检索评测与条号加权.md](./ADR-016-检索评测与条号加权.md) |
 
 ## 关键设计一句话
 
@@ -50,6 +51,7 @@ ingest → precheck(是不是合同?) ─否→ report(not_contract，不判级)
 - 上传对象先用**确定性规则**判断是不是合同（ADR-012），不是合同就不进入判级；
 - HITL 用 `interrupt()`，不是状态标记；超时只能变成 `unreviewed_red_risk`；
 - 证据可定位到 `文件:页码:字符偏移`；知识引用可定位到 `source_id#section`（已实现，BM25）；
+- 检索评测另有一套纪律（ADR-016）：gold 由“概念标签 + 人工映射”两层翻成真实 citation，缺口不进分母；`ranking` 与 `production`、`lenient` 与 `strict` 分开报；点名条号/来源只做**排序加权**，不打分新片段、不过滤、不碰判级；
 - LLM/解析/规则失败都有降级路径，不崩溃、不静默通过；
 - RAG、专家并行、工具调用默认关闭，只做解释/建议增强，不参与判级（ADR-007/008/015）；
 - 交付形态：CLI（`app/graph_demo.py`）+ FastAPI（`app/api.py`）+ B 端审查工作台（`app/web/`）+ Streamlit 备用（`app/ui.py`），全部只依赖 `ReviewService`（ADR-009）。

@@ -1,7 +1,7 @@
 ﻿# 开发交接文档（Handover）
 
-> 更新时间：2026-10-28（界面轮 14：多智能体专家并行（付款 / 交付 / 争议）+ 只读工具层（4 个本地工具 + MCP stdio）+ 专家意见与 Agent 轨迹上屏 + 两个开关默认关闭；界面轮 13：上传上限 30 MB + 图片 PDF 本地 OCR + 4 个外部 Skill 包内置 + zip 导入 + 完整原文 + 条款去重；界面轮 12：配色三档 + Skill 工具/附件 + 头像裁剪 + 标签行 + 历史即时刷新 + 切分精度 + 左原文右意见独立滚动；界面轮 10：账户设置 B 端分区弹窗 + 主题色 5 套 + 字号三档 + 侧栏去掉昵称邮箱；界面轮 9：个人账户弹窗 + Skill 编辑 + 厂商 20；界面轮 8：Skill Markdown 导入 + 注册 not found 定位；界面轮 7：Skill 仓库独立页；界面轮 6：审查历史子目录 + 记录运维；界面轮 5：账号/记录/Skill/BYOK；界面轮 4：主区两屏；第四阶段第 4 轮：规则 version 5 + 第四批留出集）
-> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI）；界面轮 14 完成（按 ADR-015 落地可选 Agent 层：`validate_extraction` 之后“付款 / 交付 / 争议”三个专家并行出参考意见（确定性路由、schema 无 `risk_level`、引文定位不到即丢弃），`rules`/人工确认之后插一次 `research_tools`（4 个本地只读工具 + MCP stdio/JSON-RPC 子集，零新依赖、`shell=False`、超时杀进程、无 LLM 走确定性检索）；专家意见与 Agent 轨迹上屏，专家块只用中性色；`AGENTS_ENABLED` / `TOOLS_ENABLED` 默认 false，关闭时与确定性主干逐字一致；`API_VERSION 1.1.0`）；界面轮 13 完成（上传上限 15→30 MB 且前后端同一配置源；图片/扫描 PDF 走本地 OCR（`pypdfium2` + `rapidocr-onnxruntime`，离线、只在无文本层时触发、≤20 页、只产文本不判级）；桌面 4 个外部 Skill 包复制进 `app/resources/skills/` 作 `builtin:*`（内置 Skill 7→11）；Skill 仓库支持 zip 包导入（不落盘、不执行）；“两个付款条件”双层去重（切分 + 展示）并为旧记录兜底；结果页合同名/Skill/审查重点/状态收成同一行标签；左栏新增“原文全文”tab 按原排版呈现）；界面轮 12 完成（配色改“白天/黑夜/跟随系统”三档，主题色 5 套下线；Skill 从一段提示词扩成“指令 + 5 个可声明工具 + 只读文本附件”；头像上传后先裁剪再存 128×128 JPEG；审查页顶部改标签行并删掉对话式长叙述；审查与确认后侧栏历史即时刷新；未命中规则改“这条没问题”的人话；条款切分修 4 类误切 + 短标题 + 前言标注；逐条审查左目录与原文、右意见与“采用修改/保留原文/撤销”，三块各自滚动）；界面轮 5 完成（账号体系 / 审查记录 / Skill 仓库 / BYOK 按 ADR-013 落地，侧栏 = 导航 + API 配置 + 接口文档 + 账号区）；上传仍先判断是不是合同（不是即 `not_contract`，不切条款/不抽取/不判级）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）；386 个测试通过**；检索评测与人工复核 gold 尚未完成
+> 更新时间：2026-10-28（界面轮 15：检索评测落地——100 题 gold 两层映射（95 题可评测 / 5 题语料未覆盖）+ ranking / production 双口径 + 点名条号/来源排序加权（lenient R@3 0.800→0.958、strict R@3 0.390→0.758），ADR-016，关闭 ISSUE-018、新增 ISSUE-033；界面轮 14：多智能体专家并行（付款 / 交付 / 争议）+ 只读工具层（4 个本地工具 + MCP stdio）+ 专家意见与 Agent 轨迹上屏 + 两个开关默认关闭；界面轮 13：上传上限 30 MB + 图片 PDF 本地 OCR + 4 个外部 Skill 包内置 + zip 导入 + 完整原文 + 条款去重；界面轮 12：配色三档 + Skill 工具/附件 + 头像裁剪 + 标签行 + 历史即时刷新 + 切分精度 + 左原文右意见独立滚动；界面轮 10：账户设置 B 端分区弹窗 + 主题色 5 套 + 字号三档 + 侧栏去掉昵称邮箱；界面轮 9：个人账户弹窗 + Skill 编辑 + 厂商 20；界面轮 8：Skill Markdown 导入 + 注册 not found 定位；界面轮 7：Skill 仓库独立页；界面轮 6：审查历史子目录 + 记录运维；界面轮 5：账号/记录/Skill/BYOK；界面轮 4：主区两屏；第四阶段第 4 轮：规则 version 5 + 第四批留出集）
+> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI）；界面轮 15 完成（按 ADR-016 落地检索评测：`eval/rag_gold.py` + `data/eval/rag_label_map.yaml` 把 `100问题.md` 的概念标签翻成 `source_id#section`，生成可 diff 的 `data/eval/gold_rag.json`（**95 题可评测 / 5 题语料未覆盖**，缺口不进分母）；`eval/run_rag_eval.py` 同时报 `ranking`（top-5 不过阈值）与 `production`（`RAG_TOP_K=3` / `RAG_MIN_SCORE=1.0`）× `lenient` / `strict`，结果落 `eval/results/rag-YYYYMMDD.json`；评测暴露“解读稿压过条文/条号不参与打分”后加**只改排序**的加权（点名条号 ×2.5、条文原文再 ×1.1、点名法律名 ×1.15，抽不出条号全 1.0）：lenient R@1 0.516→0.747 / R@3 0.800→0.958、strict R@1 0.158→0.305 / R@3 0.390→0.758；`app/services/chinese_numbers.py` 统一“第584条 ↔ 第五百八十四条”；**398 个测试通过**）；界面轮 14 完成（按 ADR-015 落地可选 Agent 层：`validate_extraction` 之后“付款 / 交付 / 争议”三个专家并行出参考意见（确定性路由、schema 无 `risk_level`、引文定位不到即丢弃），`rules`/人工确认之后插一次 `research_tools`（4 个本地只读工具 + MCP stdio/JSON-RPC 子集，零新依赖、`shell=False`、超时杀进程、无 LLM 走确定性检索）；专家意见与 Agent 轨迹上屏，专家块只用中性色；`AGENTS_ENABLED` / `TOOLS_ENABLED` 默认 false，关闭时与确定性主干逐字一致；`API_VERSION 1.1.0`）；界面轮 13 完成（上传上限 15→30 MB 且前后端同一配置源；图片/扫描 PDF 走本地 OCR（`pypdfium2` + `rapidocr-onnxruntime`，离线、只在无文本层时触发、≤20 页、只产文本不判级）；桌面 4 个外部 Skill 包复制进 `app/resources/skills/` 作 `builtin:*`（内置 Skill 7→11）；Skill 仓库支持 zip 包导入（不落盘、不执行）；“两个付款条件”双层去重（切分 + 展示）并为旧记录兜底；结果页合同名/Skill/审查重点/状态收成同一行标签；左栏新增“原文全文”tab 按原排版呈现）；界面轮 12 完成（配色改“白天/黑夜/跟随系统”三档，主题色 5 套下线；Skill 从一段提示词扩成“指令 + 5 个可声明工具 + 只读文本附件”；头像上传后先裁剪再存 128×128 JPEG；审查页顶部改标签行并删掉对话式长叙述；审查与确认后侧栏历史即时刷新；未命中规则改“这条没问题”的人话；条款切分修 4 类误切 + 短标题 + 前言标注；逐条审查左目录与原文、右意见与“采用修改/保留原文/撤销”，三块各自滚动）；界面轮 5 完成（账号体系 / 审查记录 / Skill 仓库 / BYOK 按 ADR-013 落地，侧栏 = 导航 + API 配置 + 接口文档 + 账号区）；上传仍先判断是不是合同（不是即 `not_contract`，不切条款/不抽取/不判级）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）**；人工复核 gold 与 holdout5 仍未完成
 > 交接原则：任何新接手的人只读本文件 + `00_PROJECT_STATE.md` + `02_ARCHITECTURE_DECISIONS/README.md`，就能继续开发。
 
 ---
@@ -26,7 +26,7 @@
 | 项 | 状态 | 证据 |
 |---|---|---|
 | GitHub 调研 | ✅ 完成 | `01_RESEARCH_LOG.md`，8 个仓库源码级分析 |
-| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~015` |
+| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~016` |
 | 环境与依赖 | ✅ 完成 | `.venv`（Python 3.12.10）+ `requirements*.txt`；实际版本见 ADR-006 §6 |
 | 业务代码（第 3 步） | ✅ 解析/切分/抽取/校验/规则可用 | `app/` |
 | HITL（第 4 步） | ✅ 条件边 + `interrupt()` + checkpointer | `app/nodes/hitl.py`、`app/review_service.py`、`app/services/checkpointer.py` |
@@ -34,6 +34,7 @@
 | API / UI（第 6 步） | ✅ FastAPI + pending 落盘 + Streamlit 备用 | `app/api.py`、`app/ui.py`、`app/report_markdown.py`、`app/services/pending_store.py` |
 | B 端审查工作台（界面轮 2） | ✅ 四视图 + 本地字体 + 只读规则目录 | `app/web/index.html`、`app/web/styles.css`、`app/web/app.js`、`app/web/fonts/`；`GET /`、`GET /static/*`、`GET /api/rules`；`tests/test_web.py`（6 项）、`tests/test_api.py::test_rule_catalog_matches_definitions` |
 | 账号 / 记录 / Skill / BYOK（界面轮 5） | ✅ 本地 SQLite + 密文盒 + 每审查模型运行时 | `app/services/accounts.py`、`app/services/secret_box.py`、`app/services/llm_providers.py`、`app/services/skill_catalog.py`、`app/services/llm.py`（`LLMRuntime` / `review_llm_scope`）；`tests/test_accounts.py`（28 项）；`API_VERSION 1.0.0` |
+| 检索评测（界面轮 15） | ✅ 100 题 → 95 题可评测（5 题语料未覆盖）；ranking / production × lenient / strict；只改排序的加权 | `eval/rag_gold.py`（`resolve_label` / `build_gold`）、`data/eval/rag_label_map.yaml`（27 个手判标签 + 12 条 gaps）、`data/eval/gold_rag.json`、`eval/rag_eval.py`（`score` / `_first_rank` / `_summarize`）、`eval/run_rag_eval.py`（`validate_gold` / `_rank` / `run`）、`app/services/chinese_numbers.py`（`to_chinese_number` / `from_chinese_number`）、`app/services/rag.py`（`_article_numbers` / `_query_boosts`）、`eval/results/rag-20261028.json`、`tests/test_rag_eval.py`（6 项）、`tests/test_rag_boost.py`（6 项）；全量 **398 passed** |
 | 多智能体专家并行 + 只读工具层（界面轮 14） | ✅ 三个专家并行出参考意见（不判级）；本地 4 个只读工具 + MCP stdio；两个开关默认关闭 | `app/nodes/experts.py`（`EXPERT_SPECS` / `select_experts` / `route_experts` / `collect_expert_findings`）、`app/services/tools.py`（`ToolSpec` / `ToolRegistry` / `McpStdioClient` / `build_tool_registry` / `parse_mcp_servers`）、`app/nodes/research.py`（`research_tools` / `_plan` / `_fallback_plan` / `_execute`）、`app/graph.py`（并行 fan-out + `research_tools`）、`app/schemas.py`（`ExpertFinding` / `ExpertOpinion` / `ToolCallRecord` / `AgentTrace` + `operator.add` reducer）、`app/nodes/explain.py`（`<untrusted_experts>` / `<untrusted_tools>`）、`app/services/clause_review.py`（`_agent_trace`）、`app/nodes/report.py`、`app/web/app.js`（`expertBlocks` / `agentTraceBlock`）、`app/web/styles.css`（`.expert-*` / `.trace-*`）、`.env.example`、`tests/test_agents.py`（10 项）、`tests/test_tools.py`（23 项）、`tests/test_web.py`（+1）；全量 **386 passed** |
 | 上传 30 MB + 图片 PDF OCR + 外部 Skill 包 + zip 导入 + 原文全文（界面轮 13） | ✅ 扫描件也能审查；内置 Skill 7→11；Skill 可传 zip；付款条件不再重复；左栏可看完整原文 | `app/services/ocr.py`（`ocr_available` / `ocr_pdf_pages`）、`app/nodes/ingest.py`（`MIN_PAGE_TEXT_CHARS` / `MIN_PDF_TEXT_CHARS` / `ocr_attempted` / `fail(message, extra_warnings)`）、`app/config.py`（`ocr_enabled` / `ocr_max_pages` / `ocr_render_scale`）、`app/resources/skills/`（4 个外部包）、`app/services/skill_catalog.py`（`_PACKAGE_SPECS` / `packaged_skills` / `parse_skill_package`）、`app/api.py`（`POST /api/skills/import`）、`app/nodes/segment.py`（`_merge_duplicate_headings`）、`app/services/clause_review.py`（`_display_title` / `_merge_adjacent_duplicates`）、`app/schemas.py`（`ClauseReviewList.contract_text`）、`app/web/app.js`（`MAX_BYTES` 30 MB / `renderContractFulltext` / `applyPaneMode`）、`app/web/index.html`（`.pane-tabs` / `#contract-fulltext` / zip 导入文案）、`app/web/styles.css`（`.pane-tabs` / `.contract-fulltext`）、`tests/test_ocr.py`（+5）、`tests/test_accounts.py`（+4）、`tests/test_segment.py`（+1）、`tests/test_clause_review.py`（+2）、`tests/test_web.py`（+1 并改写 2）；全量 **347 passed** |
 | 配色三档 + Skill 工具/附件 + 头像裁剪 + 左原文右意见（界面轮 12） | ✅ 主题色下线；Skill 可声明 5 个工具、可挂只读文本附件；头像可拖动/缩放裁剪；标签行 + 三块独立滚动 | `app/web/index.html`（`[data-scheme-value]`、`#skill-tools` / `#skill-asset-pick` / `#skill-asset-input` / `#skill-asset-list`、`#avatar-crop-dialog`）、`app/web/app.js`（`resolvedScheme` / `applyPrefs` / `cropGeometry` / `cropResult` / `applyCrop` / `reviewChip` / `clauseListItem` / `renderClauseOrigin` / `keepClause` / `refreshHistory` / `loadSkillTools` / `renderToolChips` / `renderAssetList`）、`app/web/styles.css`（`html[data-scheme]`、`.chip-tag` / `.chip-wide`、`.workbench-grid` 三块独立滚动、`.clause-origin`、`.detail-actions`、`.pass-block`、`.tool-chip` / `.asset-*`、`.crop-stage`）、`app/services/skill_catalog.py`（`TOOL_CATALOG` / `SkillAsset` / `compose_focus`）、`app/services/accounts.py`（`tools` / `assets` 列 + `_clean_skill_*`）、`app/api.py`（`GET /api/skills/tools`）、`app/nodes/segment.py`（同行标题 / 字段黑名单 / 说明块 / 中英合并 / `_short_title`）、`app/services/clause_review.py`（`is_preamble`）；`tests/test_web.py`（+3 项、改写 3 项）、`tests/test_accounts.py`（+4 项）、`tests/test_segment.py`（+3 项）、`tests/test_clause_review.py`（+1 项）；全量 **334 passed** + CDP 冒烟 |
@@ -44,14 +45,16 @@
 | 历史可运维 + Skill 归位 + 满屏（界面轮 6） | ✅ 侧栏子目录 + 改名/置顶/删除 + 定高弹窗 | `app/services/accounts.py`（`title`/`pinned` + `ALTER TABLE` 升级 + `rename/set_pinned/delete`）、`app/review_service.py`（`discard`）、`app/api.py`（`PATCH|DELETE /api/reviews/{id}`）、`app/web/*`；`tests/test_accounts.py`（+4 项）、`tests/test_web.py`（+3 项） |
 | 主区极简 + 侧栏保留（界面轮 4） | ✅ 两屏：上传 → 风险点 | `app/web/index.html`、`app/web/app.js`、`app/web/styles.css`；侧栏/顶栏导航壳保留；hash 路由只留 `#/` 与 `#/review/{id}`；待确认态渲染 `approval.findings`；`tests/test_web.py`（10 项） |
 | 文档类型闸门（界面轮 3） | ✅ 先判断是不是合同，不是就停 | `app/services/document_type.py`、`app/nodes/precheck.py`、`app/graph.py`（`ingest → precheck → segment | report`）；`status=not_contract`；`tests/test_document_type.py`（11 项）、`tests/test_api.py::test_non_contract_upload_is_not_reviewed`、`tests/test_web.py::test_runtime_internals_stay_out_of_the_ui` |
-| 测试 | ✅ 386 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
+| 测试 | ✅ 398 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
 | 规则集 | ✅ 13 条 | `app/rules/definitions.yaml`（`version: 5`，三类措辞 + 保额邻近判定）；6 条新规则各有语料命中集合回归（ADR-010） |
-| 评测集 / 指标 | ⏳ 主集完成、四批留出完成、待复核 | `data/eval/gold_rules.json`（21 现象，silver）+ `gold_holdout{,2,3,4}.json`（7/9/7/9 现象）+ `eval/results/rules-*.json`；**silver gold 未经人工复核**，检索评测未做 |
+| 评测集 / 指标 | ⏳ 主集完成、四批留出完成、**检索评测已完成**、待复核 | `data/eval/gold_rules.json`（21 现象，silver）+ `gold_holdout{,2,3,4}.json`（7/9/7/9 现象）+ `eval/results/rules-*.json`；**检索**：`data/eval/gold_rag.json`（100 题 → 95 题可评测）+ `eval/results/rag-20261028.json`（lenient R@3 0.958 / strict R@3 0.758）；**silver gold 未经人工复核** |
 | Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`、`e41d235`、`c7f24a9`、`6eaff8c`、`5dc05bd`、`c540259`，以及后续每步提交 |
 
 > 报数纪律（ADR-011）：对外只引用**当前未被消耗**的留出集（holdout4，12 份，P=1.00 / R=0.889 / F1=0.941），并注明“silver gold 待复核、样本 12 份、唯一漏报 H39”。主集（50 份）P/R=1.0 是**同分布**产物；holdout、holdout2、holdout3 三批已被用于定位缺陷（“已消耗”），修复后即使 1.0 也只能当回归守卫。覆盖率 52.4%（主集 gold）与 H39 漏报才是当前真实短板；留出集的 `coverage=1.0` 是平凡结果，不能与 recall 混读。
 
-### 2.1 架构决策速览（ADR-001~015）
+> 检索报数纪律（ADR-016）：只说“在 `100问题.md` 的 **95 题可评测**子集上的指标”，并同时给出口径（`ranking` 还是 `production`、`lenient` 还是 `strict`）；不能写成“线上召回率 0.958”，也不能把 lenient 与 strict、ranking 与 production 混着比。5 题语料未覆盖（#42/#69/#86/#87/#88）必须单独提，不能塞回分母。
+
+### 2.1 架构决策速览（ADR-001~016）
 
 | ADR | 结论 | 状态 |
 |---|---|---|
@@ -70,6 +73,7 @@
 | 013 账号与 BYOK | 账号/会话/Skill/记录/模型配置落本地 SQLite（零新依赖）；口令 PBKDF2 + 会话只存 token 哈希；API Key 密文盒加密、接口只回尾号；`LLMRuntime` 按 `review_id` 登记 + `ContextVar` 作用域；**审查重点 / Skill 只进 `<untrusted_focus>`，不改等级** | **已接受**（界面轮 5 已实现，`API_VERSION` 1.0.0） |
 | 014 OCR 与外部 Skill 包 | 上传上限 15→30 MB（单一配置源）；**只在 PDF 无文本层/单页少文本时**用 `pypdfium2` + `rapidocr-onnxruntime` 本地 OCR（离线、≤20 页、逐页降级），OCR 只进 `raw_text`、**不参与判级**；4 个外部 Skill 包复制进 `app/resources/skills/` 作 `builtin:*`；zip 导入只读文本、根目录 `SKILL.md` 必填、**不执行包内脚本**、`allowed-tools` 不映射 | **已接受**（界面轮 13 已实现） |
 | 015 多智能体专家与只读工具层 | `validate_extraction` 之后**确定性路由**出“付款 / 交付 / 争议”三个专家并行出参考意见（schema **无 `risk_level`**、引文定位不到即丢弃、并行只写 reducer 字段）；`rules`/人工确认之后插一次 `research_tools`：4 个本地只读工具 + MCP stdio/JSON-RPC 子集（零新依赖、`shell=False`、超时杀进程），无 LLM 走确定性检索；**两个开关默认关闭，关闭时拓扑与结论和原来完全一致** | **已接受**（界面轮 14 已实现，`API_VERSION` 1.1.0） |
+| 016 检索评测与条号加权 | `100问题.md` 的概念标签经“通用条号正则 + 人工 YAML”两层映射成 `source_id#section`，一个标签允许多条可接受片段（条文原文 / 英文原文 / 解读稿）；`gaps` 显式登记、**缺口不进分母**（95 / 100）；同时报 `ranking`（top-5、`min_score=0`）与 `production`（真实 `RAG_TOP_K`/`RAG_MIN_SCORE`）× `lenient` / `strict`，**禁止混读**；检索侧只做**排序加权**（点名条号 ×2.5、条文原文 ×1.1、点名来源 ×1.15），不打分新片段、不过滤、不改判级；gold 过期即失败 | **已接受**（界面轮 15 已实现） |
 
 ---
 
@@ -261,6 +265,9 @@ Agent_Alex外贸合同智审助手/
 │  ├─ prepare_contracts.py        # 拆分模拟合同 → data/contracts/ + gold
 │  ├─ metrics.py                  # 指标纯计算（rule_level / contract_level / coverage）
 │  ├─ run_eval.py                 # 规则级评测 + 指标 → eval/results/rules[-tag]-YYYYMMDD.json
+│  ├─ rag_gold.py                 # 100问题.md → gold_rag.json（两层映射；--write 落盘）
+│  ├─ rag_eval.py                 # 检索指标纯计算（recall@k / MRR / 分组 / miss 明细）
+│  ├─ run_rag_eval.py             # 检索评测 → eval/results/rag-YYYYMMDD.json（ranking / production）
 │  └─ results/                    # 评测结果
 └─ docs/
    └─ devlog/                     # 本目录
@@ -279,7 +286,7 @@ Agent_Alex外贸合同智审助手/
 | 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
 | 恢复人工决定 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision approve --reviewer zhangsan` | ✅ 可用（SQLite 跨进程） |
 | 超时语义 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision timeout` | ✅ 可用 → `unreviewed_red_risk` |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 386 个通过 |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 398 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行（统一入口） | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` | ✅ 可用（`/docs` 可试；默认 SQLite + 文件 pending） |
@@ -289,6 +296,9 @@ Agent_Alex外贸合同智审助手/
 | 主集评测 | `.\.venv\Scripts\python.exe eval\run_eval.py` | ✅ 可用（无需 Key；含三组指标） |
 | **对外报数（holdout4）** | `... eval\run_eval.py --contracts data\contracts_holdout4 --gold data\eval\gold_holdout4.json --gold-rules data\eval\gold_holdout4.json --tag holdout4` | ✅ 可用（唯一未消耗的盲测集；P=1.00 / R=0.889 / F1=0.941，漏报 H39） |
 | 回归守卫（已消耗样本） | `--contracts data\contracts_holdout{,2,3} --tag holdout{,2,3}` | ✅ 可用（结果不得对外报数） |
+| **检索 gold 重建** | `.\.venv\Scripts\python.exe -m eval.rag_gold --write` | ✅ 可用（`100问题.md` 或语料变动后必跑；不跑则 `pytest` 的 gold 过期守卫会失败） |
+| **检索评测（ranking + production）** | `.\.venv\Scripts\python.exe -m eval.run_rag_eval` | ✅ 可用（无需 Key；输出 `eval/results/rag-YYYYMMDD.json`；`--tag` 可加后缀） |
+| 检索评测（只跑指定 gold） | `... -m eval.run_rag_eval --gold data\eval\gold_rag.json --top-k 5` | ✅ 可用 |
 | 全链路评测（含抽取/解释） | 计划 | ⏳ 未实现（需要 LLM Key；规则级 gold 待人工复核） |
 
 > 标 ✅ 的命令已实际执行验证；标 ⏳ 的尚不可用。`--decision` 支持 `approve / reject / changes(request_changes) / timeout`；`--memory` 用内存 checkpointer（仅单进程调试）。API 必须用 `--factory`（`create_app` 是工厂函数，不是模块级 `app`）；多 worker 未支持（ISSUE-019）。
@@ -566,11 +576,17 @@ Agent_Alex外贸合同智审助手/
      - **报告与导出**：`report_markdown.py` 加“专家参考意见（不参与判级）”“工具调用记录”两节；`clause_export.py` 的 DOCX / PDF 加“四、专家参考意见（不参与判级）”“五、工具调用记录”（取自 `ClauseReviewList.agent_trace`，失败调用也留错误原因）。`AgentTrace.expert_notes` 透出 `expert:<id>:not_configured / :failed / :quote_not_found`（去重），前端翻成“未配置模型 / 执行失败 / 引文未能在原文定位”。
      - **配置**：`Settings` 新增 `agents_enabled=False` / `tools_enabled=False` / `mcp_servers=""` / `mcp_timeout_seconds=10.0` / `max_tool_calls=3`；`.env.example` 带 JSON 示例；`/health` 返回两个开关；`API_VERSION` 1.0.0 → **1.1.0**。
      - 验证：`pytest` **386 通过**（`tests/test_agents.py` 12 项、`tests/test_tools.py` 23 项含伪 MCP 服务器、`tests/test_web.py` +1）；`ruff` / `node --check` 通过；开/关专家对照测试确认 `rule_id` 与 `overall_level` 完全一致。
+   - **界面轮 15（已完成，2026-10-28，ADR-016）**：检索评测落地（ISSUE-018 关闭）。
+     - **gold 两层映射**：`eval/rag_gold.py` 用 `CISG-N` / `CC-N` / `LAW-N` / `JI-CC-N` 通用条号正则 + `data/eval/rag_label_map.yaml`（27 个手判标签、12 条 `gaps`）把 `100问题.md` 翻成 `source_id#section`；一个标签允许多条可接受片段（`CISG-ZH#s27` / `CISG-EN#s26` / `CISG-KEY#s25`），`strict` 剔解读稿、`lenient` 保留；`gaps` 命中的题标 `unresolved` **不进分母** → **95 题可评测 / 5 题未覆盖**；生成物 `data/eval/gold_rag.json` 带 `generated_at` 与 `corpus.chunk_count`。
+     - **指标与口径**：`eval/rag_eval.py` 纯计算（`recall_at` / `mrr` / `rank_histogram` / `by_group` / `misses_beyond_k` / `not_top1`）；`eval/run_rag_eval.py` 同时跑 `ranking`（top-5、`min_score=0`）与 `production`（`RAG_TOP_K=3` / `RAG_MIN_SCORE=1.0`），结果落 `eval/results/rag-20261028.json`；gold 过期直接 `exit 3`，测试 `test_committed_gold_matches_current_corpus` 重建比对。
+     - **加权（只改排序）**：`app/services/rag.py` 的 `_article_numbers()` / `_query_boosts()`，点名条号 ×2.5、条文原文再 ×1.1、点名来源 ×1.15；条号正则支持 `第39(2)条` / `第49(1)(b)条` / `第2条第2款`；抽不出条号全 1.0（与原 BM25 一致，有断言）。
+     - **数字互转单一实现**：新建 `app/services/chinese_numbers.py`（`to_chinese_number` / `from_chinese_number`，`NumberFormatError`），检索与 gold 共用。
+     - 验证：`pytest` **398 通过**（`tests/test_rag_eval.py` 6 项、`tests/test_rag_boost.py` 6 项）；`ruff` / `node --check` 通过；指标 lenient R@1 0.516→**0.747** / R@3 0.800→**0.958**、strict R@1 0.158→**0.305** / R@3 0.390→**0.758**；剩 4 题语义指代登记 ISSUE-033。
    - **下一步（第四阶段）**：
      - 修 H39（`R-DIS-004` modal 与动词之间放宽为 `[^.]{0,80}?`），**另写 holdout5（8–12 份）再报数**（ISSUE-021）；
      - 人工复核 21 个 silver 现象 + 32 个留出现象，silver 升 gold（ISSUE-020）；
      - 补规则缺口：不可抗力缺失、检验条款缺失、责任上限、质保期（ISSUE-009，主集覆盖率 52.4%）；
-     - RAG 检索评测：先做 `100问题.md` → manifest 映射（ISSUE-018），再调 `RAG_TOP_K`/`RAG_MIN_SCORE`；
+     - ~~RAG 检索评测：先做 `100问题.md` → manifest 映射（ISSUE-018），再调 `RAG_TOP_K`/`RAG_MIN_SCORE`~~ ✅ 界面轮 15 已按 ADR-016 完成（95 题可评测；ranking/production × lenient/strict；只改排序的条号/来源加权）；剩余 4 题语义指代与同义改写见 ISSUE-033——**下一步若要提升，先做查询改写，不要直接调权重**；
      - 语料授权与 `effective_date` 复核（ISSUE-015）；多智能体已在界面轮 14 按 ADR-015 落地（专家并行 + 只读工具层，默认关闭），真实外部 API（制裁名单 / 汇率 / HS 编码）仍待接（ISSUE-032）。
 6. 每完成一个阶段：更新 `00_PROJECT_STATE.md`、写当日 `03_DEV_LOGS/YYYY-MM-DD.md`、更新本文件的“当前完成度/已知坑”、更新 `05_OPEN_ISSUES.md`。
 

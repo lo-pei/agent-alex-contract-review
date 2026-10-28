@@ -1,0 +1,131 @@
+# 100 题检索评测：概念标签 → 语料片段匹配器（ISSUE-018）
+#
+# 背景：`data/knowledge/100问题.md` 的“期望 source_id”是概念标签（CISG-25 / INC-CIF A5 /
+# JI-CC-1），语料实际引用是 `CISG-ZH#第二十五条` / `INCOTERMS-2020#s12` /
+# `SPC-CONTRACT-2023#第一条`。两者不同名，必须先映射才能算召回。
+#
+# 约定：
+# - 这里的 `labels` 只登记**需要人工判断**的标签；`CISG-N` / `CC-N` / `LAW-N` / `JI-CC-N`
+#   由 `eval/rag_gold.py` 的通用规则解析（第 N 条 ↔ 第{中文数字}条）。
+# - `heading` 是**对 chunk.heading 的正则**（`re.search`），命中同一 heading 的多个切片
+#   全部计入可接受集合。
+# - `gaps` 登记“语料里确实没有对应文本”的标签；含该标签的题目不进召回率分母，
+#   单独统计为“语料未覆盖”，不把语料缺口算成检索失败。
+version: 1
+provenance: >-
+  由 `eval/rag_gold.py` 解析 `data/knowledge/100问题.md` 生成；标签到语料的对应关系
+  按语义人工登记（INCOTERMS-2020 为专题整理稿，无逐条 A/B 编号；RISK-REDLINE 未按编号组织）。
+
+labels:
+  # ── Incoterms 2020（整理稿，按主题标题定位，不按 A/B 条号）──
+  "INC-Guide":
+    - source: INCOTERMS-2020
+      heading: '^一、全维度总表'
+    - source: INCOTERMS-2020
+      heading: '^七、实务细节红线清单'
+  "INC-General":
+    - source: INCOTERMS-2020
+      heading: '^一、全维度总表'
+    - source: INCOTERMS-2020
+      heading: '^2\.1'
+    - source: INCOTERMS-2020
+      heading: '^六、D 组三术语的一页定位'
+  "INC-Risk":
+    - source: INCOTERMS-2020
+      heading: '^2\.2'
+    - source: INCOTERMS-2020
+      heading: '^2\.1'
+  "INC-CFR A3/A4":
+    - source: INCOTERMS-2020
+      heading: '^2\.3'
+    - source: INCOTERMS-2020
+      heading: '^CFR / CIF'
+  "INC-FOB/CFR/CIF":
+    - source: INCOTERMS-2020
+      heading: '^CFR / CIF'
+    - source: INCOTERMS-2020
+      heading: '^2\.3'
+    - source: INCOTERMS-2020
+      heading: '^FOB：'
+  "INC-FAS A4":
+    - source: INCOTERMS-2020
+      heading: '^FAS：'
+  "INC-FCA A2":
+    - source: INCOTERMS-2020
+      heading: '^FCA：'
+  "INC-FCA A6/B6":
+    - source: INCOTERMS-2020
+      heading: '^FCA：'
+  "INC-FOB":
+    - source: INCOTERMS-2020
+      heading: '^FOB：'
+  "INC-FOB A2":
+    - source: INCOTERMS-2020
+      heading: '^FOB：'
+  "FOB变形":
+    - source: INCOTERMS-2020
+      heading: '^FOB：'
+    - source: INCOTERMS-2020
+      heading: '^七、实务细节红线清单'
+  "INC-EXW A2/A7":
+    - source: INCOTERMS-2020
+      heading: '^EXW：'
+  "INC-CIF A5":
+    - source: INCOTERMS-2020
+      heading: '^3\.3 保险费用'
+    - source: INCOTERMS-2020
+      heading: '^CFR / CIF'
+  "INC-CIP A5":
+    - source: INCOTERMS-2020
+      heading: '^3\.3 保险费用'
+    - source: INCOTERMS-2020
+      heading: '^CPT / CIP'
+  "INC-DAP":
+    - source: INCOTERMS-2020
+      heading: '^DAP：'
+    - source: INCOTERMS-2020
+      heading: '^六、D 组三术语的一页定位'
+  "INC-DPU":
+    - source: INCOTERMS-2020
+      heading: '^DPU：'
+    - source: INCOTERMS-2020
+      heading: '^六、D 组三术语的一页定位'
+  "INC-DDP":
+    - source: INCOTERMS-2020
+      heading: '^DDP：'
+    - source: INCOTERMS-2020
+      heading: '^六、D 组三术语的一页定位'
+  "INC-DDP A9":
+    - source: INCOTERMS-2020
+      heading: '^DDP：'
+    - source: INCOTERMS-2020
+      heading: '^3\.2 关税'
+
+  # ── 内部风险红线清单（未编号，按标题语义定位）──
+  "RISK-制裁条款":
+    - source: RISK-REDLINE
+      heading: '^🟡 黄线｜合同中的不可抗力/制裁条款'
+  "RISK-制裁不可抗力":
+    - source: RISK-REDLINE
+      heading: '^🔴 红线｜以“供应商违约”'
+    - source: RISK-REDLINE
+      heading: '^🟡 黄线｜依赖“外国制裁'
+    - source: RISK-REDLINE
+      heading: '^🟡 黄线｜合同中的不可抗力/制裁条款'
+  "RISK-DDP":
+    - source: RISK-REDLINE
+      heading: '^🟡 黄线｜接受DDP'
+
+gaps:
+  "CISG-AC-16": 语料未收录 CISG 咨询理事会第 16 号意见
+  "CLOUT": 语料未收录 CLOUT 判例摘要库
+  "China Reservation": 语料无中国保留声明的专门文本（第 95 条保留仅在公约条文内提及）
+  "CISG": 标签过于笼统（第 78 题“CISG 无直接对应”），无可定位片段
+  "JI-Arbitration": 语料未收录《仲裁法解释》
+  "JI-Arbitration Art.7": 语料未收录《仲裁法解释》第 7 条
+  "JI-Jurisdiction": 语料未收录民诉法解释关于排他性管辖推定的条文
+  "JI-LAW-1 Art.8": 语料只有《法律适用法解释（二）》，缺《解释（一）》第 8 条
+  "民诉法解释第522条": 语料未收录民诉法解释
+  "出口管制法": 语料未收录《出口管制法》原文
+  "实证研究": 标签指“实证研究”，不是语料文档
+  "RISK-3": 红线清单未按编号组织，无法对应具体条目

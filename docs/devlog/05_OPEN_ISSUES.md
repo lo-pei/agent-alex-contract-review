@@ -1,9 +1,22 @@
 # 待解决问题 / 风险登记
 
-> 更新时间：2026-10-28（界面轮 14：多智能体专家并行 + 只读工具层（本地工具 / MCP），ADR-015，关闭 ISSUE-016、新增 ISSUE-032；界面轮 13：上传上限 15→30 MB + 图片 PDF 本地 OCR + 4 个外部 Skill 包内置 + zip 导入 + 两个付款条件双层去重 + 完整原文；界面轮 12：主题色下线改三档配色 + Skill 工具与文本附件 + 头像裁剪 + 标签行 + 历史即时刷新 + 条款切分精度 + 左原文右意见独立滚动；界面轮 10：账户设置改成 B 端分区弹窗（个人信息 / 通用 / 数据管理 / 关于）+ 主题色 5 套 + 界面字号三档 + 侧栏不再显示昵称/邮箱；界面轮 9：个人账户弹窗（头像/昵称/系统设置/二次确认清数据）+ Skill 查看与编辑 + 仓库紧凑化 + 厂商 10→20 + 阻止密码自动填充；界面轮 8：注册 not found 根因（旧进程 0.9.0）+ Skill 支持 Markdown/文件夹导入；界面轮 7：Skill 仓库独立页 + 自绘下拉 + 页脚贴右/降高 + 输入区收窄；界面轮 6：审查历史子目录 + 记录改名/置顶/删除 + 侧栏 Skill 仓库 + 满屏 + 弹窗定高；界面轮 5：账号 / 审查记录 / Skill / BYOK；界面轮 4：侧栏保留 + 主区两屏；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
+> 更新时间：2026-10-28（界面轮 15：检索评测落地——100 题 gold 映射 + 两套口径 + 点名条号/来源加权，ADR-016，关闭 ISSUE-018、新增 ISSUE-033；界面轮 14：多智能体专家并行 + 只读工具层（本地工具 / MCP），ADR-015，关闭 ISSUE-016、新增 ISSUE-032；界面轮 13：上传上限 15→30 MB + 图片 PDF 本地 OCR + 4 个外部 Skill 包内置 + zip 导入 + 两个付款条件双层去重 + 完整原文；界面轮 12：主题色下线改三档配色 + Skill 工具与文本附件 + 头像裁剪 + 标签行 + 历史即时刷新 + 条款切分精度 + 左原文右意见独立滚动；界面轮 10：账户设置改成 B 端分区弹窗（个人信息 / 通用 / 数据管理 / 关于）+ 主题色 5 套 + 界面字号三档 + 侧栏不再显示昵称/邮箱；界面轮 9：个人账户弹窗（头像/昵称/系统设置/二次确认清数据）+ Skill 查看与编辑 + 仓库紧凑化 + 厂商 10→20 + 阻止密码自动填充；界面轮 8：注册 not found 根因（旧进程 0.9.0）+ Skill 支持 Markdown/文件夹导入；界面轮 7：Skill 仓库独立页 + 自绘下拉 + 页脚贴右/降高 + 输入区收窄；界面轮 6：审查历史子目录 + 记录改名/置顶/删除 + 侧栏 Skill 仓库 + 满屏 + 弹窗定高；界面轮 5：账号 / 审查记录 / Skill / BYOK；界面轮 4：侧栏保留 + 主区两屏；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
 > 状态标记：`[OPEN]` 待处理 / `[CLOSED]` 已解决 / `[DEFERRED]` 本阶段不处理
 > 规则：未决事项不写进代码；影响架构的必须先拍板，再进第二阶段。
-> 本轮变化：界面轮 14 回应“离 agent 越走越远”——按 **ADR-015** 真正加了一层 Agent 能力，同时守住“规则唯一判级”：①**多智能体专家并行**（`app/nodes/experts.py`）：`validate_extraction` 之后按 `clause_type` + 关键词**确定性路由**出“付款 / 交付 / 争议”三个专家，LangGraph 并行 fan-out，汇合后进 `evaluate_rules`；专家输出 `ExpertOpinion`/`ExpertDraft` **没有 `risk_level`**、引文必须能在条款原文定位（否则丢弃并记 `quote_not_found`），失败/无 Key 只写 `expert_notes`；并行分支只写带 `operator.add` 的字段，`degraded_steps`/`warnings` 由汇合节点单点写（避免并发写冲突）；**关闭 ISSUE-016**；②**只读工具层**（`app/services/tools.py` + `app/nodes/research.py`）：`rules` 之后插一次 `research_tools`，4 个本地工具（条款目录 / 关键词定位 / 字段回读 / 知识检索）+ **MCP stdio JSON-RPC 子集**（`initialize → tools/list → tools/call`，零新依赖、`shell=False`、超时杀进程、单行 ≤1 MB、服务器只来自 `.env`）；LLM 规划 ≤3 次，**无 LLM 时退化为确定性检索**（离线也能演示）；白名单外的调用只记 `ok=False` 不执行；每次调用留 `ToolCallRecord`（参数/摘要截断、耗时、成败、引用）；③解释侧新增 `<untrusted_experts>` / `<untrusted_tools>` 两段数据区并做结束标签转义，引用白名单扩成“本条 RAG 命中 ∪ 工具返回的 citation”；④逐条审查页新增“参考 · 专家”区块（**中性色，明确写“不代表风险等级”**）与折叠的“Agent 轨迹”；⑤两个开关 `AGENTS_ENABLED` / `TOOLS_ENABLED` 默认 `false`，关闭时拓扑与结论和原来**完全一致**（有对照测试）；`API_VERSION` 1.0.0 → **1.1.0**；**新增 ISSUE-032**（额外调用成本、MCP 信任边界、真实外部 API 未接）。界面轮 13 按 5 条反馈做：①**上传上限 15→30 MB**（`MAX_UPLOAD_MB` 单一配置源，前端 `MAX_BYTES`、错误文案、首屏提示同步，测试钉住）；②**图片 PDF 本地 OCR**——`pypdfium2` 渲染 + `rapidocr-onnxruntime`（离线 ONNX），只在整份 PDF 文本 < 50 字或单页 < 10 字时触发，≤20 页、逐页降级，OCR 文本只进 `raw_text`、**不参与判级**（**新增 ISSUE-030**）；③桌面 4 个外部 Skill 包复制进 `app/resources/skills/` 作 `builtin:*`，`instruction` 提炼关注方向、原 `SKILL.md` 与 references 作只读附件（**新增 ISSUE-031**：来源/授权未确认、正文截断到 6000 字）；④“两个付款条件”定位为旧切分把双语标题后的英文段再切成一条并吞掉后 4 条 → 切分侧 `_merge_duplicate_headings()` + 展示侧 `_merge_adjacent_duplicates()` 双层合并（旧记录不重跑也能修正）；结果页合同名 / Skill / 审查重点 / 状态收成**同一行标签**；左栏新增**原文全文** tab（`contract_text` 一次返回，按 `\n\n` 分段、段内 `<br>`，保持原文件排版，不再机械拆分）；⑤**zip Skill 包导入**——根目录 `SKILL.md` 必填、只收文本、内存解析不落盘、**包内脚本不执行**、`allowed-tools` 不映射（`POST /api/skills/import`）。界面轮 12 把**主题色 5 套下线**（用户反馈“改不了”），改成 **白天 / 黑夜 / 跟随系统** 三档（`html[data-scheme]` + `matchMedia`，深色变量从 `@media` 搬进属性选择器）；Skill 从“一段提示词”扩成 **指令 + 5 个可声明工具 + 只读文本附件**（`.py/.md/.txt`，≤5 个 / ≤6000 字，新增 `GET /api/skills/tools`，**绝不执行**）——**新增 ISSUE-029**（工具只影响 focus 文案、附件不执行且存在提示注入面）；头像上传后进 `#avatar-crop-dialog` 自己拖动/缩放再存 128×128 JPEG（服务端仍不重新编码，归 ISSUE-025）；审查页顶部改为**标签行**并删掉整段对话式叙述（**ISSUE-027 关闭**）；`refreshHistory()` 让审查/确认后侧栏历史立即更新（无推送，归 ISSUE-022）；未命中规则改“这一条没有发现需要修改的地方”；`segment.py` 修 4 类误切 + 目录短标题 + 前言标注；逐条审查左目录与原文、右意见与“采用修改/保留原文/撤销”，三块各自滚动。界面轮 10 把账户弹窗改成 **B 端设置形态**（左侧分区导航“个人信息 / 通用 / 数据管理 / 关于”，右侧面板切换；弹窗 760×560，窄屏导航转横向），通用区新增**主题色 5 套**（只换 `--accent`，风险语义色不动）与**界面字号 小/标准/大**（`--ui-text-scale` + 全量 `font-size: calc(...)`），个人信息补只读注册时间，数据管理加两张统计卡，关于区显示版本与政策入口；侧栏左下角**删掉昵称/邮箱**，只留“退出登录 + 头像”——**ISSUE-025** 补“偏好只在本机、无手动深色开关”，**ISSUE-022** 补“设置面板只做前端偏好、统计按需拉取”。界面轮 9 把 Skill 仓库列表改成**一行折叠**（点名称展开审查重点）、自建 Skill 可 `PATCH /api/skills/{id}` 编辑（推荐只读、可“存为我的”），右栏面板收紧凑；侧栏“退出登录”右侧加**圆形头像** → `#account-dialog`（换头像 / 改昵称 / 减少动效 / 自动聚焦 / 清除本机缓存 / 清空审查记录，两个清除动作都二次确认）；头像压成 128×128 JPEG 存 data URL（`users.avatar` 列 + 老库 `ALTER TABLE`）；厂商目录 10→20；API 配置 Key 输入改 `autocomplete="new-password"` 等属性，解决“点输入框弹出浏览器快捷填入账号密码”——**ISSUE-025** 补“无改密码/注销账号、头像不做服务端重编码”，**ISSUE-022** 补“清空记录逐条 DELETE、无批量接口”。界面轮 8 定位“注册显示 not found”是 **8000 端口跑着旧进程**（`openapi` 0.9.0，无 `/api/auth/*`）→ 重启为 1.0.0；并给 Skill 仓库加“从 Markdown 导入”（拖拽文件/文件夹 + 两个选择入口，前端解析 frontmatter/标题/首段，逐条 `POST /api/skills`，同名跳过、单次 30 个 / 单文件 200 KB）。**新增 ISSUE-026**（开发服务未开 `--reload`，前后端版本可能错位）。界面轮 7 把 Skill 仓库从弹窗改为独立页面 `#/skills`、原生 select 换成自绘 listbox、页脚铺满并贴右降高、输入区 880→720。界面轮 6 把“当前审查”改成侧栏“审查历史”子目录（记录可改名/置顶/删除，`PATCH|DELETE /api/reviews/{id}`），Skill 仓库入口收到侧栏、下拉末项固定为仓库，主区铺满屏幕，登录弹窗定高且登录/注册都必须手勾同意；**ISSUE-025** 补“同意条款未留痕（`consent_version`/`consent_at`）”与“删记录只清本机痕迹”；界面轮 5 按 ADR-013 增加账号、审查记录、Skill 仓库与 BYOK（**ISSUE-025**：账号/密钥的运维边界——密码找回、登录限流、主密钥备份、Cookie `Secure`、多 worker 运行时）；ISSUE-024 仍待做“这份报告怎么读”；ISSUE-021/020/009 与上轮一致（H39 故意不修、silver gold 待复核、覆盖率 52.4%）。
+> 本轮变化：界面轮 15 做**检索评测**（ISSUE-018，ADR-016）——把 `100问题.md` 的概念标签
+> （`CISG-25` / `INC-CIF A5` / `JI-CC-1`）通过 `data/eval/rag_label_map.yaml` + 通用条号解析
+> 翻成语料真实 citation（`CISG-ZH#s27` / `INCOTERMS-2020#s12` / `SPC-CONTRACT-2023#第一条`），
+> 生成可 diff 的 `data/eval/gold_rag.json`（**95 题可评测 / 5 题语料未覆盖**，未覆盖的不进分母）；
+> 新增 `eval/run_rag_eval.py`，同时报两套口径：`ranking`（top-5 不过阈值，看排序）与
+> `production`（`RAG_TOP_K`/`RAG_MIN_SCORE` 实际配置，看线上会不会返回空），并把
+> `lenient`（条文原文或解读稿）与 `strict`（只认条文原文）分开报；
+> 评测暴露“问第 584 条却让解读稿压过条文”后，按证据加了**排序加权**
+> （点名条号 ×2.5、条文原文再 ×1.1、点名法律名 ×1.15，抽不出条号就不猜、不过滤不清空）：
+> lenient **R@1 0.516→0.747、R@3 0.800→0.958、MRR 0.667→0.849**，
+> strict **R@1 0.158→0.305、R@3 0.390→0.758**；`app/services/chinese_numbers.py` 统一
+> “第584条 ↔ 第五百八十四条”的互转（检索与 gold 共用一份，避免评测命中而线上不命中）；
+> **关闭 ISSUE-018**，**新增 ISSUE-033**（剩余 4 道语义指代题、同义改写与跨语言提问仍靠词法检索）。
+> 界面轮 14 回应“离 agent 越走越远”——按 **ADR-015** 真正加了一层 Agent 能力，同时守住“规则唯一判级”：①**多智能体专家并行**（`app/nodes/experts.py`）：`validate_extraction` 之后按 `clause_type` + 关键词**确定性路由**出“付款 / 交付 / 争议”三个专家，LangGraph 并行 fan-out，汇合后进 `evaluate_rules`；专家输出 `ExpertOpinion`/`ExpertDraft` **没有 `risk_level`**、引文必须能在条款原文定位（否则丢弃并记 `quote_not_found`），失败/无 Key 只写 `expert_notes`；并行分支只写带 `operator.add` 的字段，`degraded_steps`/`warnings` 由汇合节点单点写（避免并发写冲突）；**关闭 ISSUE-016**；②**只读工具层**（`app/services/tools.py` + `app/nodes/research.py`）：`rules` 之后插一次 `research_tools`，4 个本地工具（条款目录 / 关键词定位 / 字段回读 / 知识检索）+ **MCP stdio JSON-RPC 子集**（`initialize → tools/list → tools/call`，零新依赖、`shell=False`、超时杀进程、单行 ≤1 MB、服务器只来自 `.env`）；LLM 规划 ≤3 次，**无 LLM 时退化为确定性检索**（离线也能演示）；白名单外的调用只记 `ok=False` 不执行；每次调用留 `ToolCallRecord`（参数/摘要截断、耗时、成败、引用）；③解释侧新增 `<untrusted_experts>` / `<untrusted_tools>` 两段数据区并做结束标签转义，引用白名单扩成“本条 RAG 命中 ∪ 工具返回的 citation”；④逐条审查页新增“参考 · 专家”区块（**中性色，明确写“不代表风险等级”**）与折叠的“Agent 轨迹”；⑤两个开关 `AGENTS_ENABLED` / `TOOLS_ENABLED` 默认 `false`，关闭时拓扑与结论和原来**完全一致**（有对照测试）；`API_VERSION` 1.0.0 → **1.1.0**；**新增 ISSUE-032**（额外调用成本、MCP 信任边界、真实外部 API 未接）。界面轮 13 按 5 条反馈做：①**上传上限 15→30 MB**（`MAX_UPLOAD_MB` 单一配置源，前端 `MAX_BYTES`、错误文案、首屏提示同步，测试钉住）；②**图片 PDF 本地 OCR**——`pypdfium2` 渲染 + `rapidocr-onnxruntime`（离线 ONNX），只在整份 PDF 文本 < 50 字或单页 < 10 字时触发，≤20 页、逐页降级，OCR 文本只进 `raw_text`、**不参与判级**（**新增 ISSUE-030**）；③桌面 4 个外部 Skill 包复制进 `app/resources/skills/` 作 `builtin:*`，`instruction` 提炼关注方向、原 `SKILL.md` 与 references 作只读附件（**新增 ISSUE-031**：来源/授权未确认、正文截断到 6000 字）；④“两个付款条件”定位为旧切分把双语标题后的英文段再切成一条并吞掉后 4 条 → 切分侧 `_merge_duplicate_headings()` + 展示侧 `_merge_adjacent_duplicates()` 双层合并（旧记录不重跑也能修正）；结果页合同名 / Skill / 审查重点 / 状态收成**同一行标签**；左栏新增**原文全文** tab（`contract_text` 一次返回，按 `\n\n` 分段、段内 `<br>`，保持原文件排版，不再机械拆分）；⑤**zip Skill 包导入**——根目录 `SKILL.md` 必填、只收文本、内存解析不落盘、**包内脚本不执行**、`allowed-tools` 不映射（`POST /api/skills/import`）。界面轮 12 把**主题色 5 套下线**（用户反馈“改不了”），改成 **白天 / 黑夜 / 跟随系统** 三档（`html[data-scheme]` + `matchMedia`，深色变量从 `@media` 搬进属性选择器）；Skill 从“一段提示词”扩成 **指令 + 5 个可声明工具 + 只读文本附件**（`.py/.md/.txt`，≤5 个 / ≤6000 字，新增 `GET /api/skills/tools`，**绝不执行**）——**新增 ISSUE-029**（工具只影响 focus 文案、附件不执行且存在提示注入面）；头像上传后进 `#avatar-crop-dialog` 自己拖动/缩放再存 128×128 JPEG（服务端仍不重新编码，归 ISSUE-025）；审查页顶部改为**标签行**并删掉整段对话式叙述（**ISSUE-027 关闭**）；`refreshHistory()` 让审查/确认后侧栏历史立即更新（无推送，归 ISSUE-022）；未命中规则改“这一条没有发现需要修改的地方”；`segment.py` 修 4 类误切 + 目录短标题 + 前言标注；逐条审查左目录与原文、右意见与“采用修改/保留原文/撤销”，三块各自滚动。界面轮 10 把账户弹窗改成 **B 端设置形态**（左侧分区导航“个人信息 / 通用 / 数据管理 / 关于”，右侧面板切换；弹窗 760×560，窄屏导航转横向），通用区新增**主题色 5 套**（只换 `--accent`，风险语义色不动）与**界面字号 小/标准/大**（`--ui-text-scale` + 全量 `font-size: calc(...)`），个人信息补只读注册时间，数据管理加两张统计卡，关于区显示版本与政策入口；侧栏左下角**删掉昵称/邮箱**，只留“退出登录 + 头像”——**ISSUE-025** 补“偏好只在本机、无手动深色开关”，**ISSUE-022** 补“设置面板只做前端偏好、统计按需拉取”。界面轮 9 把 Skill 仓库列表改成**一行折叠**（点名称展开审查重点）、自建 Skill 可 `PATCH /api/skills/{id}` 编辑（推荐只读、可“存为我的”），右栏面板收紧凑；侧栏“退出登录”右侧加**圆形头像** → `#account-dialog`（换头像 / 改昵称 / 减少动效 / 自动聚焦 / 清除本机缓存 / 清空审查记录，两个清除动作都二次确认）；头像压成 128×128 JPEG 存 data URL（`users.avatar` 列 + 老库 `ALTER TABLE`）；厂商目录 10→20；API 配置 Key 输入改 `autocomplete="new-password"` 等属性，解决“点输入框弹出浏览器快捷填入账号密码”——**ISSUE-025** 补“无改密码/注销账号、头像不做服务端重编码”，**ISSUE-022** 补“清空记录逐条 DELETE、无批量接口”。界面轮 8 定位“注册显示 not found”是 **8000 端口跑着旧进程**（`openapi` 0.9.0，无 `/api/auth/*`）→ 重启为 1.0.0；并给 Skill 仓库加“从 Markdown 导入”（拖拽文件/文件夹 + 两个选择入口，前端解析 frontmatter/标题/首段，逐条 `POST /api/skills`，同名跳过、单次 30 个 / 单文件 200 KB）。**新增 ISSUE-026**（开发服务未开 `--reload`，前后端版本可能错位）。界面轮 7 把 Skill 仓库从弹窗改为独立页面 `#/skills`、原生 select 换成自绘 listbox、页脚铺满并贴右降高、输入区 880→720。界面轮 6 把“当前审查”改成侧栏“审查历史”子目录（记录可改名/置顶/删除，`PATCH|DELETE /api/reviews/{id}`），Skill 仓库入口收到侧栏、下拉末项固定为仓库，主区铺满屏幕，登录弹窗定高且登录/注册都必须手勾同意；**ISSUE-025** 补“同意条款未留痕（`consent_version`/`consent_at`）”与“删记录只清本机痕迹”；界面轮 5 按 ADR-013 增加账号、审查记录、Skill 仓库与 BYOK（**ISSUE-025**：账号/密钥的运维边界——密码找回、登录限流、主密钥备份、Cookie `Secure`、多 worker 运行时）；ISSUE-024 仍待做“这份报告怎么读”；ISSUE-021/020/009 与上轮一致（H39 故意不修、silver gold 待复核、覆盖率 52.4%）。
 > 阅读提示：已关闭条目仍保留“决策前”的问题/选项/建议，最终以 **状态** 与 **决策** 段落为准。
 
 ---
@@ -26,10 +39,10 @@
 | ISSUE-012 | OPEN | P2 | 中文/复杂版式 PDF 未验证 | 补 CJK 字体 PDF fixture；用真实中文合同手测并记录 |
 | ISSUE-013 | OPEN | P1 | 真实 LLM 未联调 | 待用户提供 Key/模型名；先用 Fake LLM 覆盖降级路径 |
 | ISSUE-014 | OPEN | P2 | 长合同抽取覆盖不足（>40 条款跳过字段规则） | 先保守跳过；后续评估分块/提高上限并补评测 |
-| ISSUE-015 | OPEN | P1 | RAG 知识库授权与检索评测未确认 | 真实语料已入库（14 篇，含 DOCX 条文切分）；下一步确认对外引用授权并做检索评测 |
+| ISSUE-015 | OPEN | P1 | RAG 知识库授权与检索评测未确认 | 真实语料已入库（14 篇，含 DOCX 条文切分）；**检索评测已按 ADR-016 落地**（ISSUE-018 关闭）；剩下确认对外引用授权 |
 | ISSUE-016 | CLOSED | P2 | 多智能体专家角色与编排范围未定 | 界面轮 14 按 ADR-015 落地：付款 / 交付 / 争议三个并行专家 + 确定性白名单路由（不是聊天式 Supervisor）；专家 schema 无 `risk_level`、引文定位不到即丢弃；默认关闭 |
 | ISSUE-017 | CLOSED | P2 | HITL pending 时间戳只在进程内存 | 已落盘 `.data/pending/<review_id>.json`，跨进程超时判定有测试 |
-| ISSUE-018 | OPEN | P1 | 检索评测问题集的 source_id 与 manifest 不一致 | 建立 `100问题.md` → manifest `source_id#section` 映射后再报召回率 |
+| ISSUE-018 | CLOSED | — | 检索评测问题集的 source_id 与 manifest 不一致 | 界面轮 15 按 ADR-016 落地：`data/eval/rag_label_map.yaml` + `eval/rag_gold.py` 生成 `gold_rag.json`（95 题可评测 / 5 题语料未覆盖），`eval/run_rag_eval.py` 报 ranking / production × lenient / strict 四组指标；lenient R@3 0.800→0.958、strict R@3 0.390→0.758（点名条号/来源加权） |
 | ISSUE-019 | OPEN | P2 | 并发锁仅进程内、上传/报告文件无清理策略 | 单机演示可接受；多进程部署前需换文件锁/数据库并加保留期 |
 | ISSUE-020 | OPEN | P1 | 规则级 gold、留出合同集与模拟合同数量不符 | silver gold（21 现象）+ 四批留出集（40 份）已就位；**待人工复核**，且用户所称 60 份实为 50 份 |
 | ISSUE-021 | OPEN | P1 | 规则对英文条款与同义改写漏报 | 已修两轮（version 4 → 5）：英文/同义改写、子串误命中、窗口截断、保额全文级判定、3 类措辞写法；holdout4 仍剩 H39 一个漏报（modal 与动词间插时间状语），下轮修 + 另写 holdout5 |
@@ -44,6 +57,7 @@
 | ISSUE-030 | OPEN | P2 | 图片 PDF 的 OCR 精度、触发条件与页数上限 | `pypdfium2` + RapidOCR 只在整份文本 < 50 字或单页 < 10 字时兜底，≤20 页；英文可能吞空格（`SALESCONTRACT`）、中文/表格可能串行；报告统一写“请人工核对”；换更强模型/版面分析需另评 |
 | ISSUE-031 | OPEN | P2 | 4 个外部 Skill 包的来源与授权未确认、正文存在截断 | 复制进 `app/resources/skills/` 作 `builtin:*`；`SKILL.md`/references 只保留前 6000 字并标“（节选）”；对外分发前需确认授权与完整正文的存放方式 |
 | ISSUE-032 | OPEN | P2 | 专家并行与工具层的成本、信任边界与真实外部数据 | 每次审查多 3 次专家调用 + 1 次工具规划 + ≤3 次工具执行；MCP 属外部子进程信任边界（`shell=False`、只读、超时杀进程）；真实外部 API（制裁名单 / 汇率 / HS 编码 / 征信）需密钥与授权，未接 |
+| ISSUE-033 | OPEN | P2 | 词法检索的两类结构性短板：无条号的语义指代题、同义改写/跨语言提问 | 100 题里仍剩 4 道（#4/#6/#43/#100）属“不点条号的指代”，同义改写与中英互问仍靠词法共现；目前**不调参过拟合**，后续按需做查询改写（在检索前扩同义词/条号），或受限语义检索（须改 ADR-008） |
 
 ---
 
@@ -272,7 +286,7 @@
 
 ## ISSUE-015 · RAG 知识库授权与检索评测未确认
 
-- **状态**：OPEN（2026-10-27 语料已提供，链路已跑通；授权与评测待确认）
+- **状态**：OPEN（2026-10-27 语料已提供，链路已跑通；**检索评测已于界面轮 15 落地**，授权待确认）
 - **优先级**：P1（影响“知识引用能否对外展示”与检索质量结论）
 - **已解决**：
   - 用户已将真实语料放入 `data/knowledge/`（CISG 中英、Incoterms 2020、民法典、涉外民事关系法律适用法、6 份最高法司法解释、UCP600/仲裁要点、内部红线清单）；
@@ -283,7 +297,9 @@
   1. **授权边界**：`license` 字段只是当前标注（如 `ICC-copyright-internal-use-only`、`official-text-verify-reuse`），是否允许在演示/答辩中展示原文、是否允许再分发，仍需业务/法务确认；
   2. **effective_date 复核**：日期取文件标题/文件名标注，对外引用前需按官方文本核对；
   3. **旧版 `.doc`**（`最高人民法院关于涉外民商事案件诉讼管辖若干问题的规定_20201229.doc`）未入库，需转换为 `.docx` 或 `.md`；
-  4. **检索评测**：尚未跑 `100问题.md` 的 100 条 query，且其 `source_id` 命名与 manifest 不一致（ISSUE-018）。
+  4. **检索评测**：已在界面轮 15 按 ADR-016 完成——100 题经 `data/eval/rag_label_map.yaml` 翻成真实 citation，
+     分母 95 题（5 题语料未覆盖），`ranking / production × lenient / strict` 四组指标见
+     `eval/results/rag-20261028.json`；仍剩 4 道无条号指代题（ISSUE-033）。
 - **默认**：`RAG_ENABLED=false`；开启后只增强解释，不参与判级；知识引用必须能在 `source_id#section` 定位。
 - **禁止**：把无授权文本、抓取的付费标准全文、或模型记忆当成知识库引用。
 
@@ -336,7 +352,7 @@
 
 ## ISSUE-018 · 检索评测问题集的 source_id 与 manifest 不一致
 
-- **状态**：OPEN
+- **状态**：CLOSED（界面轮 15，ADR-016）
 - **优先级**：P1（影响 RAG 检索评测与任何“召回率”数字）
 - **现象**：`data/knowledge/100问题.md` 的 100 条 query 使用 `CISG-25`、`CISG-39(2)`、`INC`、`LAW`、`CC`、`JI`、`RISK` 等命名，而 manifest 的 `source_id` 是 `CISG-ZH / CISG-EN / CISG-KEY / INCOTERMS-2020 / CN-CIVIL-CODE / CN-LAW-APPLICATION / SPC-* / RISK-REDLINE`；section 也是自然语言描述而非 `sN` / `第X条`。
 - **影响**：直接跑评测会把“正确命中”误判为“未命中”，无法给出可信召回率。
@@ -345,6 +361,31 @@
   2. 检索结果允许“多命中”，评测按 `source_id` 与条文号（docx）或章节语义（md）匹配；
   3. 评测结果写入 `eval/results/*.json`，含 `RAG_TOP_K` / `RAG_MIN_SCORE` / 语料版本。
 - **禁止**：在映射完成前宣称“RAG 召回率 X%”。
+
+- **解决方式（界面轮 15，ADR-016）**：
+  1. **两层映射**：概念标签（`CISG-25` / `INC-CIF A5` / `JI-CC-1`）先由 `eval/rag_gold.py`
+     用通用条号正则（`CISG-N` / `CC-N` / `LAW-N` / `JI-CC-N`）转成语料真实条号，
+     人工判断的部分（Incoterms 主题标题、红线清单条目等 27 个标签）落在
+     `data/eval/rag_label_map.yaml`，两者都写成 `source_id#section` 形式；
+  2. **一个标签 → 多条可接受片段**：中文原文 / 英文原文 / 解读稿都算命中，
+     生成物 `data/eval/gold_rag.json` 可 diff、可复核，并带 `generated_at` 与语料 `chunk_count`；
+  3. **语料缺口不进分母**：`gaps` 显式登记（如 CLOUT 未收录），含缺口标签且无任何可定位片段的题
+     单独标“语料未覆盖”，因此分母是 **95 题**而不是 100 题（5 题：#42/#69/#86/#87/#88）；
+  4. **两套口径分开报**：`ranking`（top-5、`min_score=0`，看排序能力）与
+     `production`（真实 `RAG_TOP_K` / `RAG_MIN_SCORE`，看线上会不会返回空），
+     `lenient`（条文或解读稿）与 `strict`（只认条文原文）分开，**禁止混读**；
+  5. **gold 过期守卫**：`tests/test_rag_eval.py::test_committed_gold_matches_current_corpus`
+     用当前语料重建 gold 与提交物比对，语料或题目一改就失败，避免“旧 gold 报新数”。
+- **实测（`eval/results/rag-20261028.json`）**：
+  - ranking lenient：R@1 0.516→**0.747**、R@3 0.800→**0.958**、R@5 0.874→**0.979**、MRR 0.667→**0.849**；
+  - ranking strict：R@1 0.158→**0.305**、R@3 0.390→**0.758**、R@5 0.537→**0.821**、MRR 0.290→**0.524**；
+  - production（`top_k=3` / `min_score=1.0`）：lenient 与 ranking 前三位一致，说明加权没有把线上结果挤空。
+  - 加权只改排序（点名条号 ×2.5、条文原文再 ×1.1、点名法律名 ×1.15），不打分新片段、不过滤、不改判级；
+    抽不出条号时全 1.0，退化为原 BM25。
+- **残余**：仍剩 4 道无条号的语义指代题（#4/#6/#43/#100），归 **ISSUE-033**。
+- **证据**：`eval/rag_gold.py`、`eval/rag_eval.py`、`eval/run_rag_eval.py`、`data/eval/rag_label_map.yaml`、
+  `data/eval/gold_rag.json`、`app/services/chinese_numbers.py`、`app/services/rag.py`、
+  `tests/test_rag_eval.py`（6 项）、`tests/test_rag_boost.py`（6 项）、ADR-016。
 
 ---
 
@@ -635,6 +676,26 @@
   - 专家资料由用户提供后再补 prompt 与 fixture，不靠模型自由发挥。
 - **证据**：`app/services/tools.py`（MCP 客户端与白名单）、`app/nodes/experts.py`、`app/nodes/research.py`、
   `tests/test_tools.py`（伪 MCP 服务器）、`tests/test_agents.py`、ADR-015。
+
+---
+
+## ISSUE-033 · 词法检索的两类结构性短板（无条号指代、同义改写/跨语言）
+
+- **状态**：OPEN
+- **优先级**：P2（当前 R@3 已可用，属于“继续提升”而非“不能用”）
+- **现象**：
+  1. `100问题.md` 里有 4 道题**不点条号**、靠上位指代（如“根本违约与解除是什么关系”），
+     加权机制对它们无效，仍未进 top-5；
+  2. BM25 + 字符 n-gram 只能靠**词面共现**，用户把“适用法律”写成“准据法”、
+     用英文问中文条文、或换一套同义措辞时，召回会明显下降。
+- **影响**：演示时若用户不按题库措辞提问，引用命中率低于评测数字；不影响判级（规则唯一判级）。
+- **默认建议**：
+  - 先做**查询改写**（检索前把条号/法律名/术语补进 query），仍是确定性、可测试、离线的；
+  - 不做“调参到过拟合”：权重与阈值只有在**新留出集**上复现收益才改；
+  - 若确需语义检索，必须新写 ADR 并守住“离线可跑、零外部 embedding 服务、引用可追溯”，
+    不能顺手违反 ADR-008 的边界。
+- **证据**：`eval/results/rag-20261028.json`（`misses_beyond_k` / `not_top1` 字段）、
+  `tests/test_rag_eval.py`、`tests/test_rag_boost.py`、ADR-016。
 
 ---
 

@@ -28,6 +28,7 @@ from pathlib import Path
 import yaml
 
 from app.config import settings
+from app.services.chinese_numbers import NumberFormatError, from_chinese_number, to_chinese_number
 
 MANIFEST_FILENAME = "manifest.yaml"
 MANIFEST_VERSION = 1
@@ -76,6 +77,39 @@ BM25_B = 0.75
 #: 相对阈值：只保留得分不低于最高分 25% 的片段，避免长尾噪声混入提示词
 RELATIVE_SCORE_RATIO = 0.25
 
+#: 提问里点名条号时的加权（检索评测 ISSUE-018 的证据驱动：条号题 strict R@1 仅 0.16）。
+#: 只做“同一片段排序加权”，不过滤、不改判级；数值来自 100 题评测的对照实验。
+ARTICLE_HEADING_BOOST = 2.5
+SAME_SOURCE_BOOST = 1.15
+#: 条文原文优先于解读稿（否则问“第25条”时解读稿常压过公约原文）
+PRIMARY_SOURCE_BOOST = 1.1
+COMMENTARY_SOURCES = frozenset({"CISG-KEY"})
+
+#: 提问中出现这些说法时认为用户在指某部法，给对应来源加权（不是硬过滤）
+SOURCE_HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"民法典"), "CN-CIVIL-CODE"),
+    (re.compile(r"法律适用法解释"), "SPC-LAW-APPLICATION-2023"),
+    (re.compile(r"法律适用法"), "CN-LAW-APPLICATION"),
+    (re.compile(r"合同编通则"), "SPC-CONTRACT-2023"),
+    (re.compile(r"总则编"), "SPC-GENERAL-2022"),
+    (re.compile(r"民诉法解释|民事诉讼法解释|管辖"), "SPC-JURISDICTION-2022"),
+    (re.compile(r"保险法解释"), "SPC-INSURANCE-2009"),
+    (re.compile(r"条约"), "SPC-TREATY-2023"),
+    (re.compile(r"UCP\s*600|信用证", re.IGNORECASE), "UCP600-ARB"),
+    (
+        re.compile(
+            r"incoterms|国际贸易术语|(?<![A-Z])(?:EXW|FCA|FAS|FOB|CFR|CIF|CPT|CIP|DAP|DPU|DDP)",
+            re.IGNORECASE,
+        ),
+        "INCOTERMS-2020",
+    ),
+    (re.compile(r"CISG|销售合同公约|维也纳公约", re.IGNORECASE), "CISG-ZH"),
+    (re.compile(r"红线"), "RISK-REDLINE"),
+)
+
+#: `第584条` / `第39(2)条` / `第49(1)(b)条` / `第2条第2款`：款项写法不影响取条号
+_NUMBERED_ARTICLE_RE = re.compile(rf"第\s*({_NUMBER})\s*(?:[（(][^)）]*[)）])*\s*条")
+
 
 class KnowledgeConfigError(RuntimeError):
     """知识库目录/manifest/文件不合法；调用方应告警并退化为纯规则解释。"""
@@ -107,6 +141,58 @@ class KnowledgeChunk:
     text: str
     citation: str
     score: float = 0.0
+
+
+def _article_numbers(query: str) -> tuple[int, ...]:
+    """从提问里抽出被点名的条号（`第584条` / `第39(2)条` / `CISG 第7条`）。
+
+    只认“第…条”这种明确指条文的写法；抽不出来就返回空，检索退化为纯 BM25。
+    """
+    numbers: list[int] = []
+    for run in _NUMBERED_ARTICLE_RE.findall(query):
+        try:
+            number = from_chinese_number(run)
+        except NumberFormatError:
+            continue
+        if number not in numbers:
+            numbers.append(number)
+    return tuple(numbers)
+
+
+def _heading_matches_article(heading: str, numbers: tuple[int, ...]) -> bool:
+    """判断片段标题是不是被点名的条文（中文条号 / `第25条｜` / `Article 25`）。"""
+    for number in numbers:
+        if heading == f"第{number}条" or heading.startswith(f"第{number}条｜"):
+            return True
+        try:
+            if heading == f"第{to_chinese_number(number)}条":
+                return True
+        except NumberFormatError:  # pragma: no cover - 条号已在校验时筛过
+            continue
+        if heading == f"Article {number}":
+            return True
+    return False
+
+
+def _query_boosts(query: str, chunks: tuple[KnowledgeChunk, ...]) -> list[float]:
+    """按“提问是否点名条号 / 来源”给每个片段一个乘数；没有线索时全 1.0。"""
+    numbers = _article_numbers(query)
+    sources = {source for pattern, source in SOURCE_HINTS if pattern.search(query)}
+    if not numbers and not sources:
+        return [1.0] * len(chunks)
+
+    boosts: list[float] = []
+    for chunk in chunks:
+        boost = 1.0
+        is_primary = chunk.source_id not in COMMENTARY_SOURCES
+        if numbers and _heading_matches_article(chunk.heading.strip(), numbers):
+            boost *= ARTICLE_HEADING_BOOST
+            if is_primary:
+                boost *= PRIMARY_SOURCE_BOOST
+        if chunk.source_id in sources:
+            boost *= SAME_SOURCE_BOOST
+        boosts.append(boost)
+    return boosts
 
 
 def tokenize(text: str) -> list[str]:
@@ -402,6 +488,11 @@ class KnowledgeBase:
                 scores[index] += (
                     idf * term_frequency * (BM25_K1 + 1) / (term_frequency + BM25_K1 * norm)
                 )
+
+        # 提问点名条号/来源时，同一条文的片段优先（只改排序，不增删片段）
+        boosts = _query_boosts(query, self.chunks)
+        if any(boost != 1.0 for boost in boosts):
+            scores = [score * boost for score, boost in zip(scores, boosts, strict=True)]
 
         ranked = sorted(
             (
