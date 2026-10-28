@@ -59,7 +59,13 @@ from app.services.clause_review import build_clause_reviews
 from app.services.llm import LLMNotConfigured, LLMRuntime, probe_llm
 from app.services.llm_providers import provider_payload, resolve_provider
 from app.services.pending_store import FilePendingStore
-from app.services.skill_catalog import Skill, compose_focus
+from app.services.skill_catalog import (
+    MAX_SKILL_ASSET_CHARS,
+    MAX_SKILL_ASSETS,
+    TOOL_CATALOG,
+    Skill,
+    compose_focus,
+)
 
 API_TITLE = "Agent Alex · 外贸合同智审助手"
 API_VERSION = "1.0.0"
@@ -165,12 +171,25 @@ class SkillList(BaseModel):
     builtin_count: int
 
 
+class SkillAssetPayload(BaseModel):
+    """Skill 附件：Python 脚本 / Markdown 说明的**文本**（只读，永远不执行）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=120)
+    content: str = Field(default="", max_length=MAX_SKILL_ASSET_CHARS)
+
+
 class SkillCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=40)
     description: str = Field(default="", max_length=160)
     instruction: str = Field(min_length=1, max_length=1000)
+    #: 声明调用的工具 id（见 TOOL_CATALOG；未知 id 会被忽略）
+    tools: list[str] = Field(default_factory=list, max_length=8)
+    #: 附件（.py / .md / .txt 文本；最多 5 个，单个 ≤ 6000 字符）
+    assets: list[SkillAssetPayload] = Field(default_factory=list, max_length=MAX_SKILL_ASSETS)
 
 
 class LLMUpdate(BaseModel):
@@ -541,6 +560,11 @@ def create_app(
             builtin_count=sum(1 for skill in skills if skill.builtin),
         )
 
+    @app.get("/api/skills/tools")
+    def list_skill_tools() -> dict:
+        """Skill 可声明的工具目录（只读；工具本身由后端实现，Skill 不能新增可执行代码）。"""
+        return {"tools": [tool.model_dump() for tool in TOOL_CATALOG]}
+
     @app.post("/api/skills", response_model=Skill, status_code=201)
     def create_skill(payload: SkillCreate, request: Request) -> Skill:
         user = require_user(request)
@@ -549,6 +573,8 @@ def create_app(
             name=payload.name,
             description=payload.description,
             instruction=payload.instruction,
+            tools=payload.tools,
+            assets=[asset.model_dump() for asset in payload.assets],
         )
 
     @app.patch("/api/skills/{skill_id}", response_model=Skill)
@@ -565,6 +591,8 @@ def create_app(
             name=payload.name,
             description=payload.description,
             instruction=payload.instruction,
+            tools=payload.tools,
+            assets=[asset.model_dump() for asset in payload.assets],
         )
 
     @app.delete("/api/skills/{skill_id}", status_code=204)

@@ -161,6 +161,27 @@ def test_clauses_are_grouped_without_rejudging() -> None:
     assert by_id["c3"].revised_text is None
 
 
+def test_preamble_is_labelled_and_not_numbered() -> None:
+    """前言单独标注为“前言”，不当作“第 1 条”，也不会抢正文条款的编号。"""
+    state = _state()
+    state.clauses.insert(
+        0,
+        Clause(
+            clause_id="c0",
+            title="",
+            text="SALES CONTRACT\nSeller: A\nBuyer: B",
+            page=1,
+            clause_type="preamble",
+        ),
+    )
+    view = build_clause_reviews(state)
+    assert [clause.index for clause in view.clauses] == [1, 2, 3, 4]
+    assert view.clauses[0].is_preamble is True
+    assert view.clauses[0].title == "前言"
+    assert view.clauses[1].is_preamble is False
+    assert view.clauses[1].title == "2. Price and Payment"
+
+
 def test_findings_are_displayed_red_before_yellow() -> None:
     """展示顺序统一“红在前、黄在后”，输入顺序反过来也一样（等级本身不变）。"""
     state = _state()

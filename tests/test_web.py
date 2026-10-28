@@ -302,6 +302,76 @@ def test_skill_dialog_events_are_delegated_to_document() -> None:
     assert 'id="skill-form"' in page
 
 
+def test_skill_can_declare_tools_and_attach_text_files() -> None:
+    """Skill 不只有提示词：可勾选“调用工具”，也可附加 .py / .md 文本（只读，不执行）。"""
+    page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    # 表单里两块新区域：工具多选 + 附件（明确写“不会被运行”）
+    assert 'id="skill-tools"' in page
+    assert 'id="skill-asset-pick"' in page
+    assert 'id="skill-asset-input"' in page
+    assert 'id="skill-asset-list"' in page
+    assert "不会被运行" in page
+    assert 'accept=".py,.md,.markdown,.txt"' in page
+
+    # 前端从后端工具目录取选项，并随表单一起提交 tools / assets
+    assert 'api("/api/skills/tools")' in script
+    assert "function loadSkillTools" in script
+    assert "function renderToolChips" in script
+    assert "function renderAssetList" in script
+    assert "function addSkillAssets" in script
+    assert "tools: state.skillTools" in script
+    assert "assets: state.skillAssets" in script
+    assert "SKILL_ASSET_SUFFIXES" in script
+    assert "MAX_SKILL_ASSETS" in script
+    # 启动就加载工具目录（否则弹窗里一个胶囊都没有）
+    assert script.count("loadSkillTools()") >= 2
+
+    # 列表/方块上显示“几个工具 · 几个附件”，附件只读展示在展开区
+    assert "function skillMetaLine" in script
+    assert "skill-tile-meta" in script
+    assert "skill-asset-readonly" in script
+    assert ".tool-chips" in styles and ".tool-chip" in styles
+    assert ".asset-list" in styles and ".asset-code" in styles
+    assert ".skill-tile-meta" in styles and ".skill-asset-readonly" in styles
+
+
+def test_review_history_refreshes_right_after_review_and_decision() -> None:
+    """第 6 条：审查完一份合同后侧栏历史立刻多一条，不用刷新页面。"""
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "async function refreshHistory" in script
+    # 静默拉取 + 重渲染；不覆盖审批徽标
+    body = script.split("async function refreshHistory()", 1)[1][:600]
+    assert '"/api/reviews?limit=20"' in body
+    assert "renderHistory()" in body
+    assert "setBadge" not in body
+
+    # 两个入口都调用：开始审查成功后、人工确认成功后
+    start = script.split("async function startReview(", 1)[1].split("\n  function", 1)[0]
+    assert "await refreshHistory()" in start
+    decide = script.split("async function decide(", 1)[1].split("\n  function", 1)[0]
+    assert "await refreshHistory()" in decide
+
+    # 登录后“登录后可以查看…”提示要收起
+    assert "hint.hidden = true" in script
+
+
+def test_clause_toc_uses_contract_numbering() -> None:
+    """左栏目录用合同自带编号（跳号也照抄），标题里重复的“5.”不再出现在名称列。"""
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "function clauseNumber" in script
+    assert "function clauseName" in script
+    assert "function clauseLabel" in script
+    # 前言不叫“第 1 条”
+    assert 'if (clause.is_preamble) return "前言";' in script
+    # 名称列去掉与序号列重复的编号
+    assert "replace(/^\\s*\\d{1,3}\\s*[.、]\\s*/, \"\")" in script
+
+
 def test_llm_form_does_not_trigger_password_autofill() -> None:
     """API 配置不是账号密码：阻止浏览器把保存的账号密码“快捷填入”。"""
     page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
@@ -345,15 +415,24 @@ def test_account_dialog_has_profile_settings_and_confirm_clear() -> None:
     assert 'id="account-name"' in page
     assert 'id="account-created"' in page
 
-    # 通用：主题色 / 字号 / 两个交互开关 / 恢复默认
-    assert 'data-theme-value="teal"' in page
+    # 通用：配色模式（白天 / 黑夜 / 跟随系统）+ 字号 + 两个交互开关 + 恢复默认
+    assert 'data-scheme-value="light"' in page
+    assert 'data-scheme-value="dark"' in page
+    assert 'data-scheme-value="system"' in page
+    # 主题色已下线：不再有 5 套主题点
+    assert 'data-theme-value="teal"' not in page
+    assert "data-theme=" not in styles and ".theme-dot" not in styles
     assert 'data-font-value="lg"' in page
     assert 'id="pref-motion"' in page
     assert 'id="pref-autofocus"' in page
     assert 'id="pref-reset"' in page
-    assert "root.dataset.theme" in script and "root.dataset.font" in script
+    assert "root.dataset.scheme" in script and "root.dataset.font" in script
+    assert "function resolvedScheme" in script
+    assert 'matchMedia("(prefers-color-scheme: dark)")' in script
+    assert 'html[data-scheme="dark"]' in styles
     assert "--ui-text-scale" in styles and 'html[data-font="lg"]' in styles
-    assert ".theme-dot" in styles and ".account-nav" in styles
+    assert ".account-nav" in styles
+    assert ".seg-item .seg-icon" in styles
 
     # 数据管理：统计 / 清除本机缓存 / 清空审查记录
     assert 'id="data-review-count"' in page
@@ -365,9 +444,16 @@ def test_account_dialog_has_profile_settings_and_confirm_clear() -> None:
     assert 'id="account-confirm-yes"' in page
     assert 'id="account-confirm-no"' in page
     assert "askClear" in script and "runClear" in script
-    # 头像在浏览器压成 128px 方图后走同一套 profile 接口
-    assert "squareThumbnail" in script
+    # 头像：选图后先裁剪（拖动 / 缩放）再压成 128px 方图，走同一套 profile 接口
+    assert 'id="avatar-crop-dialog"' in page
+    assert 'id="avatar-crop-canvas"' in page
+    assert 'id="avatar-crop-zoom"' in page
+    assert "function cropResult" in script
+    assert "function cropGeometry" in script
+    assert "function openCropDialog" in script
+    assert "128" in script
     assert "/api/auth/profile" in script
+    assert ".crop-stage" in styles
     assert ".avatar-large" in styles and ".account-confirm" in styles
 
 
@@ -489,37 +575,54 @@ def test_runtime_internals_stay_out_of_the_ui() -> None:
     assert "接口文档" in page
 
 
-def test_review_is_streamed_as_chat_then_split_into_clause_panes() -> None:
-    """上传后先以对话形式流式返回，再左右分屏逐条审查（左原文 / 右意见）。"""
+def test_review_shows_chips_then_split_into_clause_panes() -> None:
+    """界面轮 12：顶部只留标签行，直接左右分屏（左原文目录 / 右意见），不再有对话流。"""
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
-    # 对话：用户气泡 + 助手气泡 + 逐段写入的流式目标
-    assert 'class="review-shell"' in script
-    assert 'class="chat-thread"' in script
-    assert "msg is-user" in script and "msg is-ai" in script
-    assert 'id="ai-stream"' in script
-    assert "function streamText" in script
-    assert "function chatNarrative" in script
-    # 内容必须来自真实审查结果（条款聚合接口），不是前端编造
+    # 对话式长叙述已删除：没有气泡、没有流式定时器
+    for gone in ("function streamText", "function chatNarrative", "function stopStream"):
+        assert gone not in script, f"app.js 仍保留对话叙事：{gone}"
+    assert 'id="ai-stream"' not in script
+    assert ".chat-thread" not in styles and ".msg-bubble" not in styles
+    assert "streamTimer" not in script
+
+    # 合同 / Skill / 审查重点压成标签行（长文本省略 + hover 全文）
+    assert 'class="review-chips" id="review-chips"' in script
+    assert "function reviewChip" in script
+    assert 'class="chip-tag' in script and "chip-wide" in script
+    assert ".chip-tag" in styles and ".chip-tag.chip-wide" in styles
+
+    # 内容来自真实审查结果（条款聚合接口），不是前端编造
     assert "/clauses" in script
     assert "state.clauseView" in script
-    # 流式结束后才展开工作台（避免边输出边抖动）
-    assert "box.hidden = false" in script
-    assert ".workbench[hidden]" in styles
 
-    # 左右分屏：左条款列表 + 右条款详情
-    assert 'class="workbench-grid"' in script
-    assert 'id="clause-list"' in script
-    assert 'id="clause-detail"' in script
-    assert "grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.6fr)" in styles
-    assert ".clause-list" in styles and ".clause-detail" in styles
+    # 直接展示工作台（不再等“流式输出结束”）
+    assert '<div class="workbench" id="workbench">' in script
+    assert ".workbench[hidden]" not in styles
+
+    # 左栏：目录（自己滚）+ 选中条款原文（固定下方，单独滚）；右栏：审查意见
+    assert '<div class="clause-pane" id="clause-pane">' in script
+    assert 'id="clause-list"' in script and 'id="clause-detail"' in script
+    assert 'id="clause-origin"' in script and "原文" in script
+    assert "grid-template-columns: minmax(260px, 1fr) minmax(0, 1.25fr)" in styles
+    assert ".clause-pane" in styles and ".clause-detail" in styles
+
+    # 两栏独立滚动：目录、原文、右栏各自 overflow，滚到底不带动外层
+    pane = styles.split(".clause-pane {", 1)[1].split("}", 1)[0]
+    assert "display: flex" in pane and "overflow: hidden" in pane
+    for selector in (".clause-list {", ".clause-origin {", ".clause-detail {"):
+        block = styles.split(selector, 1)[1].split("}", 1)[0]
+        assert "overflow-y: auto" in block, selector
+        assert "overscroll-behavior: contain" in block, selector
+    assert "height: 100%" in styles.split(".clause-detail {", 1)[1].split("}", 1)[0]
+
     # 窄屏退化成上下排列
     assert "grid-template-columns: minmax(0, 1fr)" in styles.split("@media (max-width: 900px)")[1]
 
 
-def test_clause_detail_offers_fix_suggestion_and_one_click_correction() -> None:
-    """有问题的条款给修改建议 + 修改后的条款，一键更正可撤销，并能导出 DOCX/PDF。"""
+def test_clause_detail_offers_keep_or_fix_and_friendly_pass_note() -> None:
+    """有问题的条款给修改建议 + 可编辑修订稿，可选择“采用修改 / 保留原文”并可撤销。"""
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
@@ -527,13 +630,23 @@ def test_clause_detail_offers_fix_suggestion_and_one_click_correction() -> None:
     assert "finding-fix" in script
     assert "修改后的条款（可编辑）" in script
     assert 'class="revision-input"' in script
-    # 一键更正 / 撤销 / 全部更正
-    assert 'data-apply="' in script
-    assert 'data-revert="' in script
+    # 每条都能选“采用修改 / 保留原文”，已更正可撤销，也支持全部采用
+    assert 'data-apply="' in script and "采用修改" in script
+    assert 'data-keep="' in script and "保留原文" in script
+    assert 'data-revert="' in script and "撤销更正" in script
     assert "data-apply-all" in script
     assert "function applyCorrection" in script
+    assert "function keepClause" in script
     assert "function revertCorrection" in script
-    assert "state.corrections" in script
+    assert "state.corrections" in script and "state.kept" in script
+    assert ".detail-actions" in styles and ".clause-kept" in styles
+
+    # 没命中规则时给“这条没问题”的人话，而不是机械复述规则结果
+    assert "const PASS_NOTE" in script
+    assert "这一条没有发现需要修改的地方" in script
+    assert "这一条和当前规则库对照过" in script
+    assert ".pass-block" in styles and ".pass-text" in styles
+    assert "这条没有命中规则，可按原文保留" not in script
 
     # 导出修订稿：POST /export，二进制下载，文件名取 Content-Disposition
     assert "/export" in script
@@ -542,7 +655,6 @@ def test_clause_detail_offers_fix_suggestion_and_one_click_correction() -> None:
     assert "URL.createObjectURL" in script and "URL.revokeObjectURL" in script
     assert 'data-export="docx"' in script and 'data-export="pdf"' in script
     assert "导出修订稿" in script
-    assert ".revision-actions" in styles
     assert ".export-label" in styles
 
 
@@ -562,9 +674,11 @@ def test_logout_requires_second_confirmation_while_review_runs() -> None:
     assert "function hasActiveTask" in script
     assert "state.taskActive" in script
     assert 'review === "awaiting_human" || review === "running"' in script
-    # 登出前先停掉流式定时器，避免在已卸载的视图上继续写
-    assert "function stopStream" in script
-    assert "stopStream();" in script.split("async function doLogout()", 1)[1][:200]
+    # 登出时清掉逐条审查的本地状态（更正 / 保留），避免串到下一个账号
+    logout_body = script.split("async function doLogout()", 1)[1][:400]
+    assert "state.clauseView = null" in logout_body
+    assert "state.kept = {}" in logout_body
+    assert "stopStream" not in logout_body
     # 取消按钮只是关弹窗，不退出
     assert 'on("logout-cancel", "click", () => closeDialog("logout-confirm"))' in script
     assert ".dialog.confirm-dialog" in styles

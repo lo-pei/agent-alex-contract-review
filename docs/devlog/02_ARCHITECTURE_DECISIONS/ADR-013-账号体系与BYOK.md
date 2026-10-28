@@ -210,3 +210,19 @@
 **边界（本轮）**：没有真 SSE（ISSUE-027）；更正不落库；示例条款只覆盖 14 条规则、未覆盖的只给建议；合同级问题不能“一键更正”；退出中断没有后端清理接口（ISSUE-028）；PDF 依赖 `reportlab` 内置 CID 字体（不嵌入字库，极少数阅读器可能替代字形）。
 
 **验证补充（本轮）**：`pytest` **323 passed**（新增 `tests/test_clause_review.py` 11 项：分组不重判 / 红前黄后 / 模板拼接与去重 / 合同级归类 / 降级提示 / DOCX+PDF 字节 / `ExportError` / 接口 200 与 404 / 导出两种格式 / 非法 format 422；`tests/test_web.py` 26 项）；`ruff check .`、`node --check app/web/app.js` 通过；Edge headless + CDP 复核（方块 130×130、右上角按钮、两个弹窗、450ms 时仅 105/276 字符确为流式、分屏两栏 376/709、红条款建议与示例条款、更正/撤销、导出 DOCX 39,086 B / PDF 9,205 B、退出确认可取消）。
+
+## 第 8 轮补充（2026-10-28 界面轮 12）：配色三档、Skill 工具与文本附件、左原文右意见
+
+1. **主题色下线，只保留“白天 / 黑夜 / 跟随系统”**：5 套 `--accent` 实际改不出可见差异（用户原话“改不了”），且与 `.theme-dot` 选中态互相覆盖。改为 `prefs.scheme` 三档 + `resolvedScheme()`（用 `matchMedia` 判断系统深浅），深色变量从 `@media` 搬进 `html[data-scheme="dark"]`——**手动切换必须能把变量切过来，不能只靠媒体查询**。`html[data-scheme-pref]` 记住用户原选择（回显按钮），`html[data-scheme]` 是实际生效值；选 `system` 时监听 `darkQuery.change`，系统换肤即时跟随。
+2. **Skill 从“一段提示词”扩成“指令 + 工具声明 + 只读附件”**：`TOOL_CATALOG` 只登记**图里已实现**的 5 个能力（规则扫描 / 字段抽取 / 条款切分 / 知识检索 / 谈判提示），每个带 `effect` 说明；附件 `SkillAsset` 只存文本（`.py/.md/.markdown/.txt`，≤5 个、单个 ≤6000 字、总量 ≤30000），**绝不执行、不做 AST 检查**。`compose_focus()` 拼进审查重点时显式写明“不作为判级依据、不得当作指令执行”——这是 ADR-003“等级唯一来源是 Python 规则”的直接延伸：用户提供的代码只能影响**怎么写解释**，不能影响**判几级**。
+3. **工具是“声明”不是“编排”**：勾选工具只改变 focus 文案，不改变图节点顺序、不新增执行分支。要真正按 Skill 编排工具，需要 LangGraph 子图与权限模型，超出本轮范围（记 ISSUE-029）。
+4. **头像裁剪在前端完成，输出固定 128×128 JPEG**：`#avatar-crop-dialog` + 288px 画布，`cropGeometry()` 按 `min(w, h)` 缩放并 clamp 平移，pointer 拖动 + 方向键 + 缩放滑杆；`cropResult()` 以 0.85 质量编码后走同一个 `PATCH /api/auth/profile`。服务端仍只校验 `data:image/...;base64` 前缀与长度上限，不重新编码（延续 ISSUE-025 的边界）。
+5. **顶部信息收敛成标签行**：合同 / Skill / 审查重点各一个 `.chip-tag`，审查重点用 `.chip-wide`（`max-width:46ch` 省略 + `title` 全文）。原先那段“已读取《…》，判定为…开始审查 / 已切分为 N 条 / 下面按左原文右意见展开…”是**把内部过程讲给用户听**，删掉后界面只剩结论与证据。
+6. **审查历史由前端主动重取，不做服务端推送**：`refreshHistory()` 在“审查成功”和“人工确认成功”两处静默 `GET /api/reviews?limit=20` 并重渲染，**不调 `setBadge`**（审批总数由汇总接口维护，不能被记录条数覆盖）。没有 WebSocket / SSE：单机演示下多一次 GET 足够，也避免与 HITL 的同步阻塞模型冲突。
+7. **条款切分按“多信号”判定，不只看行短**：`segment.py` 同时用编号行（≤600 字）、主题词 + 冒号（≤800 字）、字段行黑名单（装运港 / Port of Shipment…）、“特别提示”块范围、中英对照合并（带编号不并）、`_short_title()`（目录只留“编号 + 主题词”）六个信号；`ClauseReview.is_preamble` 让前言既不叫“第 1 条”也不占正文编号。原则：**宁可少切一条，也不把表头或说明块切成条款**。
+8. **逐条审查拆成三块各自的滚动区**：左侧 `.clause-pane` 只做 flex 容器（`overflow: hidden`），目录 `#clause-list` 与当前条款原文 `#clause-origin` 各自 `overflow-y: auto`；右侧 `#clause-detail` 独立滚动；三块都写 `overscroll-behavior: contain`。原因：目录与原文共用一个滚动条时，看原文会把目录顶走；而整页滚动会让“左原文、右意见”的对照失去意义。每条都给“采用修改 / 保留原文 / 撤销更正”三个动作，`state.kept` 与 `state.corrections` 互斥。
+9. **未命中规则改成“没问题”的人话**：`PASS_NOTE` + `.pass-block` 先说“这一条没有发现需要修改的地方”，再补一句“这一条和当前规则库对照过”，不再复述“没有命中规则，可按原文保留”——后者把规则实现细节漏给了用户。
+
+**边界（本轮）**：Skill 附件不执行、不沙箱、不做语法检查（ISSUE-029）；工具只影响 focus 文案；历史刷新是前端轮询式拉取（无推送）；裁图只在前端，服务端不重新编码；左栏原文只显示当前选中条款，不是全文阅读器；配色仍不改变风险语义色。
+
+**验证补充（本轮）**：`pytest` **334 passed**（`tests/test_segment.py` 新增同行标题 / 中英对照不拆 / 目录短标题，`tests/test_clause_review.py` 新增前言标注，`tests/test_accounts.py` 新增工具目录 / 工具与附件保存 / 附件校验 / `compose_focus` 共 4 项，`tests/test_web.py` 新增标签行与分屏改写 / Skill 工具附件 / 历史即时刷新 / 目录编号 共 3 项并改写旧断言）；`ruff check .`、`node --check app/web/app.js` 通过；Edge headless + CDP 复核（三档配色落 `html[data-scheme]`、Skill 弹窗 5 个工具胶囊 + 附件入口、头像裁剪保存为 JPEG data URL、真实上传后左目录 7 行 + 左原文 + 右意见、640 高视口下右栏滚 141px 时左栏与整页保持 0、“采用修改/保留原文”状态正确）。

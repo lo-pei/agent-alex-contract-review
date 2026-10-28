@@ -321,6 +321,8 @@ class ClauseReview(BaseModel):
     text: str
     page: int = Field(default=1, ge=1)
     risk_level: Literal["red", "yellow", "pass"] = "pass"
+    #: 前言（合同首部 / 特别提示）：展示为“前言”，不当作“第 X 条”
+    is_preamble: bool = False
     findings: list[ClauseFinding] = Field(default_factory=list)
     #: 规则给出的“修改后的条款”示例；没有命中规则时为 None
     revised_text: str | None = None

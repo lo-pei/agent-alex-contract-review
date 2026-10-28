@@ -181,14 +181,17 @@ def build_clause_reviews(
         revised, note = _revised_text(findings)
         if revised:
             revised_count += 1
+        # 前言单独标注：前端显示“前言”，导出也不写成“第 1 条”
+        is_preamble = clause.clause_type == "preamble"
         clauses.append(
             ClauseReview(
                 clause_id=clause.clause_id,
                 index=index,
-                title=clause.title,
+                title="前言" if is_preamble else clause.title,
                 text=clause.text,
                 page=clause.page,
                 risk_level=level,
+                is_preamble=is_preamble,
                 findings=findings,
                 revised_text=revised,
                 revision_note=note,

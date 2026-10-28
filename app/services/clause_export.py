@@ -61,6 +61,13 @@ def _findings_text(clause) -> str:
     return "\n".join(_finding_line(finding) for finding in clause.findings)
 
 
+def _clause_heading(clause) -> str:
+    """条款标题：前言不编号，其余用“序号. 标题”。"""
+    if clause.is_preamble:
+        return "前言"
+    return f"{clause.index}. {clause.title or '（无标题）'}"
+
+
 # --------------------------------------------------------------------------- DOCX
 
 
@@ -88,7 +95,7 @@ def _build_docx(payload: ClauseReviewList, accepted: dict[str, str]) -> bytes:
     document.add_heading("一、逐条审查意见", level=2)
     for clause, _final, _revised in _ordered_clauses(payload, accepted):
         head = document.add_heading(
-            f"{clause.index}. {clause.title or '（无标题）'} — {LEVEL_LABEL[clause.risk_level]}",
+            f"{_clause_heading(clause)} — {LEVEL_LABEL[clause.risk_level]}",
             level=3,
         )
         head.paragraph_format.space_before = Pt(8)
@@ -107,7 +114,7 @@ def _build_docx(payload: ClauseReviewList, accepted: dict[str, str]) -> bytes:
     document.add_heading("三、修订稿", level=2)
     for clause, final, revised in _ordered_clauses(payload, accepted):
         mark = "（已修订）" if revised else ""
-        document.add_heading(f"{clause.index}. {clause.title or '（无标题）'}{mark}", level=3)
+        document.add_heading(f"{_clause_heading(clause)}{mark}", level=3)
         for line in final.split("\n"):
             document.add_paragraph(line)
 
@@ -197,7 +204,7 @@ def _build_pdf(payload: ClauseReviewList, accepted: dict[str, str]) -> bytes:
     for clause, _final, _revised in _ordered_clauses(payload, accepted):
         flowable.append(
             para(
-                f"{clause.index}. {clause.title or '（无标题）'}"
+                f"{_clause_heading(clause)}"
                 f" — {LEVEL_LABEL[clause.risk_level]}",
                 body_style,
             )
@@ -223,7 +230,7 @@ def _build_pdf(payload: ClauseReviewList, accepted: dict[str, str]) -> bytes:
     flowable.append(para("三、修订稿", heading_style))
     for clause, final, revised in _ordered_clauses(payload, accepted):
         mark = "（已修订）" if revised else ""
-        flowable.append(para(f"{clause.index}. {clause.title or '（无标题）'}{mark}", body_style))
+        flowable.append(para(f"{_clause_heading(clause)}{mark}", body_style))
         flowable.append(para(final))
         flowable.append(Spacer(1, 6))
 

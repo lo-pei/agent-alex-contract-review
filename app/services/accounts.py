@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import re
 import secrets
 import sqlite3
@@ -30,9 +31,14 @@ from app.services import secret_box
 from app.services.llm import LLMRuntime
 from app.services.llm_providers import resolve_provider
 from app.services.skill_catalog import (
+    MAX_SKILL_ASSET_CHARS,
+    MAX_SKILL_ASSETS,
     MAX_SKILL_INSTRUCTION_CHARS,
     MAX_USER_FOCUS_CHARS,
+    SKILL_ASSET_SUFFIXES,
+    TOOL_BY_ID,
     Skill,
+    SkillAsset,
     builtin_skills,
 )
 
@@ -66,10 +72,64 @@ MAX_SKILL_NAME_CHARS = 40
 MAX_SKILL_DESCRIPTION_CHARS = 160
 
 
+def _clean_skill_tools(tools: list[str] | None) -> list[str]:
+    """只保留目录里的工具 id，去重并保序；未知 id 直接忽略（不报错，避免前端升级不同步）。"""
+    cleaned: list[str] = []
+    for tool_id in tools or []:
+        key = (tool_id or "").strip()
+        if key and key in TOOL_BY_ID and key not in cleaned:
+            cleaned.append(key)
+    return cleaned
+
+
+def _clean_skill_assets(assets: list[dict] | None) -> list[dict]:
+    """校验 Skill 附件（Python / Markdown 文本）。
+
+    附件**只作为文本资料**参与解释，任何情况下都不会被执行；因此这里只做
+    数量、后缀、单条长度与总长度的限制，不做语法检查。
+    """
+    cleaned: list[dict] = []
+    total = 0
+    for raw in assets or []:
+        if not isinstance(raw, dict):
+            raise AccountError("附件格式不正确", code="invalid")
+        name = str(raw.get("name") or "").strip()
+        content = str(raw.get("content") or "")
+        if not name:
+            raise AccountError("附件缺少文件名", code="invalid")
+        if len(name) > 120:
+            raise AccountError("附件名最多 120 个字符", code="invalid")
+        lowered = name.casefold()
+        if not lowered.endswith(SKILL_ASSET_SUFFIXES):
+            raise AccountError(
+                "附件只支持 .py / .md / .markdown / .txt 文本", code="invalid"
+            )
+        if not content.strip():
+            raise AccountError(f"附件《{name}》内容为空", code="invalid")
+        if len(content) > MAX_SKILL_ASSET_CHARS:
+            raise AccountError(
+                f"附件《{name}》超过 {MAX_SKILL_ASSET_CHARS} 个字符", code="invalid"
+            )
+        total += len(content)
+        if total > MAX_SKILL_ASSET_CHARS * MAX_SKILL_ASSETS:
+            raise AccountError("附件总长度超出上限", code="invalid")
+        kind = "python" if lowered.endswith(".py") else "markdown"
+        cleaned.append(
+            {"name": name, "kind": kind, "size": len(content), "content": content}
+        )
+    if len(cleaned) > MAX_SKILL_ASSETS:
+        raise AccountError(f"最多 {MAX_SKILL_ASSETS} 个附件", code="invalid")
+    return cleaned
+
+
 def _clean_skill_fields(
-    name: str, description: str, instruction: str
-) -> tuple[str, str, str]:
-    """名称/说明/指令的统一校验（新建与编辑共用，前端上限与此一致）。"""
+    name: str,
+    description: str,
+    instruction: str,
+    tools: list[str] | None = None,
+    assets: list[dict] | None = None,
+) -> tuple[str, str, str, list[str], list[dict]]:
+    """名称/说明/指令/工具/附件的统一校验（新建与编辑共用，前端上限与此一致）。"""
     cleaned_name = (name or "").strip()
     cleaned_description = (description or "").strip()
     cleaned_instruction = (instruction or "").strip()
@@ -89,7 +149,13 @@ def _clean_skill_fields(
         raise AccountError(
             f"审查重点最多 {MAX_SKILL_INSTRUCTION_CHARS} 个字符", code="invalid"
         )
-    return cleaned_name, cleaned_description, cleaned_instruction
+    return (
+        cleaned_name,
+        cleaned_description,
+        cleaned_instruction,
+        _clean_skill_tools(tools),
+        _clean_skill_assets(assets),
+    )
 
 
 class User(BaseModel):
@@ -236,6 +302,8 @@ class AccountsStore:
                 name TEXT NOT NULL,
                 description TEXT NOT NULL,
                 instruction TEXT NOT NULL,
+                tools TEXT NOT NULL DEFAULT '[]',
+                assets TEXT NOT NULL DEFAULT '[]',
                 created_at TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_skills_owner ON skills(owner_id, created_at);
@@ -271,7 +339,22 @@ class AccountsStore:
         )
         self._ensure_review_columns()
         self._ensure_user_columns()
+        self._ensure_skill_columns()
         self._connection.commit()
+
+    def _ensure_skill_columns(self) -> None:
+        """老库平滑升级：`tools` / `assets` 是界面轮 12 新增列（Skill 可带工具与附件）。"""
+        existing = {
+            row["name"] for row in self._connection.execute("PRAGMA table_info(skills)")
+        }
+        if "tools" not in existing:
+            self._connection.execute(
+                "ALTER TABLE skills ADD COLUMN tools TEXT NOT NULL DEFAULT '[]'"
+            )
+        if "assets" not in existing:
+            self._connection.execute(
+                "ALTER TABLE skills ADD COLUMN assets TEXT NOT NULL DEFAULT '[]'"
+            )
 
     def _ensure_user_columns(self) -> None:
         """老库平滑升级：`avatar` 是界面轮 9 新增列（个人账户头像）。"""
@@ -455,23 +538,34 @@ class AccountsStore:
         name: str,
         description: str = "",
         instruction: str,
+        tools: list[str] | None = None,
+        assets: list[dict] | None = None,
     ) -> Skill:
-        cleaned_name, cleaned_description, cleaned_instruction = _clean_skill_fields(
-            name, description, instruction
-        )
+        (
+            cleaned_name,
+            cleaned_description,
+            cleaned_instruction,
+            cleaned_tools,
+            cleaned_assets,
+        ) = _clean_skill_fields(name, description, instruction, tools, assets)
 
         skill_id = "sk_" + uuid.uuid4().hex[:16]
         created = _now()
+        tools_json = json.dumps(cleaned_tools, ensure_ascii=False)
+        assets_json = json.dumps(cleaned_assets, ensure_ascii=False)
         with self._lock:
             self._connection.execute(
-                "INSERT INTO skills (id, owner_id, name, description, instruction, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO skills"
+                " (id, owner_id, name, description, instruction, tools, assets, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     skill_id,
                     owner_id,
                     cleaned_name,
                     cleaned_description,
                     cleaned_instruction,
+                    tools_json,
+                    assets_json,
                     _iso(created),
                 ),
             )
@@ -483,6 +577,8 @@ class AccountsStore:
             instruction=cleaned_instruction,
             tags=[],
             builtin=False,
+            tools=cleaned_tools,
+            assets=[SkillAsset.model_validate(item) for item in cleaned_assets],
             owner_id=owner_id,
             created_at=created,
         )
@@ -495,21 +591,30 @@ class AccountsStore:
         name: str,
         description: str = "",
         instruction: str,
+        tools: list[str] | None = None,
+        assets: list[dict] | None = None,
     ) -> Skill:
         """改自建 Skill；内置推荐 Skill 是代码常量，只读（另存为自建即可）。"""
         if skill_id.startswith("builtin:"):
             raise AccountError("推荐 Skill 不能直接改，请另存为我的 Skill", code="invalid")
-        cleaned_name, cleaned_description, cleaned_instruction = _clean_skill_fields(
-            name, description, instruction
-        )
+        (
+            cleaned_name,
+            cleaned_description,
+            cleaned_instruction,
+            cleaned_tools,
+            cleaned_assets,
+        ) = _clean_skill_fields(name, description, instruction, tools, assets)
         with self._lock:
             cursor = self._connection.execute(
-                "UPDATE skills SET name = ?, description = ?, instruction = ?"
+                "UPDATE skills"
+                " SET name = ?, description = ?, instruction = ?, tools = ?, assets = ?"
                 " WHERE id = ? AND owner_id = ?",
                 (
                     cleaned_name,
                     cleaned_description,
                     cleaned_instruction,
+                    json.dumps(cleaned_tools, ensure_ascii=False),
+                    json.dumps(cleaned_assets, ensure_ascii=False),
                     skill_id,
                     owner_id,
                 ),
@@ -785,6 +890,17 @@ class AccountsStore:
 
     @staticmethod
     def _skill_from_row(row: sqlite3.Row) -> Skill:
+        assets: list[SkillAsset] = []
+        raw_assets = row["assets"] if "assets" in row.keys() else "[]"
+        try:
+            for item in json.loads(raw_assets or "[]"):
+                assets.append(SkillAsset.model_validate(item))
+        except (ValueError, TypeError):
+            assets = []
+        try:
+            tools = [str(item) for item in json.loads(row["tools"])]
+        except (ValueError, TypeError, KeyError):
+            tools = []
         return Skill(
             id=row["id"],
             name=row["name"],
@@ -792,6 +908,8 @@ class AccountsStore:
             instruction=row["instruction"],
             tags=[],
             builtin=False,
+            tools=[tool for tool in tools if tool in TOOL_BY_ID],
+            assets=assets,
             owner_id=row["owner_id"],
             created_at=_parse_time(row["created_at"]),
         )

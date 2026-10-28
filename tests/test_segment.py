@@ -107,6 +107,7 @@ def test_heading_detection_rules() -> None:
 
 
 def test_small_clause_merged_into_previous() -> None:
+    """界面轮 12：带标题的小条款保留边界，只有“无标题的小段”才并回上一条。"""
     body = "x" * 200
     text = (
         f"ARTICLE 1 A\n{body}\n\n"
@@ -114,9 +115,58 @@ def test_small_clause_merged_into_previous() -> None:
         f"ARTICLE 3 C\n{body}\n"
     )
     clauses = segment_clauses(_state(text))["clauses"]
-    assert len(clauses) == 2
-    assert "ARTICLE 2 B" in clauses[0].text
-    assert clauses[1].title.startswith("ARTICLE 3")
+    assert len(clauses) == 3
+    assert clauses[1].title.startswith("ARTICLE 2")
+
+    with_orphan = f"ARTICLE 1 A\n{body}\n\n{body}\nshort tail\n\nARTICLE 2 B\n{body}\n"
+    merged = segment_clauses(_state(with_orphan))["clauses"]
+    assert len(merged) == 2
+    assert "short tail" in merged[0].text
+
+
+def test_heading_in_same_line_as_body_is_recognised() -> None:
+    """`13. 争议解决：凡因……` / `违约责任：……` 这种“标题 + 正文同一行”也要切出来。"""
+    assert is_heading("13. 争议解决：凡因本合同引起的或与本合同有关的任何争议，双方同意提交仲裁。")
+    assert is_heading("12. 通知：所有通知用中文写成并按首部地址送达，地址变更应提前通知另一方。")
+    assert is_heading("违约责任：如果卖方未能按合同约定按时交货，应向买方支付违约金。")
+    assert is_heading("Force Majeure: Force majeure refers to unforeseeable events beyond control.")
+    assert not is_heading("装运港：                     Port of Shipment:")
+    assert not is_heading("30 days after receipt of the goods before the claim is filed.")
+    assert not is_heading("| 1. 货物名称 Commodity | 2. 包装 Packing |")
+
+
+def test_bilingual_blocks_do_not_split_into_two_clauses() -> None:
+    """中英对照合同：中文条款紧跟英文译本时，不能拆成两条。"""
+    text = (
+        "特别提示：\n\n1. 请核对签约主体；\n\n2. 请保留证据。\n\n"
+        "销售合同书\n\nSALES CONTRACT\n\n"
+        "1. 质量标准及检验：本合同项下产品质量适用国家标准。\n\n"
+        "Quality Standard and Inspection: national standard shall be applied.\n\n"
+        "2. 不可抗力：不可抗力是指无法预见的客观情况。\n\n"
+        "Force Majeure: force majeure refers to unforeseeable objective conditions.\n"
+    )
+    clauses = segment_clauses(_state(text))["clauses"]
+
+    preamble = clauses[0]
+    assert preamble.clause_type == "preamble"
+    assert "特别提示" in preamble.text and "请保留证据" in preamble.text
+    assert len(clauses) == 3
+    assert "Quality Standard" in clauses[1].text
+    assert "Force Majeure" in clauses[2].text
+
+
+def test_clause_titles_are_short_labels_for_toc() -> None:
+    """界面轮 12：目录只显示“编号 + 主题词”，不把整行正文当标题。"""
+    text = (
+        "PREAMBLE\n\n"
+        "5. 付款条件：                      Payment:\n买方应于装运前电汇全部货款。\n\n"
+        "违约责任：如果卖方未能按合同约定按时交货，应向买方支付违约金。\n"
+    )
+    clauses = segment_clauses(_state(text))["clauses"]
+    titles = [clause.title for clause in clauses]
+    assert "5. 付款条件" in titles
+    assert "违约责任" in titles
+    assert all(len(title) <= 120 for title in titles)
 
 
 def test_long_clause_is_split_with_suffix() -> None:

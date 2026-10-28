@@ -408,15 +408,19 @@
               <h3 class="account-group-title">外观</h3>
               <div class="pref-row">
                 <div class="pref-label">
-                  <span>主题色</span>
-                  <span class="pref-note">按钮、选中态与焦点颜色</span>
+                  <span>配色</span>
+                  <span class="pref-note">白天 / 黑夜 / 跟随系统</span>
                 </div>
-                <div class="theme-row" role="group" aria-label="主题色">
-                  <button class="theme-dot" type="button" data-theme-value="teal" aria-label="松石绿" aria-pressed="true"></button>
-                  <button class="theme-dot" type="button" data-theme-value="indigo" aria-label="靛青" aria-pressed="false"></button>
-                  <button class="theme-dot" type="button" data-theme-value="graphite" aria-label="石墨" aria-pressed="false"></button>
-                  <button class="theme-dot" type="button" data-theme-value="clay" aria-label="陶土" aria-pressed="false"></button>
-                  <button class="theme-dot" type="button" data-theme-value="plum" aria-label="绛紫" aria-pressed="false"></button>
+                <div class="seg seg-wide" role="group" aria-label="配色模式">
+                  <button class="seg-item" type="button" data-scheme-value="light" aria-pressed="false">
+                    <span class="seg-icon" aria-hidden="true">☀</span>白天
+                  </button>
+                  <button class="seg-item" type="button" data-scheme-value="dark" aria-pressed="false">
+                    <span class="seg-icon" aria-hidden="true">☾</span>黑夜
+                  </button>
+                  <button class="seg-item is-active" type="button" data-scheme-value="system" aria-pressed="true">
+                    <span class="seg-icon" aria-hidden="true">◐</span>跟随系统
+                  </button>
                 </div>
               </div>
               <div class="pref-row">
@@ -469,7 +473,7 @@
               <div class="account-data">
                 <button class="btn btn-compact" type="button" id="account-clear-cache">清除本机缓存</button>
               </div>
-              <p class="field-note">界面偏好、主题色与草稿保存在浏览器；清除后恢复默认外观。</p>
+              <p class="field-note">界面偏好、配色与草稿保存在浏览器；清除后恢复默认外观。</p>
 
               <h3 class="account-group-title">账号数据</h3>
               <div class="account-data">
@@ -573,6 +577,29 @@
               placeholder="例如：重点核对信用证开立时间、议付单据与最迟装运期是否匹配"
             ></textarea>
           </label>
+          <div class="field">
+            <span class="field-label">调用工具（可多选）</span>
+            <div class="tool-chips" id="skill-tools" role="group" aria-label="调用工具"></div>
+            <p class="field-note">工具由后端实现；勾选只影响解释时重点引用哪一部分结果，不改变风险等级。</p>
+          </div>
+          <div class="field">
+            <span class="field-label">附件（可选）</span>
+            <div class="asset-bar">
+              <button class="btn btn-compact" type="button" id="skill-asset-pick">选择文件</button>
+              <span class="field-note">.py / .md / .txt，最多 5 个，单个 ≤ 6000 字符</span>
+            </div>
+            <input
+              id="skill-asset-input"
+              type="file"
+              accept=".py,.md,.markdown,.txt"
+              multiple
+              hidden
+            />
+            <ul class="asset-list" id="skill-asset-list"></ul>
+            <p class="field-note">
+              附件只作为审查背景资料（例如检查清单、计算口径、正则示例），<strong>不会被运行</strong>。
+            </p>
+          </div>
           <p class="alert" id="skill-error" role="alert" hidden></p>
           <p class="field-note" id="skill-login-note" hidden>登录后即可保存自己的 Skill。</p>
           <div class="dialog-actions">
@@ -580,6 +607,39 @@
             <button class="btn btn-primary btn-compact" type="submit" id="skill-submit">保存 Skill</button>
           </div>
         </form>
+      </div>
+    </dialog>
+
+    <!-- 头像裁剪：选图后先裁再上传（拖动 / 缩放 / 方向键微调） -->
+    <dialog class="dialog crop-dialog" id="avatar-crop-dialog" aria-labelledby="avatar-crop-title">
+      <div class="dialog-head">
+        <div class="account-head-text">
+          <h2 class="dialog-title" id="avatar-crop-title">裁剪头像</h2>
+          <p class="account-head-sub">拖动图片调整位置，滑块缩放；最终只保存 128×128 的方形 JPEG</p>
+        </div>
+        <button class="icon-button dialog-close" type="button" data-close="avatar-crop-dialog" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path d="m6 6 12 12M18 6 6 18" />
+          </svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <div class="crop-stage" id="avatar-crop-stage" tabindex="0" role="application" aria-label="头像裁剪区域">
+          <canvas id="avatar-crop-canvas" width="288" height="288"></canvas>
+        </div>
+        <div class="crop-controls">
+          <label class="crop-zoom">
+            <span>缩放</span>
+            <input id="avatar-crop-zoom" type="range" min="100" max="300" value="100" />
+          </label>
+          <div class="dialog-actions">
+            <button class="btn btn-compact" type="button" id="avatar-crop-reset">复位</button>
+            <button class="btn btn-compact" type="button" id="avatar-crop-cancel" data-close="avatar-crop-dialog">取消</button>
+            <button class="btn btn-primary btn-compact" type="button" id="avatar-crop-apply">使用这张</button>
+          </div>
+        </div>
+        <p class="alert" id="avatar-crop-error" role="alert" hidden></p>
+        <p class="field-note">方向键可微调位置；支持 PNG / JPG / WebP，单张不超过 5 MB。</p>
       </div>
     </dialog>
 
