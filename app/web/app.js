@@ -8,14 +8,15 @@
 (() => {
   "use strict";
 
-  const MAX_BYTES = 15 * 1024 * 1024;
+  const MAX_BYTES = 30 * 1024 * 1024;
   const ALLOWED = [".pdf", ".docx", ".txt", ".md", ".markdown"];
   /** Skill 下拉里的固定末项：选中即打开侧栏的 Skill 仓库 */
   const SKILL_REPO_VALUE = "__repo__";
-  /** Markdown 批量导入：只吃文本型 Skill 定义，大小与服务端上限对齐 */
+  /** Skill 导入：Markdown 批量导入 + zip 包（与服务端上限对齐） */
   const SKILL_IMPORT_SUFFIXES = [".md", ".markdown"];
   const MAX_IMPORT_FILES = 30;
   const MAX_SKILL_FILE_BYTES = 200 * 1024;
+  const MAX_SKILL_ZIP_BYTES = 8 * 1024 * 1024;
   const SKILL_NAME_MAX = 40;
   const SKILL_DESC_MAX = 160;
   const SKILL_INSTRUCTION_MAX = 1000;
@@ -84,6 +85,8 @@
     selectedClause: "",
     corrections: {},
     kept: {},
+    /** 左栏视图：clauses = 条款目录（默认）/ fulltext = 完整原文 */
+    paneMode: "clauses",
   };
 
   /* ---------- 基础工具 ---------- */
@@ -1247,14 +1250,19 @@
       .map(
         (asset, index) =>
           '<li class="asset-item">' +
-          '<div class="asset-head">' +
+          '<button class="asset-head asset-open" type="button" data-open-asset="' +
+          esc(skill.id) +
+          "-" +
+          index +
+          '" aria-expanded="false">' +
           '<span class="asset-kind">' +
           (asset.kind === "python" ? "PY" : "MD") +
           "</span>" +
           '<span class="asset-name">' +
           esc(asset.name) +
           "</span>" +
-          "</div>" +
+          '<span class="asset-hint">查看</span>' +
+          "</button>" +
           '<pre class="asset-code" id="skill-asset-view-' +
           esc(skill.id) +
           "-" +
@@ -1658,6 +1666,18 @@
         if (input) input.click();
         return;
       }
+      const openAsset = event.target.closest("[data-open-asset]");
+      if (openAsset) {
+        const code = document.getElementById(
+          "skill-asset-view-" + openAsset.dataset.openAsset,
+        );
+        if (!code) return;
+        code.hidden = !code.hidden;
+        openAsset.setAttribute("aria-expanded", code.hidden ? "false" : "true");
+        const hint = openAsset.querySelector(".asset-hint");
+        if (hint) hint.textContent = code.hidden ? "查看" : "收起";
+        return;
+      }
       const assetToggle = event.target.closest("[data-asset-toggle]");
       if (assetToggle) {
         const code = document.getElementById("asset-code-" + assetToggle.dataset.assetToggle);
@@ -1925,11 +1945,13 @@
       openAuth("login");
       return;
     }
-    const list = (files || []).filter((file) =>
-      SKILL_IMPORT_SUFFIXES.includes(suffixOf(file.name)),
+    const list = (files || []).filter(
+      (file) =>
+        SKILL_IMPORT_SUFFIXES.includes(suffixOf(file.name)) ||
+        suffixOf(file.name) === ".zip",
     );
     if (!list.length) {
-      showSkillImportError("没有可导入的 Markdown（.md / .markdown）文件。");
+      showSkillImportError("没有可导入的文件：请选 Markdown（.md / .markdown）或 Skill 包（.zip）。");
       return;
     }
     if (list.length > MAX_IMPORT_FILES) {
@@ -1940,6 +1962,45 @@
     let imported = 0;
     for (const file of list) {
       const label = esc(file.webkitRelativePath || file.name);
+      if (suffixOf(file.name) === ".zip") {
+        if (file.size > MAX_SKILL_ZIP_BYTES) {
+          addLog(label + "：超过 " + humanSize(MAX_SKILL_ZIP_BYTES) + "，已跳过", "bad");
+          continue;
+        }
+        const form = new FormData();
+        form.append("file", file, file.name);
+        try {
+          const result = await api("/api/skills/import", {
+            method: "POST",
+            body: form,
+          });
+          const created = result.skill;
+          existing.add(created.name.trim().toLowerCase());
+          imported += 1;
+          addLog(
+            label +
+              " → 「" +
+              esc(created.name) +
+              "」（" +
+              (result.files || 0) +
+              " 个文件，附件 " +
+              ((created.assets || []).length || 0) +
+              " 个）",
+            "ok",
+          );
+          (result.warnings || []).forEach((warning) =>
+            addLog(label + "：" + esc(warning), "skip"),
+          );
+        } catch (error) {
+          if (error.status === 401) {
+            addLog(label + "：登录状态失效，导入已停止", "bad");
+            openAuth("login");
+            break;
+          }
+          addLog(label + "：" + esc(error.message || "导入失败"), "bad");
+        }
+        continue;
+      }
       if (file.size > MAX_SKILL_FILE_BYTES) {
         addLog(label + "：超过 " + humanSize(MAX_SKILL_FILE_BYTES) + "，已跳过", "bad");
         continue;
@@ -2629,6 +2690,7 @@
       'stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
       "</div>" +
       "</div>" +
+      '<p class="composer-hint">PDF（文本型或扫描件）/ Word / TXT / Markdown · 单个文件 ≤ 30 MB</p>' +
       '<p class="alert chat-error" id="form-error" role="alert" hidden></p>' +
       "</section>";
 
@@ -2719,7 +2781,7 @@
       return;
     }
     if (file.size > MAX_BYTES) {
-      showFormError("文件超过 15 MB，请压缩或拆分后再上传。");
+      showFormError("文件超过 30 MB，请压缩或拆分后再上传。");
       return;
     }
     if (file.size === 0) {
@@ -2856,7 +2918,7 @@
       setBadge(0);
       failMessage(
         (review.errors && review.errors.join("；")) ||
-          "合同没能被读取，请确认文件是文本型 PDF / Word / TXT。",
+          "合同没能被读取，请确认文件是文本型或图片型 PDF / Word / TXT。",
       );
       return;
     }
@@ -2922,6 +2984,7 @@
     state.corrections = {};
     state.kept = {};
     state.selectedClause = "";
+    state.paneMode = "clauses";
 
     let view = null;
     try {
@@ -2943,14 +3006,12 @@
       '<section class="review-shell">',
       '<div class="review-head">',
       backLink(),
-      '<div class="review-head-main">',
-      '<p class="file-line">' + esc(review.source_filename) + statusChip(review) + "</p>",
-      "</div>",
       "</div>",
       '<div class="review-chips" id="review-chips">',
       reviewChip("合同", review.source_filename),
       review.skill_name ? reviewChip("Skill", review.skill_name) : "",
       focusLine(review.focus) ? reviewChip("审查重点", focusLine(review.focus), true) : "",
+      statusChip(review),
       "</div>",
       '<div id="approval-slot"></div>',
     ];
@@ -2974,8 +3035,13 @@
         "</div>",
         '<div class="workbench-grid">',
         '<div class="clause-pane" id="clause-pane">',
+        '<div class="pane-tabs" role="tablist" aria-label="左栏视图">',
+        '<button class="pane-tab is-active" type="button" role="tab" data-pane="clauses" aria-selected="true">条款目录</button>',
+        '<button class="pane-tab" type="button" role="tab" data-pane="fulltext" aria-selected="false">原文全文</button>',
+        "</div>",
         '<ol class="clause-list" id="clause-list" aria-label="合同条款目录"></ol>',
         '<div class="clause-origin" id="clause-origin"></div>',
+        '<div class="contract-fulltext" id="contract-fulltext" role="tabpanel" hidden></div>',
         "</div>",
         '<div class="clause-detail" id="clause-detail" tabindex="0"></div>',
         "</div>",
@@ -3087,6 +3153,42 @@
     box.scrollTop = 0;
   }
 
+  /** “原文全文”视图：按段落还原解析后的合同文本（保留换行，不做条款切割）。 */
+  function renderContractFulltext() {
+    const box = document.getElementById("contract-fulltext");
+    const view = state.clauseView;
+    if (!box || !view) return;
+    const text = view.contract_text || "";
+    if (!text.trim()) {
+      box.innerHTML =
+        '<p class="detail-empty">这份合同没有可展示的文本（可能解析失败或不是合同）。</p>';
+      return;
+    }
+    box.innerHTML = text
+      .split(/\n{2,}/)
+      .filter((block) => block.trim())
+      .map((block) => "<p>" + esc(block).replace(/\n/g, "<br>") + "</p>")
+      .join("");
+    box.scrollTop = 0;
+  }
+
+  /** 左栏两个视图互斥：目录+单条原文 / 完整原文，右侧意见不受影响。 */
+  function applyPaneMode() {
+    const full = state.paneMode === "fulltext";
+    const list = document.getElementById("clause-list");
+    const origin = document.getElementById("clause-origin");
+    const box = document.getElementById("contract-fulltext");
+    if (list) list.hidden = full;
+    if (origin) origin.hidden = full;
+    if (box) box.hidden = !full;
+    document.querySelectorAll("[data-pane]").forEach((tab) => {
+      const active = tab.dataset.pane === state.paneMode;
+      tab.classList.toggle("is-active", active);
+      tab.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    if (full) renderContractFulltext();
+  }
+
   function renderWorkbench() {
     const view = state.clauseView;
     if (!view) return;
@@ -3137,6 +3239,7 @@
     }
     renderClauseOrigin();
     renderClauseDetail();
+    applyPaneMode();
   }
 
   function findingBlock(finding) {
@@ -3390,6 +3493,12 @@
   /** 逐条审查的交互只绑一次：切条款 / 一键更正 / 撤销 / 全部更正 / 导出。 */
   function bindWorkbenchEvents() {
     dom.view.addEventListener("click", (event) => {
+      const pane = event.target.closest("[data-pane]");
+      if (pane) {
+        state.paneMode = pane.dataset.pane === "fulltext" ? "fulltext" : "clauses";
+        applyPaneMode();
+        return;
+      }
       const jump = event.target.closest("[data-clause]");
       if (jump) {
         state.selectedClause = jump.dataset.clause;

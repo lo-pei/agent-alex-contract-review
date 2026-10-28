@@ -169,6 +169,24 @@ def test_clause_titles_are_short_labels_for_toc() -> None:
     assert all(len(title) <= 120 for title in titles)
 
 
+def test_duplicate_bilingual_heading_does_not_create_two_clauses() -> None:
+    """同一个“付款条件”标题在中英对照里出现两次时，只留一条（避免目录出现两个付款条件）。"""
+    text = (
+        "SALES CONTRACT\n\n"
+        "5. 付款条件： Payment:\n\n100% T/T in advance.\n\n"
+        "5. 付款条件： Payment:\n\nBuyer shall pay by T/T before shipment.\n\n"
+        "6. 保险： Insurance:\n\nInsurance shall cover 110% of invoice value.\n"
+    )
+    clauses = segment_clauses(_state(text))["clauses"]
+    payment = [clause for clause in clauses if "付款条件" in clause.title]
+
+    assert len(payment) == 1
+    assert "100% T/T" in payment[0].text
+    assert "before shipment" in payment[0].text
+    # 合并后偏移仍可回溯到原文
+    assert text[payment[0].start : payment[0].end] == payment[0].text
+
+
 def test_long_clause_is_split_with_suffix() -> None:
     body = "\n\n".join(["A" * 1500] * 4)
     text = f"ARTICLE 1 TERMS\n{body}"

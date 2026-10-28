@@ -133,6 +133,61 @@ def _state() -> ContractReviewState:
     )
 
 
+def test_adjacent_duplicate_headings_are_shown_once() -> None:
+    """旧切分留下的同名相邻条款只在展示层合并，等级仍沿用原规则结果。"""
+    state = _state()
+    state.clauses = [
+        Clause(
+            clause_id="c1",
+            title="2. Price and Payment",
+            text="Payment shall be made as 100% advance payment.",
+            page=1,
+        ),
+        Clause(
+            clause_id="c2",
+            title="2. Price and Payment",
+            text="Buyer shall pay by T/T before shipment.",
+            page=1,
+        ),
+        Clause(clause_id="c3", title="3. Delivery", text="Shipment within 45 days.", page=2),
+    ]
+    state.rule_evaluations = [
+        RuleEvaluation(
+            rule_id="R-PAY-001",
+            title="全额预付导致收款风险",
+            risk_level="red",
+            reason="约定 100% 预付。",
+            clause_ids=["c1"],
+        ),
+        RuleEvaluation(
+            rule_id="R-PAY-002",
+            title="付款方式未明确",
+            risk_level="yellow",
+            reason="未写电汇路径。",
+            clause_ids=["c2"],
+        ),
+    ]
+
+    view = build_clause_reviews(state)
+
+    assert [clause.clause_id for clause in view.clauses] == ["c1", "c3"]
+    merged = view.clauses[0]
+    assert "before shipment" in merged.text
+    assert [finding.rule_id for finding in merged.findings] == ["R-PAY-001", "R-PAY-002"]
+    assert merged.risk_level == "red"
+
+
+def test_full_contract_text_is_returned_for_original_view() -> None:
+    """前端“原文全文”视图依赖 `contract_text`，保留段落换行而非条款切片。"""
+    state = _state()
+    state.raw_text = "SALES CONTRACT\n\n2. Price and Payment\n\n100% T/T in advance.\n"
+
+    view = build_clause_reviews(state)
+
+    assert view.contract_text == state.raw_text
+    assert "\n\n" in view.contract_text
+
+
 def test_clauses_are_grouped_without_rejudging() -> None:
     view = build_clause_reviews(_state())
 

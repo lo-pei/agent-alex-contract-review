@@ -1,8 +1,8 @@
 ﻿# 架构决策记录（ADR）索引
 
-> 更新时间：2026-10-27（界面轮 5：账号 / 审查记录 / Skill 仓库 / BYOK，新增 ADR-013；界面轮 4：主区两屏 + 侧栏保留；界面轮 3 + 文档类型闸门：规则 version 5、holdout4 盲测、ADR-009 第 3 轮补充、ADR-012）
-> 阶段：**第三阶段代码实现已打通 CLI + FastAPI + 对话式 Web 前端（Streamlit 备用）；第四阶段进行中（规则 13 条 + 三组评测指标 + 四批留出集）**
-> 说明：ADR-001 ~ ADR-013 全部为“已接受”。后续如需变更，写新 ADR 并在原 ADR 标注“已替代”，不直接改写历史结论。
+> 更新时间：2026-10-28（界面轮 13：图片 PDF 本地 OCR、外部 Skill 包内置、zip 导入，新增 ADR-014；界面轮 12：配色三档 / Skill 工具与附件 / 头像裁剪 / 左原文右意见；界面轮 5：账号 / 审查记录 / Skill 仓库 / BYOK，新增 ADR-013；界面轮 4：主区两屏 + 侧栏保留；界面轮 3 + 文档类型闸门：规则 version 5、holdout4 盲测、ADR-009 第 3 轮补充、ADR-012）
+> 阶段：**第三阶段代码实现已打通 CLI + FastAPI + 两屏 Web 前端（Streamlit 备用）；第四阶段进行中（规则 13 条 + 三组评测指标 + 四批留出集）**
+> 说明：ADR-001 ~ ADR-014 全部为“已接受”。后续如需变更，写新 ADR 并在原 ADR 标注“已替代”，不直接改写历史结论。
 
 ## 为什么需要 ADR
 
@@ -30,6 +30,7 @@
 | ADR-011 | 评测方法、silver gold 与留出验证口径 | **已接受（已实现）** | gold 分三层（检索期望 / silver 规则 gold / 留出 gold）；三组指标（rule_level / contract_level / coverage）；留出集未参与规则设计，**发现漏报也不回改规则**；**留出集一旦用于定位缺陷即“已消耗”，只能作回归守卫，对外报数须换新样本**；报数纪律（样本+版本+命令+日期） | [ADR-011-评测方法silver-gold与留出验证.md](./ADR-011-评测方法silver-gold与留出验证.md) |
 | ADR-012 | 上传文档类型闸门 | **已接受（已实现）** | `ingest` 后新增 `precheck_document`：确定性规则判断“是不是合同”（抬头/编号/双方/条款结构/交易要素 + 论文与法规反向信号）；否 → 直接出 `not_contract` 报告，**不切条款、不抽取、不判级、不触发 HITL**；`API_VERSION` 0.9.0 | [ADR-012-上传文档类型闸门.md](./ADR-012-上传文档类型闸门.md) |
 | ADR-013 | 账号体系、审查记录、Skill 仓库与 BYOK | **已接受（已实现）** | 账号/会话/Skill/记录/模型配置落本地 SQLite（零新依赖）；口令 PBKDF2 + 会话只存 token 哈希；API Key 标准库密文盒加密、接口只回尾号；按 `review_id` 登记 `LLMRuntime` + `ContextVar` 作用域；**审查重点 / Skill 只进 `<untrusted_focus>`，不得改等级**；侧栏只留登录入口，右侧主区为对话式首屏；`API_VERSION` 1.0.0 | [ADR-013-账号体系与BYOK.md](./ADR-013-账号体系与BYOK.md) |
+| ADR-014 | 图片 PDF 的本地 OCR 与外部 Skill 包 / zip 导入 | **已接受（已实现）** | 上传上限 15→30 MB（单一配置源）；**只在 PDF 无文本层时**用 `pypdfium2` + `rapidocr-onnxruntime` 本地 OCR（离线、≤20 页、逐页降级），OCR 文本只进 `raw_text`、**不参与判级**；4 个外部 Skill 包复制到 `app/resources/skills/` 作 `builtin:*`；zip 导入只读文本、根目录 `SKILL.md` 必填、**不执行包内脚本**、`allowed-tools` 不映射 | [ADR-014-图片PDF的OCR与外部Skill包.md](./ADR-014-图片PDF的OCR与外部Skill包.md) |
 
 ## 关键设计一句话
 

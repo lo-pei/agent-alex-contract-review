@@ -10,6 +10,8 @@
 
 from __future__ import annotations
 
+import re
+
 from app.schemas import (
     ClauseFinding,
     ClauseReview,
@@ -147,6 +149,60 @@ def _revised_text(findings: list[ClauseFinding]) -> tuple[str | None, str | None
     return "\n\n".join(blocks), REVISION_NOTE
 
 
+_TITLE_NUMBER_RE = re.compile(r"^\s*(\d{1,3})\s*[.、]\s*")
+
+
+def _display_title(title: str) -> str:
+    """目录短标题：旧版切分存了整行标题（含冒号后的正文），展示时只留主题词。"""
+    stripped = " ".join((title or "").split())
+    if not stripped:
+        return ""
+    number = ""
+    rest = stripped
+    match = _TITLE_NUMBER_RE.match(stripped)
+    if match:
+        number = f"{match.group(1)}."
+        rest = stripped[match.end() :]
+    head = rest.split("：", 1)[0].split(":", 1)[0].strip()
+    if head and len(head) <= 16:
+        return f"{number} {head}".strip()
+    return stripped
+
+
+def _heading_key(title: str) -> str:
+    """标题归一键：去掉编号、冒号后的正文与空白，用来识别重复标题。"""
+    text = _TITLE_NUMBER_RE.sub("", (title or "").strip())
+    text = text.split("：", 1)[0].split(":", 1)[0]
+    return re.sub(r"\s+", "", text).casefold()
+
+
+def _merge_adjacent_duplicates(clauses: list[ClauseReview]) -> list[ClauseReview]:
+    """相邻且同名（去掉编号/空格后）的条款合成一条展示。
+
+    旧版切分会把同一标题的英文译文段也切成一条，导致目录出现两个“付款条件”。
+    这里只做展示层合并：文本拼接、意见合并、等级仍按原有规则结果计算。
+    """
+    merged: list[ClauseReview] = []
+    for clause in clauses:
+        previous = merged[-1] if merged else None
+        if (
+            previous is not None
+            and not previous.is_preamble
+            and not clause.is_preamble
+            and _heading_key(previous.title)
+            and _heading_key(previous.title) == _heading_key(clause.title)
+        ):
+            previous.text = (previous.text.rstrip() + "\n\n" + clause.text.lstrip()).strip()
+            previous.findings = _by_severity(previous.findings + clause.findings)
+            red = any(item.risk_level == "red" for item in previous.findings)
+            yellow = any(item.risk_level == "yellow" for item in previous.findings)
+            previous.risk_level = "red" if red else "yellow" if yellow else "pass"
+            previous.revised_text, previous.revision_note = _revised_text(previous.findings)
+            continue
+        merged.append(clause)
+    return merged
+
+
 def build_clause_reviews(
     state: ContractReviewState,
     *,
@@ -172,22 +228,19 @@ def build_clause_reviews(
             by_clause.setdefault(clause_id, []).append(finding)
 
     clauses: list[ClauseReview] = []
-    revised_count = 0
     for index, clause in enumerate(state.clauses, start=1):
         findings = _by_severity(by_clause.get(clause.clause_id, []))
         red = any(item.risk_level == "red" for item in findings)
         yellow = any(item.risk_level == "yellow" for item in findings)
         level = "red" if red else "yellow" if yellow else "pass"
         revised, note = _revised_text(findings)
-        if revised:
-            revised_count += 1
         # 前言单独标注：前端显示“前言”，导出也不写成“第 1 条”
         is_preamble = clause.clause_type == "preamble"
         clauses.append(
             ClauseReview(
                 clause_id=clause.clause_id,
                 index=index,
-                title="前言" if is_preamble else clause.title,
+                title="前言" if is_preamble else _display_title(clause.title),
                 text=clause.text,
                 page=clause.page,
                 risk_level=level,
@@ -197,6 +250,12 @@ def build_clause_reviews(
                 revision_note=note,
             )
         )
+
+    # 旧版切分（或译文重复标题）可能留下同名的相邻条款：只在展示层合并，不改等级来源
+    clauses = _merge_adjacent_duplicates(clauses)
+    for position, clause in enumerate(clauses, start=1):
+        clause.index = position
+    revised_count = sum(1 for clause in clauses if clause.revised_text)
 
     contract_revised, contract_note = _revised_text(contract_findings)
     if contract_revised:
@@ -216,6 +275,7 @@ def build_clause_reviews(
         overall_level=state.overall_level,
         awaiting_human=awaiting_human,
         clauses=clauses,
+        contract_text=state.raw_text,
         contract_findings=_by_severity(contract_findings),
         contract_revised_text=contract_revised,
         contract_revision_note=contract_note,

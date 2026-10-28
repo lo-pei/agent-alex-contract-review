@@ -337,6 +337,30 @@ def _merge_translations(drafts: list[dict], text: str) -> list[dict]:
     return merged
 
 
+def _merge_duplicate_headings(drafts: list[dict]) -> list[dict]:
+    """相邻且主题名相同的两条标题合并（中英对照/重复标题误切出来的“第二个付款条件”）。
+
+    只在标题归一化后完全一致、且两条相邻时合并，避免把不同主题的相邻条款误并。
+    """
+    merged: list[dict] = []
+    for draft in drafts:
+        if merged and not draft["is_preamble"] and not merged[-1]["is_preamble"]:
+            previous = _topic_key(merged[-1]["title"])
+            current = _topic_key(draft["title"])
+            if previous and previous == current:
+                merged[-1]["end"] = max(merged[-1]["end"], draft["end"])
+                continue
+        merged.append(dict(draft))
+    return merged
+
+
+def _topic_key(title: str) -> str:
+    """目录标题归一化：去掉编号、冒号后的正文与空白，只留主题词。"""
+    key = re.sub(r"^\s*\d{1,3}\s*[.、]\s*", "", (title or "").strip())
+    key = key.split("：", 1)[0].split(":", 1)[0]
+    return re.sub(r"\s+", "", key).casefold()
+
+
 def _merge_small(drafts: list[dict], text: str) -> list[dict]:
     """只有“非标题开头”的小段才并入上一条款；带标题的小条款保留（守住条款边界）。"""
     merged: list[dict] = []
@@ -509,6 +533,7 @@ def segment_clauses(state: ContractReviewState) -> dict:
     drafts = split_by_headings(text)
     if drafts:
         drafts = _merge_translations(drafts, text)
+        drafts = _merge_duplicate_headings(drafts)
         drafts = _merge_small(drafts, text)
     else:
         spans = split_by_paragraphs(text)

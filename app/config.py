@@ -86,6 +86,11 @@ class Settings:
     max_contract_chars: int
     max_pages: int
 
+    # OCR（扫描件 / 图片 PDF；RapidOCR 本地推理，不联网）
+    ocr_enabled: bool
+    ocr_max_pages: int
+    ocr_render_scale: float
+
 
 def load_settings() -> Settings:
     return Settings(
@@ -120,9 +125,12 @@ def load_settings() -> Settings:
         ),
         rag_top_k=_int_env("RAG_TOP_K", 3),
         rag_min_score=_float_env("RAG_MIN_SCORE", 1.0),
-        max_upload_mb=_int_env("MAX_UPLOAD_MB", 15),
+        max_upload_mb=_int_env("MAX_UPLOAD_MB", 30),
         max_contract_chars=_int_env("MAX_CONTRACT_CHARS", 200_000),
         max_pages=_int_env("MAX_PAGES", 200),
+        ocr_enabled=_bool_env("OCR_ENABLED", True),
+        ocr_max_pages=_int_env("OCR_MAX_PAGES", 20),
+        ocr_render_scale=_float_env("OCR_RENDER_SCALE", 2.2),
     )
 
 

@@ -62,9 +62,12 @@ from app.services.pending_store import FilePendingStore
 from app.services.skill_catalog import (
     MAX_SKILL_ASSET_CHARS,
     MAX_SKILL_ASSETS,
+    MAX_SKILL_PACKAGE_BYTES,
     TOOL_CATALOG,
     Skill,
+    SkillPackageError,
     compose_focus,
+    parse_skill_package,
 )
 
 API_TITLE = "Agent Alex · 外贸合同智审助手"
@@ -190,6 +193,16 @@ class SkillCreate(BaseModel):
     tools: list[str] = Field(default_factory=list, max_length=8)
     #: 附件（.py / .md / .txt 文本；最多 5 个，单个 ≤ 6000 字符）
     assets: list[SkillAssetPayload] = Field(default_factory=list, max_length=MAX_SKILL_ASSETS)
+
+
+class SkillImportResult(BaseModel):
+    """zip 包导入结果：新建的 Skill + 解析时的提示（截断/跳过原因）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    skill: Skill
+    warnings: list[str] = Field(default_factory=list)
+    files: int = 0
 
 
 class LLMUpdate(BaseModel):
@@ -564,6 +577,41 @@ def create_app(
     def list_skill_tools() -> dict:
         """Skill 可声明的工具目录（只读；工具本身由后端实现，Skill 不能新增可执行代码）。"""
         return {"tools": [tool.model_dump() for tool in TOOL_CATALOG]}
+
+    @app.post("/api/skills/import", response_model=SkillImportResult, status_code=201)
+    async def import_skill_package(
+        request: Request,
+        file: Annotated[UploadFile, File()],
+    ) -> SkillImportResult:
+        """导入 zip 格式的 Skill 包（根目录含 SKILL.md，可带 references/）。
+
+        只读文本：包内脚本不会执行、不会解压落盘；`allowed-tools` 不映射为
+        项目能力。解析失败返回 400，字段超限由 `create_skill` 统一校验。
+        """
+        user = require_user(request)
+        raw = await file.read(MAX_SKILL_PACKAGE_BYTES + 1)
+        if len(raw) > MAX_SKILL_PACKAGE_BYTES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"zip 超过 {MAX_SKILL_PACKAGE_BYTES // (1024 * 1024)} MB。",
+            )
+        try:
+            parsed = parse_skill_package(raw)
+        except SkillPackageError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        skill = store_of(request).create_skill(
+            user.id,
+            name=parsed["name"][:40],
+            description=parsed["description"],
+            instruction=parsed["instruction"],
+            tools=parsed["tools"],
+            assets=[asset.model_dump() for asset in parsed["assets"]],
+        )
+        return SkillImportResult(
+            skill=skill,
+            warnings=parsed["warnings"],
+            files=parsed["files"],
+        )
 
     @app.post("/api/skills", response_model=Skill, status_code=201)
     def create_skill(payload: SkillCreate, request: Request) -> Skill:

@@ -2,11 +2,13 @@
 
 角色：图的第一站（ADR-001 / ADR-005）。
 依赖：`app/config.py`（上限）、`app/schemas.py`（Page/State）、`pypdf`、`python-docx`。
-支持：TXT / Markdown / 文本型 PDF / DOCX（扫描件、加密 PDF 明确报错，不做 OCR）。
+支持：TXT / Markdown / 文本型 PDF / DOCX；**无文本层的图片 PDF 自动 OCR**
+（RapidOCR，本地推理，最多 `OCR_MAX_PAGES` 页）。
 约束：
 - 所有偏移都是 **canonical_text 的字符索引**，不是 PDF 字节偏移；
 - 本节点任何失败都写入 `errors` 且 `status="failed"`，不抛异常中断图；
-- 报告只暴露 basename，不暴露服务器绝对路径。
+- 报告只暴露 basename，不暴露服务器绝对路径；
+- OCR 只把图片变成文本，**不参与判级**（等级仍只由规则引擎决定）。
 """
 
 from __future__ import annotations
@@ -18,12 +20,14 @@ from time import perf_counter
 
 from app.config import settings
 from app.schemas import ContractReviewState, Page
+from app.services.ocr import OcrError, ocr_pdf_pages
 
 SUPPORTED_SUFFIXES = {".txt": "text", ".md": "text", ".pdf": "pdf", ".docx": "docx"}
 KNOWN_UNSUPPORTED_SUFFIXES = {".doc": "旧版 Word (.doc)"}
 
 PAGE_SEPARATOR = "\n\n"
 MIN_PDF_TEXT_CHARS = 50  # 少于此字符数视为无文本层（扫描件）
+MIN_PAGE_TEXT_CHARS = 10  # 单页少于此字符数视为图片页（页码/页眉不算正文）
 
 
 class IngestError(Exception):
@@ -58,7 +62,7 @@ def _decode_text(raw: bytes) -> tuple[str, list[str]]:
 
 
 def _extract_pdf(raw: bytes, warnings: list[str]) -> list[str]:
-    """按页提取文本；扫描件/加密/超页数都抛 `IngestError`。"""
+    """按页提取文本；无文本层时尝试 OCR；扫描件/加密/超页数都抛 `IngestError`。"""
     from pypdf import PdfReader
     from pypdf.errors import PdfReadError
 
@@ -83,23 +87,66 @@ def _extract_pdf(raw: bytes, warnings: list[str]) -> list[str]:
         )
 
     page_texts: list[str] = []
-    empty_pages: list[int] = []
     for index, page in enumerate(reader.pages, start=1):
         try:
             text = page.extract_text() or ""
         except Exception as exc:  # noqa: BLE001 - 单页损坏不应拖垮整个文件
             raise IngestError(f"第 {index} 页文本提取失败：{exc}") from exc
         page_texts.append(canonicalize(text).strip("\n"))
-        if not text.strip():
-            empty_pages.append(index)
+
+    total_chars = sum(len(text.strip()) for text in page_texts)
+
+    # 文本层缺失 → 渲染成图片交给本地 OCR；纯文本 PDF 不触发，避免无谓开销。
+    ocr_attempted = False
+    if settings.ocr_enabled and page_count:
+        if total_chars < MIN_PDF_TEXT_CHARS:
+            targets = list(range(1, page_count + 1))
+        else:
+            targets = [
+                number
+                for number, text in enumerate(page_texts, start=1)
+                if len(text.strip()) < MIN_PAGE_TEXT_CHARS
+            ]
+        limit = max(0, settings.ocr_max_pages)
+        if targets and len(targets) > limit:
+            warnings.append(
+                f"OCR 最多处理 {limit} 页（当前需要识别 {len(targets)} 页），"
+                "超出部分未识别，请拆分文件或人工核对。"
+            )
+        targets = targets[:limit]
+        if targets:
+            try:
+                ocr_texts = ocr_pdf_pages(raw, targets)
+            except OcrError as exc:
+                warnings.append(f"OCR 未执行：{exc}；请上传可复制文本的 PDF 或 DOCX。")
+            else:
+                ocr_attempted = True
+                for number, text in ocr_texts.items():
+                    cleaned = canonicalize(text).strip("\n")
+                    if cleaned:
+                        page_texts[number - 1] = cleaned
+                if ocr_texts:
+                    pages = ", ".join(str(number) for number in sorted(ocr_texts))
+                    warnings.append(
+                        f"第 {pages} 页没有文本层，已用 OCR 识别；"
+                        "识别结果可能有错字或串行，重要条款请人工核对。"
+                    )
 
     total_chars = sum(len(text.strip()) for text in page_texts)
     if page_count and total_chars < MIN_PDF_TEXT_CHARS:
+        reason = (
+            "OCR 已尝试但未识别出可用文本"
+            if ocr_attempted
+            else "OCR 不可用或已关闭（见环境变量 OCR_ENABLED）"
+        )
         raise IngestError(
             "未检测到文本层（可能是扫描件/图片 PDF）；"
-            "请提供可复制文本的 PDF 或 DOCX，本项目不做 OCR。"
+            f"{reason}。请上传可复制文本的 PDF、DOCX 或 TXT。"
         )
 
+    empty_pages = [
+        number for number, text in enumerate(page_texts, start=1) if not text.strip()
+    ]
     if empty_pages:
         preview = ", ".join(str(number) for number in empty_pages[:10])
         warnings.append(
@@ -166,10 +213,11 @@ def ingest_document(state: ContractReviewState) -> dict:
         timings = {**state.timings, "ingest_document_ms": elapsed_ms}
         return {**updates, "timings": timings}
 
-    def fail(message: str) -> dict:
+    def fail(message: str, extra_warnings: list[str] | None = None) -> dict:
         return finish(
             status="failed",
             errors=[*state.errors, message],
+            warnings=[*state.warnings, *(extra_warnings or [])],
             pages=[],
             raw_text="",
             clauses=[],
@@ -186,12 +234,12 @@ def ingest_document(state: ContractReviewState) -> dict:
     if suffix in KNOWN_UNSUPPORTED_SUFFIXES:
         return fail(
             f"暂不支持 {KNOWN_UNSUPPORTED_SUFFIXES[suffix]} 文件；"
-            "请上传 TXT / Markdown / 文本型 PDF / DOCX。"
+            "请上传 TXT / Markdown / PDF（文本型或图片型）/ DOCX。"
         )
     if suffix not in SUPPORTED_SUFFIXES:
         return fail(
             f"不支持的文件类型 {suffix or '(无扩展名)'}；"
-            "当前支持 TXT / Markdown / 文本型 PDF / DOCX。"
+            "当前支持 TXT / Markdown / PDF（文本型或图片型）/ DOCX。"
         )
 
     size_mb = path.stat().st_size / (1024 * 1024)
@@ -216,7 +264,7 @@ def ingest_document(state: ContractReviewState) -> dict:
             warnings.extend(decode_warnings)
             page_texts = [canonicalize(text)]
     except IngestError as exc:
-        return fail(str(exc))
+        return fail(str(exc), warnings)
 
     pages, canonical = _assemble_pages(page_texts)
     if not canonical.strip():

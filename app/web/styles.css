@@ -819,6 +819,14 @@ svg {
   font-size: calc(10.5px * var(--ui-text-scale, 1));
 }
 
+.composer-hint {
+  max-width: 720px;
+  margin: 8px auto 0;
+  color: var(--faint);
+  font-size: calc(11px * var(--ui-text-scale, 1));
+  text-align: center;
+}
+
 .chat-error {
   max-width: 720px;
   margin: 10px auto 0;
@@ -2505,6 +2513,22 @@ svg {
   gap: 8px;
   padding: 4px 6px 4px 8px;
 }
+/* 只读附件：点标题行展开全文（只展示文本，不执行） */
+.asset-head.asset-open {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.asset-hint {
+  flex: none;
+  color: var(--faint);
+  font-size: calc(10.5px * var(--ui-text-scale, 1));
+}
+.asset-head.asset-open:hover .asset-hint {
+  color: var(--text);
+}
 .asset-name {
   flex: 1;
   min-width: 0;
@@ -2793,6 +2817,69 @@ svg {
   min-width: 0;
   height: 100%;
   overflow: hidden;
+}
+
+/* 左栏视图切换：条款目录（默认）/ 原文全文；不改动右栏 */
+.pane-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.pane-tab {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--faint);
+  font-family: var(--font-sans);
+  font-size: calc(12px * var(--ui-text-scale, 1));
+  cursor: pointer;
+}
+
+.pane-tab:hover {
+  color: var(--text);
+}
+
+.pane-tab.is-active {
+  border-color: var(--border);
+  background: var(--raised);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.contract-fulltext {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--raised);
+  color: var(--text);
+  font-size: calc(13px * var(--ui-text-scale, 1));
+  line-height: 1.78;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.contract-fulltext p {
+  margin: 0 0 10px;
+}
+
+.contract-fulltext p:last-child {
+  margin-bottom: 0;
+}
+
+/* `hidden` 属性要压过上面的 display 声明 */
+.clause-list[hidden],
+.clause-origin[hidden],
+.contract-fulltext[hidden] {
+  display: none;
+}
+
+.review-chips .status-chip {
+  margin-left: 0;
 }
 
 .clause-list {

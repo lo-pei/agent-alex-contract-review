@@ -1,7 +1,7 @@
 ﻿# 开发交接文档（Handover）
 
-> 更新时间：2026-10-28（界面轮 12：配色三档 + Skill 工具/附件 + 头像裁剪 + 标签行 + 历史即时刷新 + 切分精度 + 左原文右意见独立滚动；界面轮 10：账户设置 B 端分区弹窗 + 主题色 5 套 + 字号三档 + 侧栏去掉昵称邮箱；界面轮 9：个人账户弹窗 + Skill 编辑 + 厂商 20；界面轮 8：Skill Markdown 导入 + 注册 not found 定位；界面轮 7：Skill 仓库独立页；界面轮 6：审查历史子目录 + 记录运维；界面轮 5：账号/记录/Skill/BYOK；界面轮 4：主区两屏；第四阶段第 4 轮：规则 version 5 + 第四批留出集）
-> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI）；界面轮 12 完成（配色改“白天/黑夜/跟随系统”三档，主题色 5 套下线；Skill 从一段提示词扩成“指令 + 5 个可声明工具 + 只读文本附件”；头像上传后先裁剪再存 128×128 JPEG；审查页顶部改标签行并删掉对话式长叙述；审查与确认后侧栏历史即时刷新；未命中规则改“这条没问题”的人话；条款切分修 4 类误切 + 短标题 + 前言标注；逐条审查左目录与原文、右意见与“采用修改/保留原文/撤销”，三块各自滚动）；界面轮 5 完成（账号体系 / 审查记录 / Skill 仓库 / BYOK 按 ADR-013 落地，`API_VERSION 1.0.0`；侧栏 = 导航 + API 配置 + 接口文档 + 账号区）；上传仍先判断是不是合同（不是即 `not_contract`，不切条款/不抽取/不判级）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）；334 个测试通过**；检索评测与人工复核 gold 尚未完成
+> 更新时间：2026-10-28（界面轮 13：上传上限 30 MB + 图片 PDF 本地 OCR + 4 个外部 Skill 包内置 + zip 导入 + 完整原文 + 条款去重；界面轮 12：配色三档 + Skill 工具/附件 + 头像裁剪 + 标签行 + 历史即时刷新 + 切分精度 + 左原文右意见独立滚动；界面轮 10：账户设置 B 端分区弹窗 + 主题色 5 套 + 字号三档 + 侧栏去掉昵称邮箱；界面轮 9：个人账户弹窗 + Skill 编辑 + 厂商 20；界面轮 8：Skill Markdown 导入 + 注册 not found 定位；界面轮 7：Skill 仓库独立页；界面轮 6：审查历史子目录 + 记录运维；界面轮 5：账号/记录/Skill/BYOK；界面轮 4：主区两屏；第四阶段第 4 轮：规则 version 5 + 第四批留出集）
+> 当前状态：**第三阶段第 6 步完成（解释 + 质量门 + RAG + FastAPI）；界面轮 13 完成（上传上限 15→30 MB 且前后端同一配置源；图片/扫描 PDF 走本地 OCR（`pypdfium2` + `rapidocr-onnxruntime`，离线、只在无文本层时触发、≤20 页、只产文本不判级）；桌面 4 个外部 Skill 包复制进 `app/resources/skills/` 作 `builtin:*`（内置 Skill 7→11）；Skill 仓库支持 zip 包导入（不落盘、不执行）；“两个付款条件”双层去重（切分 + 展示）并为旧记录兜底；结果页合同名/Skill/审查重点/状态收成同一行标签；左栏新增“原文全文”tab 按原排版呈现）；界面轮 12 完成（配色改“白天/黑夜/跟随系统”三档，主题色 5 套下线；Skill 从一段提示词扩成“指令 + 5 个可声明工具 + 只读文本附件”；头像上传后先裁剪再存 128×128 JPEG；审查页顶部改标签行并删掉对话式长叙述；审查与确认后侧栏历史即时刷新；未命中规则改“这条没问题”的人话；条款切分修 4 类误切 + 短标题 + 前言标注；逐条审查左目录与原文、右意见与“采用修改/保留原文/撤销”，三块各自滚动）；界面轮 5 完成（账号体系 / 审查记录 / Skill 仓库 / BYOK 按 ADR-013 落地，`API_VERSION 1.0.0`；侧栏 = 导航 + API 配置 + 接口文档 + 账号区）；上传仍先判断是不是合同（不是即 `not_contract`，不切条款/不抽取/不判级）；第四阶段第 1–4 轮完成：规则 13 条（`version: 5`）、50 份模拟合同 + 21 个 silver gold 现象、三组评测指标、四批留出集 40 份，当前唯一未消耗的 holdout4（12 份）给出 P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）；347 个测试通过**；检索评测与人工复核 gold 尚未完成
 > 交接原则：任何新接手的人只读本文件 + `00_PROJECT_STATE.md` + `02_ARCHITECTURE_DECISIONS/README.md`，就能继续开发。
 
 ---
@@ -26,7 +26,7 @@
 | 项 | 状态 | 证据 |
 |---|---|---|
 | GitHub 调研 | ✅ 完成 | `01_RESEARCH_LOG.md`，8 个仓库源码级分析 |
-| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~013` |
+| 架构 ADR | ✅ 完成，全部已接受 | `02_ARCHITECTURE_DECISIONS/ADR-001~014` |
 | 环境与依赖 | ✅ 完成 | `.venv`（Python 3.12.10）+ `requirements*.txt`；实际版本见 ADR-006 §6 |
 | 业务代码（第 3 步） | ✅ 解析/切分/抽取/校验/规则可用 | `app/` |
 | HITL（第 4 步） | ✅ 条件边 + `interrupt()` + checkpointer | `app/nodes/hitl.py`、`app/review_service.py`、`app/services/checkpointer.py` |
@@ -34,6 +34,7 @@
 | API / UI（第 6 步） | ✅ FastAPI + pending 落盘 + Streamlit 备用 | `app/api.py`、`app/ui.py`、`app/report_markdown.py`、`app/services/pending_store.py` |
 | B 端审查工作台（界面轮 2） | ✅ 四视图 + 本地字体 + 只读规则目录 | `app/web/index.html`、`app/web/styles.css`、`app/web/app.js`、`app/web/fonts/`；`GET /`、`GET /static/*`、`GET /api/rules`；`tests/test_web.py`（6 项）、`tests/test_api.py::test_rule_catalog_matches_definitions` |
 | 账号 / 记录 / Skill / BYOK（界面轮 5） | ✅ 本地 SQLite + 密文盒 + 每审查模型运行时 | `app/services/accounts.py`、`app/services/secret_box.py`、`app/services/llm_providers.py`、`app/services/skill_catalog.py`、`app/services/llm.py`（`LLMRuntime` / `review_llm_scope`）；`tests/test_accounts.py`（28 项）；`API_VERSION 1.0.0` |
+| 上传 30 MB + 图片 PDF OCR + 外部 Skill 包 + zip 导入 + 原文全文（界面轮 13） | ✅ 扫描件也能审查；内置 Skill 7→11；Skill 可传 zip；付款条件不再重复；左栏可看完整原文 | `app/services/ocr.py`（`ocr_available` / `ocr_pdf_pages`）、`app/nodes/ingest.py`（`MIN_PAGE_TEXT_CHARS` / `MIN_PDF_TEXT_CHARS` / `ocr_attempted` / `fail(message, extra_warnings)`）、`app/config.py`（`ocr_enabled` / `ocr_max_pages` / `ocr_render_scale`）、`app/resources/skills/`（4 个外部包）、`app/services/skill_catalog.py`（`_PACKAGE_SPECS` / `packaged_skills` / `parse_skill_package`）、`app/api.py`（`POST /api/skills/import`）、`app/nodes/segment.py`（`_merge_duplicate_headings`）、`app/services/clause_review.py`（`_display_title` / `_merge_adjacent_duplicates`）、`app/schemas.py`（`ClauseReviewList.contract_text`）、`app/web/app.js`（`MAX_BYTES` 30 MB / `renderContractFulltext` / `applyPaneMode`）、`app/web/index.html`（`.pane-tabs` / `#contract-fulltext` / zip 导入文案）、`app/web/styles.css`（`.pane-tabs` / `.contract-fulltext`）、`tests/test_ocr.py`（+5）、`tests/test_accounts.py`（+4）、`tests/test_segment.py`（+1）、`tests/test_clause_review.py`（+2）、`tests/test_web.py`（+1 并改写 2）；全量 **347 passed** |
 | 配色三档 + Skill 工具/附件 + 头像裁剪 + 左原文右意见（界面轮 12） | ✅ 主题色下线；Skill 可声明 5 个工具、可挂只读文本附件；头像可拖动/缩放裁剪；标签行 + 三块独立滚动 | `app/web/index.html`（`[data-scheme-value]`、`#skill-tools` / `#skill-asset-pick` / `#skill-asset-input` / `#skill-asset-list`、`#avatar-crop-dialog`）、`app/web/app.js`（`resolvedScheme` / `applyPrefs` / `cropGeometry` / `cropResult` / `applyCrop` / `reviewChip` / `clauseListItem` / `renderClauseOrigin` / `keepClause` / `refreshHistory` / `loadSkillTools` / `renderToolChips` / `renderAssetList`）、`app/web/styles.css`（`html[data-scheme]`、`.chip-tag` / `.chip-wide`、`.workbench-grid` 三块独立滚动、`.clause-origin`、`.detail-actions`、`.pass-block`、`.tool-chip` / `.asset-*`、`.crop-stage`）、`app/services/skill_catalog.py`（`TOOL_CATALOG` / `SkillAsset` / `compose_focus`）、`app/services/accounts.py`（`tools` / `assets` 列 + `_clean_skill_*`）、`app/api.py`（`GET /api/skills/tools`）、`app/nodes/segment.py`（同行标题 / 字段黑名单 / 说明块 / 中英合并 / `_short_title`）、`app/services/clause_review.py`（`is_preamble`）；`tests/test_web.py`（+3 项、改写 3 项）、`tests/test_accounts.py`（+4 项）、`tests/test_segment.py`（+3 项）、`tests/test_clause_review.py`（+1 项）；全量 **334 passed** + CDP 冒烟 |
 | 账户设置 B 端弹窗 + 侧栏收口（界面轮 10） | ✅ 左侧分区（个人信息 / 通用 / 数据管理 / 关于）+ 字号三档（主题色已在轮 12 换成三档配色）；侧栏不再显示昵称与邮箱 | `app/web/index.html`（`#account-dialog` 分区结构、`#account-line` 删除）、`app/web/app.js`（`setAccountPanel` / `loadAccountStats` / `loadAboutInfo` / `syncPrefControls` / `resetPrefs`、`prefs.scheme` / `prefs.font`）、`app/web/styles.css`（`.account-nav` / `.account-panel` / `.seg` / `--ui-text-scale` + `html[data-font]`、全量 `font-size` 换算）、`tests/test_web.py`（个人账户测试扩到分区与三档配色断言） |
 | 个人账户 + Skill 编辑 + 紧凑 + 厂商 20 + 密码自动填充（界面轮 9） | ✅ 头像/昵称/系统设置/二次确认清数据；自建 Skill 可编辑；厂商 10→20 | `app/web/index.html`（`#account-row` / `#account-dialog` / `#llm-form` autocomplete）、`app/web/app.js`（`renderAvatar` / `askClear` / `runClear` / `fillSkillForm`；`squareThumbnail` 已在轮 12 换成裁剪弹窗）、`app/web/styles.css`（`.avatar` / `.account-confirm` / `.skill-head` / `.skill-detail`）、`app/services/accounts.py`（`avatar` 列 + `update_profile` + `update_skill` + `_clean_skill_fields`）、`app/api.py`（`PATCH /api/auth/profile`、`PATCH /api/skills/{id}`）、`app/services/llm_providers.py`（20 家）、`tests/test_accounts.py`（+7）、`tests/test_web.py`（+3） |
@@ -42,14 +43,14 @@
 | 历史可运维 + Skill 归位 + 满屏（界面轮 6） | ✅ 侧栏子目录 + 改名/置顶/删除 + 定高弹窗 | `app/services/accounts.py`（`title`/`pinned` + `ALTER TABLE` 升级 + `rename/set_pinned/delete`）、`app/review_service.py`（`discard`）、`app/api.py`（`PATCH|DELETE /api/reviews/{id}`）、`app/web/*`；`tests/test_accounts.py`（+4 项）、`tests/test_web.py`（+3 项） |
 | 主区极简 + 侧栏保留（界面轮 4） | ✅ 两屏：上传 → 风险点 | `app/web/index.html`、`app/web/app.js`、`app/web/styles.css`；侧栏/顶栏导航壳保留；hash 路由只留 `#/` 与 `#/review/{id}`；待确认态渲染 `approval.findings`；`tests/test_web.py`（10 项） |
 | 文档类型闸门（界面轮 3） | ✅ 先判断是不是合同，不是就停 | `app/services/document_type.py`、`app/nodes/precheck.py`、`app/graph.py`（`ingest → precheck → segment | report`）；`status=not_contract`；`tests/test_document_type.py`（11 项）、`tests/test_api.py::test_non_contract_upload_is_not_reviewed`、`tests/test_web.py::test_runtime_internals_stay_out_of_the_ui` |
-| 测试 | ✅ 334 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
+| 测试 | ✅ 347 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
 | 规则集 | ✅ 13 条 | `app/rules/definitions.yaml`（`version: 5`，三类措辞 + 保额邻近判定）；6 条新规则各有语料命中集合回归（ADR-010） |
 | 评测集 / 指标 | ⏳ 主集完成、四批留出完成、待复核 | `data/eval/gold_rules.json`（21 现象，silver）+ `gold_holdout{,2,3,4}.json`（7/9/7/9 现象）+ `eval/results/rules-*.json`；**silver gold 未经人工复核**，检索评测未做 |
 | Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`、`e41d235`、`c7f24a9`、`6eaff8c`、`5dc05bd`、`c540259`，以及后续每步提交 |
 
 > 报数纪律（ADR-011）：对外只引用**当前未被消耗**的留出集（holdout4，12 份，P=1.00 / R=0.889 / F1=0.941），并注明“silver gold 待复核、样本 12 份、唯一漏报 H39”。主集（50 份）P/R=1.0 是**同分布**产物；holdout、holdout2、holdout3 三批已被用于定位缺陷（“已消耗”），修复后即使 1.0 也只能当回归守卫。覆盖率 52.4%（主集 gold）与 H39 漏报才是当前真实短板；留出集的 `coverage=1.0` 是平凡结果，不能与 recall 混读。
 
-### 2.1 架构决策速览（ADR-001~013）
+### 2.1 架构决策速览（ADR-001~014）
 
 | ADR | 结论 | 状态 |
 |---|---|---|
@@ -66,6 +67,7 @@
 | 011 评测方法 | gold 三层（检索期望 / silver 规则 gold / 留出 gold）；三组指标；留出集发现漏报也不回改规则；**留出集一旦被用于定位缺陷即视为“已消耗”，只能作回归守卫**；报数纪律；第 4 轮补“保额邻近判定”与“测试钉住已知漏报” | **已接受**（2026-10-27 第 2–4 轮已实现） |
 | 012 类型闸门 | `ingest` 后 `precheck_document` 判定“是不是合同”；否 → `not_contract` 直接出报告，不切条款/不抽取/不判级/不触发 HITL | **已接受**（界面轮 3 已实现，`API_VERSION` 0.9.0） |
 | 013 账号与 BYOK | 账号/会话/Skill/记录/模型配置落本地 SQLite（零新依赖）；口令 PBKDF2 + 会话只存 token 哈希；API Key 密文盒加密、接口只回尾号；`LLMRuntime` 按 `review_id` 登记 + `ContextVar` 作用域；**审查重点 / Skill 只进 `<untrusted_focus>`，不改等级** | **已接受**（界面轮 5 已实现，`API_VERSION` 1.0.0） |
+| 014 OCR 与外部 Skill 包 | 上传上限 15→30 MB（单一配置源）；**只在 PDF 无文本层/单页少文本时**用 `pypdfium2` + `rapidocr-onnxruntime` 本地 OCR（离线、≤20 页、逐页降级），OCR 只进 `raw_text`、**不参与判级**；4 个外部 Skill 包复制进 `app/resources/skills/` 作 `builtin:*`；zip 导入只读文本、根目录 `SKILL.md` 必填、**不执行包内脚本**、`allowed-tools` 不映射 | **已接受**（界面轮 13 已实现） |
 
 ---
 
@@ -263,11 +265,11 @@ Agent_Alex外贸合同智审助手/
 | 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
 | 恢复人工决定 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision approve --reviewer zhangsan` | ✅ 可用（SQLite 跨进程） |
 | 超时语义 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision timeout` | ✅ 可用 → `unreviewed_red_risk` |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 334 个通过 |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 347 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行（统一入口） | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` | ✅ 可用（`/docs` 可试；默认 SQLite + 文件 pending） |
-| **Web 前端（主界面）** | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` → 打开 `http://127.0.0.1:8000/` | ✅ 可用（侧栏 = 导航 + API 配置 + 接口文档 + 账号区；主区两屏：上传合同 → 风险点；结果页 = 顶部标签行 + 左目录与原文 / 右意见与“采用修改·保留原文·撤销”，三块各自滚动；结果页 URL 为 `#/review/{id}`） |
+| **Web 前端（主界面）** | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` → 打开 `http://127.0.0.1:8000/` | ✅ 可用（侧栏 = 导航 + API 配置 + 接口文档 + 账号区；主区两屏：上传合同 → 风险点；结果页 = 顶部**同一行标签**（合同名 / Skill / 审查重点 / 状态）+ 左栏“条款目录 / 原文全文”两个 tab + 右栏意见与“采用修改·保留原文·撤销”，三块各自滚动；结果页 URL 为 `#/review/{id}`） |
 | Streamlit（备用） | `.\.venv\Scripts\python.exe -m streamlit run app/ui.py` | ✅ 可用（上传/审批/下载） |
 | 拆合同 + gold | `.\.venv\Scripts\python.exe eval\prepare_contracts.py` | ✅ 可用（50 份合同 / 105 条映射） |
 | 主集评测 | `.\.venv\Scripts\python.exe eval\run_eval.py` | ✅ 可用（无需 Key；含三组指标） |
@@ -523,6 +525,15 @@ Agent_Alex外贸合同智审助手/
      - **切分**：`segment.py` 增 `_NUMBERED_HEADING`（≤600 字）/ `_LABEL_HEADING`（≤800 字）/ `_FIELD_LABELS`（装运港、Port of Shipment…）/ `_notice_spans()`（特别提示块）/ `_merge_translations()`（中英对照，带编号不并）/ `_short_title()`（目录短标题）；`_merge_small()` 只并无标题小段；`ClauseReview.is_preamble` 让前言显示“前言”、导出也不写成“第 1 条”。
      - **左原文右意见**：`.workbench-grid` 等高 `min(66vh, 720px)`；左 `.clause-pane` 只做 flex 容器（`overflow:hidden`），目录 `#clause-list` 与当前条款原文 `#clause-origin` 各自 `overflow-y:auto`；右 `#clause-detail` 独立滚动；三块都 `overscroll-behavior: contain`；每条给“采用修改 / 保留原文 / 撤销更正”，`state.kept` 与 `state.corrections` 互斥；窄屏（≤900）上下排列。
      - 验证：`pytest` **334 通过**（`tests/test_segment.py` +3、`tests/test_clause_review.py` +1、`tests/test_accounts.py` +4、`tests/test_web.py` +3 并改写旧断言）；`ruff` / `node --check` 通过；Edge headless + CDP 复核（三档配色落 `html[data-scheme]`、Skill 弹窗 5 个工具胶囊、头像裁剪保存为 JPEG data URL、真实上传后左目录 + 左原文 + 右意见、640 高视口下右栏滚 141px 时左栏与整页保持 0、采用/保留状态正确）。
+   - **界面轮 13（已完成，2026-10-28）**：30 MB 上传 + 图片 PDF OCR + 4 个外部 Skill 包 + zip 导入 + 付款条件去重 + 同一行标签 + 完整原文。
+     - **上传上限**：`MAX_UPLOAD_MB` 默认 15 → 30（`app/config.py`、`.env`、`.env.example`）；前端 `MAX_BYTES = 30 * 1024 * 1024`、错误文案与首屏 `.composer-hint` 同步；API `limit_bytes` 与 Streamlit `settings.max_upload_mb` 共用同一配置，测试钉住“30 MB”。
+     - **OCR**：新增 `app/services/ocr.py`（`pypdfium2` 渲染 + `rapidocr-onnxruntime`，进程内复用引擎 + 锁，单页失败跳过）；`app/nodes/ingest.py` 只在**整份文本 < 50 字**（全页）或**单页 < 10 字**（补该页）时触发，`targets[:ocr_max_pages]`，超出与失败都写 warning；`OcrError` → `fail(str(exc), warnings)`；OCR 文本只进 `raw_text`，**不判级**；`tests/test_ocr.py` 5 项（图片 PDF 走 OCR、文本 PDF 不调、失败降级、开关关闭、依赖缺失）。
+     - **外部 Skill 包**：4 个桌面包复制到 `app/resources/skills/{letter-of-credit-reviewer,xiaping-export-contract,xiaolv-export-contract,ai-contract-risk-officer}`；`skill_catalog.py` 用 `_PACKAGE_SPECS` 声明 `builtin:*` 四个 id，`instruction` 为提炼稿（≤1000 字），`_package_assets()` 把原 `SKILL.md` 放第一位、references 按固定优先级排序（≤5 个 × 6000 字，超长标“（节选）”）；内置 Skill 7 → 11。
+     - **zip 导入**：`parse_skill_package(raw)` 找最浅 `SKILL.md`、解析 frontmatter 的 `name/description/tags`，正文作 instruction；只收 `.py/.md/.markdown/.txt`；拒绝非 zip / 缺 `SKILL.md` / >8 MB / 解压 >40 MB / >200 条目 / 单文件 >200 KB；**内存解析、不落盘、不执行**；`POST /api/skills/import`（需登录，201，返回 `{skill, warnings, files}`）；测试用 `raise SystemExit` 的 `check.py` 证明未被执行。
+     - **两个付款条件**：根因是旧切分把 `5. 付款条件： Payment:` 后面的英文段又切成一条标题、并吞掉后 4 条；修法两层——`segment._merge_duplicate_headings()`（切分时相邻同名合并、偏移连续）+ `clause_review._merge_adjacent_duplicates()`（展示层兜底旧记录，文本拼接、意见按红→黄合并、等级仍由原 findings 推出、合并后重排 `index`）；`_display_title()` 把旧长标题截成“编号 + 主题词”。
+     - **同一行标签**：结果页删 `.review-head-main` / `.file-line`，合同文件名、Skill、审查重点、状态全部进 `#review-chips`；`.review-chips .status-chip{margin-left:0}`。
+     - **完整原文**：`ClauseReviewList.contract_text = state.raw_text`；左栏 `.pane-tabs`（**条款目录**默认 / **原文全文**），`renderContractFulltext()` 按 `\n\n` 分段、段内 `\n` → `<br>`，自己 `overflow-y:auto` + `overscroll-behavior:contain`；`applyPaneMode()` 只切左栏，不影响右栏意见。
+     - 验证：`pytest` **347 通过**（`tests/test_ocr.py` +5、`tests/test_accounts.py` +4、`tests/test_segment.py` +1、`tests/test_clause_review.py` +2、`tests/test_web.py` +1 并改写 2）；`ruff` / `node --check` 通过；真实图片 PDF OCR 4.9 s（`SALES CONTRACT / 2.PAYMENT TERMS / 100% T/T IN ADVANCE / 3.DELIVERY:CIF HAMBURG`）；`4b82dd…` 旧记录 7→6 条且只剩一个“5. 付款条件”；`0bbbf1…` 15 条 + `contract_text` 7552 字。
    - **下一步（第四阶段）**：
      - 修 H39（`R-DIS-004` modal 与动词之间放宽为 `[^.]{0,80}?`），**另写 holdout5（8–12 份）再报数**（ISSUE-021）；
      - 人工复核 21 个 silver 现象 + 32 个留出现象，silver 升 gold（ISSUE-020）；

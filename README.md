@@ -2,7 +2,7 @@
 
 面向**国际货物销售合同**的 AI 预审智能体：上传合同 → 条款切分 → LLM 抽取关键要素 → **Python 规则引擎判定红/黄/绿风险**（唯一等级来源）→ 红色风险经 **LangGraph `interrupt()` 真人工确认** → LLM 依据规则结果与原文生成解释 → 输出可追溯报告。
 
-> 当前处于**第四阶段（测试与评测）第 4 轮 + 界面轮 4**：第三阶段的 `ingest → precheck → segment → extract → validate → rules → [条件边] → human_review → explain_risks → report` 已全部打通，支持 **TXT / Markdown / 文本型 PDF / DOCX** 解析、**先判断上传对象是不是合同**（论文/法规直接拒绝，不进入判级）、标题式条款切分、LLM 17 字段要素抽取与 Python 引文校验，**13 条规则**（11 条文本 + 2 条字段，`version: 5` 已覆盖中文与主要英文写法，保额判定改为“保险语境邻近”），红色风险触发 **LangGraph `interrupt()` 真暂停**，经 `Command(resume=...)` 恢复后由 LLM 生成**带原文与知识引用**的解释。交付入口：**极简 C 端页“上传合同 → 看风险点”（FastAPI 托管）+ CLI + API；Streamlit 保留为备用界面**；未配置 `LLM_API_KEY` 时抽取降级、解释回退规则理由，字段规则标记跳过。评测：50 份模拟合同 + 21 个 silver gold 现象 + **四批留出集 40 份**；**当前唯一未被“消耗”的 holdout4 给出规则级 P=1.00 / R=0.889 / F1=0.941**（唯一漏报 H39，故意不修；silver gold 待人工复核）。详见 [`docs/devlog/00_PROJECT_STATE.md`](docs/devlog/00_PROJECT_STATE.md)。
+> 当前处于**第四阶段（测试与评测）第 4 轮 + 界面轮 13**：第三阶段的 `ingest → precheck → segment → extract → validate → rules → [条件边] → human_review → explain_risks → report` 已全部打通，支持 **TXT / Markdown / PDF（文本型或图片型）/ DOCX** 解析（单个文件 ≤ 30 MB；图片/扫描 PDF 用本地 OCR 补文本，**OCR 只产文本、不参与判级**）、**先判断上传对象是不是合同**（论文/法规直接拒绝，不进入判级）、标题式条款切分、LLM 17 字段要素抽取与 Python 引文校验，**13 条规则**（11 条文本 + 2 条字段，`version: 5` 已覆盖中文与主要英文写法，保额判定改为“保险语境邻近”），红色风险触发 **LangGraph `interrupt()` 真暂停**，经 `Command(resume=...)` 恢复后由 LLM 生成**带原文与知识引用**的解释。交付入口：**极简 C 端页“上传合同 → 看风险点”（FastAPI 托管）+ CLI + API；Streamlit 保留为备用界面**；Skill 仓库内置 **11 个**（含 4 个外部包 `builtin:*`），支持 Markdown / 文件夹 / **zip 包**导入（只读、不执行），结果页可切左栏“原文全文”看完整原文。未配置 `LLM_API_KEY` 时抽取降级、解释回退规则理由，字段规则标记跳过。评测：50 份模拟合同 + 21 个 silver gold 现象 + **四批留出集 40 份**；**当前唯一未被“消耗”的 holdout4 给出规则级 P=1.00 / R=0.889 / F1=0.941**（唯一漏报 H39，故意不修；silver gold 待人工复核）。详见 [`docs/devlog/00_PROJECT_STATE.md`](docs/devlog/00_PROJECT_STATE.md)。
 
 > 上传先过“文档类型闸门”（ADR-012）：抬头 / 合同编号 / 买卖双方 / 条款结构 / 交易要素打分，叠加论文与法规的反向信号；判否时状态为 `not_contract`，只出“未执行审查”的报告，**不切条款、不抽取、不判级、不触发人工确认**。
 
@@ -11,8 +11,8 @@
 | 阶段 | 状态 | 说明 |
 |---|---|---|
 | 1. GitHub 调研 | ✅ | 8 个开源项目源码级分析，产出借鉴/不借鉴清单 |
-| 2. 架构设计 | ✅ | ADR-001 ~ ADR-013 全部已接受 |
-| 3. 代码实现 | ✅ 第 6 步完成 | 环境、9 节点图（含文档类型闸门）、规则引擎（13 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭；本机 `.env` 已开启，真实语料 14 篇：模型不可用时解释回退规则理由，但仍列出检索到的 `source_id#section`）、FastAPI + 两屏 Web 前端（标签行 + 左目录/原文、右意见，三块各自滚动）+ 账号/审查历史（改名/置顶/删除）/Skill 仓库独立页（Markdown/文件夹导入、查看与编辑、可声明工具 + 只读附件）/账户设置（B 端分区：个人信息 / 通用（白天·黑夜·跟随系统 + 字号三档）/ 数据管理 / 关于）/BYOK（20 个厂商）+ Streamlit、334 个测试 |
+| 2. 架构设计 | ✅ | ADR-001 ~ ADR-014 全部已接受 |
+| 3. 代码实现 | ✅ 第 6 步完成 | 环境、9 节点图（含文档类型闸门）、规则引擎（13 条规则）、PDF（文本型 + 图片型 OCR）/DOCX/TXT 解析（≤30 MB）、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭；本机 `.env` 已开启，真实语料 14 篇：模型不可用时解释回退规则理由，但仍列出检索到的 `source_id#section`）、FastAPI + 两屏 Web 前端（同一行标签 + 左栏“条款目录 / 原文全文” + 右栏意见，三块各自滚动）+ 账号/审查历史（改名/置顶/删除）/Skill 仓库独立页（内置 11 个、Markdown/文件夹/zip 导入、查看与编辑、可声明工具 + 只读附件）/账户设置（B 端分区：个人信息 / 通用（白天·黑夜·跟随系统 + 字号三档）/ 数据管理 / 关于）/BYOK（20 个厂商）+ Streamlit、347 个测试 |
 | 4. 测试与评测 | ⏳ 第 4 轮完成 | 50 份模拟合同 + 21 个 silver gold 现象 + 四批留出集 40 份；三组指标（rule/contract/coverage）；**holdout4（唯一未消耗）P=1.00 / R=0.889 / F1=0.941，silver gold 待人工复核**；检索评测未做 |
 | 5. 文档与交付 | ⏳ 进行中 | 开发日志、ADR、交接文档、评测结果与 RAG 资料清单已建立 |
 
@@ -23,6 +23,7 @@
 - Pydantic 2.14（结构化输出与状态契约）
 - FastAPI 0.162 + Uvicorn 0.54（本地 HTTP 接口）
 - 两屏 Web 页面（原生 HTML/CSS/JS，零依赖、零构建、零 CDN；由 FastAPI 托管；字体随包离线）
+- **本地 OCR**：`pypdfium2`（PDF → 图）+ `rapidocr-onnxruntime`（PP-OCR 的离线 ONNX 版，模型随包、**不联网**），只在 PDF 无文本层时兜底
 - 本地 SQLite：checkpoint、账号/会话/Skill/模型配置/审查记录（标准库 `sqlite3`，无新依赖）
 - Streamlit 1.66（备用界面）
 - **允许但默认关闭**：RAG 知识检索、多智能体专家节点（ADR-007，`RAG_ENABLED=false` / `AGENTS_ENABLED=false`）
@@ -54,7 +55,7 @@ py -3.12 -m venv .venv
 # 4) FastAPI + 两屏页面（默认 SQLite checkpointer + 本地账号库；单 worker 演示）
 .\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000
 # 打开 http://127.0.0.1:8000/      首屏：给审查重点 + 合同 + Skill → 风险点（#/ → #/review/{id}）
-# 打开 http://127.0.0.1:8000/#/skills  Skill 仓库（推荐 / 我的 / 新建 / 从 Markdown 导入）
+# 打开 http://127.0.0.1:8000/#/skills  Skill 仓库（推荐 / 我的 / 新建 / 从 Markdown 或 zip 包导入）
 # ⚠️ 改了后端代码必须重启这条 uvicorn（没有 --reload）；旧进程可能只有 /api/reviews，
 #    前端点“注册”就会看到 not found —— 用 curl http://127.0.0.1:8000/openapi.json 看版本应为 1.0.0
 # 打开 http://127.0.0.1:8000/docs  Swagger UI，可直接试接口：
@@ -64,7 +65,8 @@ py -3.12 -m venv .venv
 #   账号：POST /api/auth/register|login、POST /api/auth/logout、GET /api/auth/me、PATCH /api/auth/profile（昵称 / 头像）
 #   记录：GET /api/reviews（需登录；未登录 401；跨账号 404）
 #   记录运维：PATCH /api/reviews/{id}（title / pinned，空串恢复文件名）、DELETE /api/reviews/{id}（204，连带清 pending/checkpoint/上传目录）
-#   Skill：GET /api/skills（未登录只给内置 7 个）、POST /api/skills、PATCH /api/skills/{id}（自建；推荐只读）、DELETE /api/skills/{id}
+#   Skill：GET /api/skills（未登录只给内置 11 个）、POST /api/skills、PATCH /api/skills/{id}（自建；推荐只读）、DELETE /api/skills/{id}
+#   Skill 包：POST /api/skills/import（multipart：file=*.zip，需登录 → 201 {skill, warnings, files}；根目录必须有 SKILL.md，包内脚本不执行）
 #   BYOK：GET /api/llm/providers、GET|PUT|DELETE /api/llm（只回 has_key + 尾号）、POST /api/llm/test
 #   GET  /api/rules                  规则目录（只读；13 条，不返回正则/DSL；页面不再消费）
 
@@ -74,7 +76,7 @@ py -3.12 -m venv .venv
 
 # 6) 测试与静态检查
 .\.venv\Scripts\python.exe -m pytest
-# 334 passed
+# 347 passed
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
@@ -147,7 +149,7 @@ RAG_MIN_SCORE=1.0
 
 侧栏与顶栏（导航壳）：
 
-- 侧栏：品牌（Agent Alex / 合同审查助手）→ 导航“上传合同 / **审查历史**（点击展开子目录，带高风险计数徽标）”→ 底部 **Skill 仓库**（内置 7 个 + 自建，带数量）、**API 配置**（含“未配置 / 需填 Key / 默认模型 / 已接入”状态）、**`/docs` 接口文档**、账号区（未登录只有“登录”；登录后“退出”）；
+- 侧栏：品牌（Agent Alex / 合同审查助手）→ 导航“上传合同 / **审查历史**（点击展开子目录，带高风险计数徽标）”→ 底部 **Skill 仓库**（内置 11 个 + 自建，带数量）、**API 配置**（含“未配置 / 需填 Key / 默认模型 / 已接入”状态）、**`/docs` 接口文档**、账号区（未登录只有“登录”；登录后“退出”）；
 - 顶栏：面包屑（合同审查 / 当前页）+ 服务状态 pill；窄屏（≤900px）侧栏收成抽屉，汉堡按钮开合、遮罩点击或 `Esc` 关闭；
 - 接口版本 / checkpoint / RAG 开关等运行环境信息不进入界面（需要时看 `/health`）。
 
@@ -155,10 +157,10 @@ RAG_MIN_SCORE=1.0
 
 | 视图 / 路由 | 内容 |
 |---|---|
-| 对话首屏 `#/` | 居中的品牌小块 + 标题（未登录“今天想审查哪份合同？”/ 登录后“欢迎回来，{昵称}”）+ 720px 圆角输入区：多行“审查重点”文本域 + 工具行（**合同**按钮 / 文件名 / **Skill 胶囊下拉**（内置 + 自建，末项固定“Skill 仓库…”，12px 卡片、键盘可达）/ 圆形发送键）；**Enter 发送、Shift+Enter 换行**，合同也可直接拖进输入区（txt / md / 文本型 pdf / docx，前端先校验类型、空文件与 15 MB 上限） |
+| 对话首屏 `#/` | 居中的品牌小块 + 标题（未登录“今天想审查哪份合同？”/ 登录后“欢迎回来，{昵称}”）+ 720px 圆角输入区：多行“审查重点”文本域 + 工具行（**合同**按钮 / 文件名 / **Skill 胶囊下拉**（内置 + 自建，末项固定“Skill 仓库…”，12px 卡片、键盘可达）/ 圆形发送键）；**Enter 发送、Shift+Enter 换行**，合同也可直接拖进输入区（txt / md / pdf（文本型或扫描件）/ docx，前端先校验类型、空文件与 **30 MB** 上限） |
 | Skill 仓库 `#/skills` | **独立页面**：**推荐 Skill 是正方形小方块网格**（1:1、名称两行 + 说明两行 + 右下角“使用”），下面“我的 Skill”仍是一行折叠（点名称展开审查重点，可编辑 / 删除，推荐可“存为我的”）；**新建与导入在页头右上角**，点开弹窗填写或选择文件，保存后立即出现在下拉里。**Skill 不只是一段提示词**：新建弹窗可勾选“调用工具”（规则全量扫描 / 关键要素抽取 / 条款切分 / 知识库检索 / 谈判提示，多选），还可附加 `.py` / `.md` / `.txt` 文本资料（≤5 个、单个 ≤6000 字，**只读、不会被运行**）；方块与列表行显示“N 个工具 · N 个附件” |
-| 导入 Skill | 右上角“导入”弹窗里拖入一个或多个 `.md` / `.markdown`，或直接拖**整个文件夹**（也可点“选择文件 / 选择文件夹”）；按 `name:` / 一级标题 / 文件名取名，`description:` 或首段作说明，正文作审查重点（超过 1000 字截断，同名跳过）；一次最多 30 个、单文件 ≤ 200 KB，仍走同一套 `POST /api/skills` |
-| 风险点 `#/review/{id}` | 顶部只有一行**标签**（合同 / Skill / 审查重点，长文本省略、hover 看全文），不再有对话式叙述；下面直接**左右分屏逐条审查**：**左半边是条款目录**（用合同自带编号、名称去重、红黄标 / 已更正✓ / 保留），目录下方固定显示**当前条款原文**；**右半边是这一条的审查结果**（结论 / 修改建议 / 决策依据 / 原文引文 / 知识引用）+ **可编辑的“修改后的条款”** + **采用修改 / 保留原文 / 撤销更正**；顶部还有“全部采用建议”与 **导出 DOCX / PDF**；待人工确认时审批区在标签行下方，确认后同一个分屏继续可用 |
+| 导入 Skill | 右上角“导入”弹窗三种入口：拖入一个或多个 `.md` / `.markdown`、拖**整个文件夹**（也可点“选择文件 / 选择文件夹”）、或拖入 **`.zip` 包**（根目录需有 `SKILL.md`，`references/` 里的文本作只读附件，包内脚本不会执行）。Markdown 按 `name:` / 一级标题 / 文件名取名，`description:` 或首段作说明，正文作审查重点（超过 1000 字截断，同名跳过）；一次最多 30 个、单文件 ≤ 200 KB，仍走同一套 `POST /api/skills`；zip 走 `POST /api/skills/import`（≤8 MB、解压 ≤40 MB、≤200 条目、单文件 ≤200 KB） |
+| 风险点 `#/review/{id}` | 顶部只有**同一行标签**（合同文件名 / Skill / 审查重点 / **状态**，长文本省略、hover 看全文），不再有对话式叙述；下面直接**左右分屏逐条审查**：**左半边有“条款目录 / 原文全文”两个 tab**——目录用合同自带编号、名称去重、红黄标 / 已更正✓ / 保留，**“原文全文”按原文件排版一次性呈现整份合同**（不再机械拆分，自己滚动）；目录下方固定显示**当前条款原文**；**右半边是这一条的审查结果**（结论 / 修改建议 / 决策依据 / 原文引文 / 知识引用）+ **可编辑的“修改后的条款”** + **采用修改 / 保留原文 / 撤销更正**；顶部还有“全部采用建议”与 **导出 DOCX / PDF**；待人工确认时审批区在标签行下方，确认后同一个分屏继续可用 |
 | 独立滚动 | 目录、左原文、右意见**三块各自滚动**（`overscroll-behavior: contain`，滚到底不会带着整页或隔壁栏一起动）；工作台高度 `min(66vh, 720px)`，窄屏（≤900px）改为上下排列 |
 | 不是合同 `#/review/{id}` | 文档类型闸门判否时：标题“这份文件不是合同”+ 判定依据 + “换一份合同”，不显示任何风险结论 |
 
@@ -208,7 +210,7 @@ app/
   web/                   # 两屏页面（标签行 + 左目录/原文、右意见，三块各自滚动；无框架、无 CDN、无构建）：index.html / styles.css / app.js / fonts/
   report_markdown.py     # ReviewReport → Markdown（纯渲染，不重算等级）
   nodes/
-    ingest.py            # TXT/Markdown/PDF/DOCX → canonical text + 页偏移 + sha256
+    ingest.py            # TXT/Markdown/PDF（文本型 + 图片型 OCR）/DOCX → canonical text + 页偏移 + sha256
     precheck.py          # 文档类型闸门：不是合同 → 直接出“未执行审查”报告（ADR-012）
     segment.py           # 标题切分 + 小条款合并 + 超长拆分（无标题时段落 fallback）
     extract.py           # LLM 17 字段抽取（唯一 LLM 抽取节点，按条款串行）
@@ -222,7 +224,7 @@ app/
     accounts.py          # 账号 / 会话 / Skill / 模型配置 / 审查记录（本地 SQLite，WAL；PBKDF2；跨账号隔离）
     secret_box.py        # API Key 静态加密（v1 密文盒：HMAC 密钥流 + 完整性标签）
     llm_providers.py     # 厂商目录（默认地址 / 模型 / 是否允许空 Key；不含任何 Key 字段）
-    skill_catalog.py     # 7 个内置 Skill + compose_focus（用户指令 / Skill / 参考材料，≤4000 字）
+    skill_catalog.py     # 内置 Skill（核心 7 + 外部包 4）+ zip 包解析 + compose_focus（用户指令 / Skill / 参考材料，≤4000 字）
     evidence.py          # locate_quote：精确匹配 → NFC/空白规范化
     document_type.py     # “是不是合同”的确定性判定（抬头/编号/双方/条款结构 + 论文与法规反向信号）
     checkpointer.py      # memory / sqlite 工厂 + Pydantic 类型登记
@@ -244,7 +246,7 @@ data/contracts_holdout3/ # 8 份留出合同（H21–H28）→ 第 4 轮已消�
 data/contracts_holdout4/ # 12 份留出合同（H29–H40）→ 唯一未消耗，对外报数用这一批
 data/eval/               # gold_contracts.json（105 条检索期望）/ gold_rules.json（21 个 silver 现象）/ gold_holdout{,2,3,4}.json
 data/knowledge/          # 真实语料 14 篇 + manifest（RAG 默认关闭）；模拟合同1..6.md 为评测来源，不进 manifest
-tests/                   # 334 个测试（账号/记录/Skill/BYOK 35 / API 17 / 前端 22 / 文档类型 11 / pending 11 / RAG 22 + 解释 15 / HITL 17 / 指标 11 / 规则 53 含四批留出回归，无需 Key）
+tests/                   # 347 个测试（账号/记录/Skill/BYOK/zip 39 / API 17 / 前端 23 / 文档类型 11 / OCR 5 / pending 11 / RAG 22 + 解释 15 / HITL 17 / 指标 11 / 规则 53 含四批留出回归，无需 Key）
 tests/fakes.py           # Fake LLM（实现 StructuredLLM 协议）
 docs/devlog/             # 项目状态、调研、ADR、开发日志、交接、待决事项、RAG 资料清单
 ```
@@ -264,8 +266,8 @@ docs/devlog/             # 项目状态、调研、ADR、开发日志、交接�
 
 ## 已知限制（当前步骤）
 
-- 支持 TXT / Markdown / 文本型 PDF / DOCX；**扫描件与加密 PDF 明确报错**，不做 OCR。
-- **文档类型闸门是召回优先**：中文/英文之外（日文、德文等）的合同可能被误拒；扫描件无文本时按“正文过短”拒绝并提示 OCR；“看起来很像合同”的论文仍可能进入审查（会在报告里体现抽取与判级过程）。阈值与词表见 `app/services/document_type.py` 顶部（ADR-012）。
+- 支持 TXT / Markdown / PDF（文本型；没有文本层或单页文本过少时走本地 OCR）/ DOCX，单个文件 ≤ 30 MB；**加密 PDF 仍明确报错**。OCR 只在文本缺失时兜底、最多 20 页，结果可能吞空格（英文实测 `SALESCONTRACT` / `2.PAYMENT`）或把中文长句/表格串行，报告统一提示人工核对；超过 20 页的扫描件只识别前 20 页（ISSUE-030）。
+- **文档类型闸门是召回优先**：中文/英文之外（日文、德文等）的合同可能被误拒；连 OCR 也拿不到文本时仍按“正文过短”拒绝并提示人工核对；“看起来很像合同”的论文仍可能进入审查（会在报告里体现抽取与判级过程）。阈值与词表见 `app/services/document_type.py` 顶部（ADR-012）。
 - PDF 表格/多栏可能打乱列顺序，只在 `warnings` 提示人工核对；DOCX 无真实页码，统一 `p1`。
 - 条款切分依赖标题格式（`第X条` / `ARTICLE N` / `1.` 等）；界面轮 12 补了同行标题（`13. 争议解决：正文`）、字段标签黑名单（`装运港：` / `Port of Shipment:`）、特别提示块、中英对照合并与短标题，但仍属启发式——无标题合同走段落 fallback，可能切得不理想。
 - 13 条规则（11 文本 + 2 字段），50 份模拟合同中 39 份未命中任何规则；**未覆盖**责任上限、质保期、所有权保留、合规条款等，覆盖率仅 52.4%（21 个 gold 现象中 10 个无规则）。
@@ -281,6 +283,7 @@ docs/devlog/             # 项目状态、调研、ADR、开发日志、交接�
 - **账号与密钥是演示形态**：无找回密码/邮箱验证/登录失败限流；Cookie 未加 `Secure`（本地 HTTP，`HttpOnly` + `SameSite=Lax` 已有）；`.data/app.sqlite` 与 `.data/secret.key` 必须一起备份，缺主密钥则已存 Key 无法解密（ISSUE-025）。
 - 用户自建 Skill 与“参考材料”只影响解释措辞（`<untrusted_focus>`），不提供自定义规则或改等级能力；Skill 可声明 5 个已实现工具（规则全量扫描 / 要素抽取 / 条款切分 / 知识库检索 / 谈判提示），但**只是让解释侧重这些能力，不额外执行编排**；附件限 `.py / .md / .markdown / .txt`，最多 5 个、单个 ≤ 6000 字，**只读存文本、绝不执行**（ISSUE-029）。
 - **Skill 的 Markdown / 文件夹导入是在浏览器里解析**：只认 `.md` / `.markdown`，一次最多 30 个、单文件 ≤ 200 KB、同名跳过；指令超过 1000 字截断。这些上限在前端执行，**服务端仍会按原有规则校验长度**，但不做文件内容扫描（不落盘、不进数据库，只把解析后的文本 POST 给 `POST /api/skills`）。
+- **zip Skill 包只在内存里解析、不落盘、不执行**：根目录必须有 `SKILL.md`（frontmatter 取 `name` / `description` / `tags`），只收 `.py / .md / .markdown / .txt`；包 ≤ 8 MB、解压后 ≤ 40 MB、≤ 200 条目、单文件 ≤ 200 KB；`allowed-tools` 只写 warning、**不映射**到本项目工具目录；包内脚本永远不会被运行（ISSUE-031 记录来源/授权与正文截断）。
 - HITL 超时是惰性检查（`GET` 时判定），不是后台定时任务；pending 时间戳已落盘，进程重启后仍可判定。
 - **指标口径**：对外只引用**当前未被消耗**的留出集（holdout4，12 份，`P=1.00 / R=0.889 / F1=0.941`），并注明“silver gold 待人工复核、样本 12 份、规则 version 5、唯一漏报 H39”。主集（50 份）`P/R=1.0` 是**同分布**产物（规则就是在该批合同上设计的）；holdout、holdout2、holdout3 已被用于定位缺陷，修复后即使全对也只是回归结果——两者都不能当准确率。
 - **留出集“消耗”规则**：一批留出集一旦被用来定位缺陷，就降级为回归守卫，下轮必须**另写新样本**才能对外报数（ADR-011 第 4 轮补充）；`test_holdout4_hits_are_stable` 用断言钉住 H39 必须是漏报，修好那天测试失败，强制同步降级旧集并另写 holdout5。
@@ -291,7 +294,8 @@ docs/devlog/             # 项目状态、调研、ADR、开发日志、交接�
 
 - 本项目代码为独立实现，未复制任何调研仓库的源代码。
 - 调研参考项目（仅借鉴设计，未复制代码）：aurelien-henrion/contract-agent（MIT）、laolaola278-dev/enterprise-contract-review-agent（Apache-2.0）、bcefghj/multi-agent-contract-review（Apache-2.0）；zihan154896-jpg/intelligent-contract-review、Harvey-cream/Langchain_DG、kashifumair125/ContractSentinel 无 LICENSE，仅阅读设计。
-- 依赖许可：pypdf（BSD）、python-docx（MIT）、LangGraph/LangChain（MIT）、FastAPI（MIT）、Streamlit（Apache-2.0）、PyYAML（MIT）。未引入 PyMuPDF（AGPL/商业双许可）。
+- 依赖许可：pypdf（BSD）、python-docx（MIT）、LangGraph/LangChain（MIT）、FastAPI（MIT）、Streamlit（Apache-2.0）、PyYAML（MIT）、pypdfium2（BSD-3-Clause + Apache-2.0，底层 PDFium）、rapidocr-onnxruntime（Apache-2.0）。未引入 PyMuPDF（AGPL/商业双许可）、未调用云端 OCR。
+- **4 个内置外部 Skill 包**（`app/resources/skills/`）来自用户提供的桌面 Skill，仓库内暂未附 LICENSE/授权说明；对外分发前需确认可再分发（ISSUE-031），此前只作本地演示使用。
 
 ## 文档索引
 
@@ -307,3 +311,4 @@ docs/devlog/             # 项目状态、调研、ADR、开发日志、交接�
 - API/UI 与 pending 持久化：[`ADR-009`](docs/devlog/02_ARCHITECTURE_DECISIONS/ADR-009-API与UI接入及待审批状态持久化.md)
 - 规则扩充与合同级评测基线：[`ADR-010`](docs/devlog/02_ARCHITECTURE_DECISIONS/ADR-010-规则扩充与合同级评测基线.md)
 - 评测方法、silver gold 与留出验证：[`ADR-011`](docs/devlog/02_ARCHITECTURE_DECISIONS/ADR-011-评测方法silver-gold与留出验证.md)
+- 图片 PDF 的 OCR 与外部 Skill 包 / zip 导入：[`ADR-014`](docs/devlog/02_ARCHITECTURE_DECISIONS/ADR-014-图片PDF的OCR与外部Skill包.md)

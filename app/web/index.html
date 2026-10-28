@@ -647,8 +647,8 @@
     <dialog class="dialog skill-dialog" id="skill-import-dialog" aria-labelledby="skill-import-title">
       <div class="dialog-head">
         <div class="account-head-text">
-          <h2 class="dialog-title" id="skill-import-title">从 Markdown 导入</h2>
-          <p class="account-head-sub">拖入 .md 文件或整个文件夹，批量纳入 Skill</p>
+          <h2 class="dialog-title" id="skill-import-title">导入 Skill</h2>
+          <p class="account-head-sub">拖入 .md 文件、整个文件夹，或带 SKILL.md 的 .zip 包</p>
         </div>
         <button class="icon-button dialog-close" type="button" data-close="skill-import-dialog" aria-label="关闭">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
@@ -658,23 +658,30 @@
       </div>
       <div class="dialog-body">
         <p class="field-note">
-          文件名或 <code>name:</code> 作名称，首段作说明，正文作审查重点（超过 1000 字截断）；同名会跳过。
+          Markdown：文件名或 <code>name:</code> 作名称，首段作说明，正文作审查重点；同名会跳过。
+          zip：根目录需有 <code>SKILL.md</code>，<code>references/</code> 里的文本作为只读附件（包内脚本不会执行）。
         </p>
         <div
           class="dropzone"
           id="skill-drop"
           tabindex="0"
           role="button"
-          aria-label="拖入 Markdown 文件或文件夹，或按回车选择文件"
+          aria-label="拖入 Markdown、zip 包或文件夹，或按回车选择文件"
         >
-          <span>拖入 .md 或文件夹</span>
+          <span>拖入 .md / .zip 或文件夹</span>
           <span class="dropzone-hint">或点击选择</span>
         </div>
         <div class="import-actions">
-          <button class="btn btn-compact" type="button" id="skill-import-files">选择 .md</button>
+          <button class="btn btn-compact" type="button" id="skill-import-files">选择 .md / .zip</button>
           <button class="btn btn-compact" type="button" id="skill-import-folder">选择文件夹</button>
         </div>
-        <input id="skill-import-input" type="file" accept=".md,.markdown,text/markdown" multiple hidden />
+        <input
+          id="skill-import-input"
+          type="file"
+          accept=".md,.markdown,.zip,text/markdown,application/zip"
+          multiple
+          hidden
+        />
         <input id="skill-import-dir" type="file" webkitdirectory directory multiple hidden />
         <p class="alert" id="skill-import-error" role="alert" hidden></p>
         <ul class="import-log" id="skill-import-log" hidden></ul>

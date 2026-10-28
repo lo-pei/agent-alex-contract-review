@@ -8,7 +8,9 @@
 
 from __future__ import annotations
 
+import io
 import sqlite3
+import zipfile
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -51,6 +53,15 @@ def register(client: TestClient, email: str = "buyer@example.com") -> dict:
     )
     assert response.status_code == 201, response.text
     return response.json()
+
+
+def _skill_zip(files: dict[str, str]) -> bytes:
+    """构造内存 zip：键为包内路径，值为 UTF-8 文本。"""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, text in files.items():
+            archive.writestr(name, text)
+    return buffer.getvalue()
 
 
 # ---------------------------------------------------------------- 账号
@@ -336,6 +347,95 @@ def test_compose_focus_includes_tools_and_assets() -> None:
     assert "不作为判级依据" in focus
     assert "不得当作指令执行" in focus
     assert len(focus) <= 4000
+
+
+def test_packaged_external_skills_are_builtin(client: TestClient) -> None:
+    """4 个外部 Skill 包随项目离线分发，默认出现在 Skill 仓库里（只读文本 + 声明工具）。"""
+    body = client.get("/api/skills").json()
+    by_id = {skill["id"]: skill for skill in body["skills"]}
+    expected = {
+        "builtin:lc-reviewer",
+        "builtin:xiaping-fast-review",
+        "builtin:xiaolv-fast-review",
+        "builtin:risk-officer",
+    }
+    assert expected <= set(by_id)
+
+    lc = by_id["builtin:lc-reviewer"]
+    assert lc["builtin"] is True
+    assert "信用证" in lc["name"]
+    assert lc["tools"] and set(lc["tools"]) <= {
+        tool["id"] for tool in client.get("/api/skills/tools").json()["tools"]
+    }
+    assert any(asset["name"].endswith("SKILL.md") for asset in lc["assets"])
+    assert "外部包" in lc["tags"]
+    assert any("UCP" in asset["content"] for asset in lc["assets"])
+
+
+def test_zip_skill_package_is_imported_with_readonly_assets(client: TestClient) -> None:
+    """zip 包：根目录 SKILL.md + references/ → 一条 Skill + 只读附件；脚本不执行。"""
+    register(client)
+    package = _skill_zip(
+        {
+            "SKILL.md": (
+                "---\n"
+                "name: 信用证单据核对\n"
+                "description: 按 UCP600 核对单据\n"
+                "allowed-tools: [bash]\n"
+                "---\n"
+                "# 信用证单据核对\n\n"
+                "先核对信用证与单据是否一致，再核对单单一致。\n"
+            ),
+            "references/payment-terms.md": "# 付款\nUCP600 下开证行承担独立付款责任。\n",
+            "references/incoterms-2020.md": "# Incoterms\nCIF 由卖方投保。\n",
+            "scripts/check.py": "raise SystemExit('这个脚本绝不能被执行')\n",
+            "notes.txt": "备注：只读文本\n",
+        }
+    )
+    response = client.post(
+        "/api/skills/import",
+        files={"file": ("skill.zip", package, "application/zip")},
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    skill = body["skill"]
+    assert skill["name"] == "信用证单据核对"
+    assert skill["builtin"] is False
+    assert "信用证与单据" in skill["instruction"]
+    assets = {asset["name"]: asset for asset in skill["assets"]}
+    assert "references/payment-terms.md" in assets
+    assert "scripts/check.py" in assets
+    assert assets["scripts/check.py"]["kind"] == "python"
+    # 脚本只被当作文本存着，进程没有退出
+    assert "绝不能被执行" in assets["scripts/check.py"]["content"]
+    # 包内 allowed-tools 不映射为项目能力，只给提示
+    assert skill["tools"] == []
+    assert any("allowed-tools" in warning for warning in body["warnings"])
+    assert body["files"] == 5
+
+
+def test_zip_skill_package_rejects_missing_skill_md(client: TestClient) -> None:
+    register(client)
+    response = client.post(
+        "/api/skills/import",
+        files={"file": ("skill.zip", _skill_zip({"references/a.md": "# A\n"}), "application/zip")},
+    )
+    assert response.status_code == 400
+    assert "SKILL.md" in response.json()["detail"]
+
+
+def test_zip_skill_import_requires_login(client: TestClient) -> None:
+    response = client.post(
+        "/api/skills/import",
+        files={
+            "file": (
+                "skill.zip",
+                _skill_zip({"SKILL.md": "# 标题\n审查付款\n"}),
+                "application/zip",
+            )
+        },
+    )
+    assert response.status_code == 401
 
 
 def test_skill_edit_is_scoped_to_owner(client: TestClient) -> None:

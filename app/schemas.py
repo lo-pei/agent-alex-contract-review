@@ -340,6 +340,8 @@ class ClauseReviewList(BaseModel):
     overall_level: OverallLevel
     awaiting_human: bool = False
     clauses: list[ClauseReview] = Field(default_factory=list)
+    #: 合同全文（解析后的 canonical text，保留段落换行）；前端“原文全文”视图只读展示
+    contract_text: str = ""
     #: 不指向具体条款的风险（例如“未约定适用法律”），作为“全合同”一组展示
     contract_findings: list[ClauseFinding] = Field(default_factory=list)
     #: 针对合同级问题给出的“建议新增条款”示例

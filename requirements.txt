@@ -12,5 +12,8 @@ pydantic==2.14.1
 python-docx==1.2.0
 reportlab==4.4.4
 pypdf==6.21.2
+# 扫描件 / 图片 PDF OCR：pypdfium2 渲染 + RapidOCR（PP-OCR 模型随包离线，不联网）
+pypdfium2==5.14.0
+rapidocr-onnxruntime==1.4.4
 python-dotenv==1.2.4
 pyyaml==6.0.3

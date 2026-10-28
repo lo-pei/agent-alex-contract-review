@@ -222,16 +222,16 @@ def test_skill_repo_is_standalone_page_not_dialog() -> None:
     assert ".skills-grid" not in styles
 
 
-def test_skill_repo_imports_markdown_files_and_folders() -> None:
-    """Skill 仓库支持把 .md 文件或整个文件夹拖进来，自动建成 Skill。"""
+def test_skill_repo_imports_markdown_files_folders_and_zip() -> None:
+    """Skill 仓库支持 .md / 文件夹 / zip 包导入；zip 走服务端解析，其余在浏览器解析。"""
     page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
-    # 导入弹窗里有两个入口：多选 .md 与整目录（webkitdirectory）
+    # 导入弹窗里有两个入口：多选 .md/.zip 与整目录（webkitdirectory）
     dialog = page.split('id="skill-import-dialog"', 1)[1].split("</dialog>", 1)[0]
     assert 'id="skill-import-input"' in dialog
-    assert 'accept=".md,.markdown,text/markdown"' in dialog
+    assert 'accept=".md,.markdown,.zip,text/markdown,application/zip"' in dialog
     assert 'id="skill-import-dir"' in dialog
     assert "webkitdirectory" in dialog
     # 拖拽区 + 键盘可达（Enter / 空格也能选文件）
@@ -249,7 +249,11 @@ def test_skill_repo_imports_markdown_files_and_folders() -> None:
     assert "MAX_IMPORT_FILES = 30" in script
     assert "MAX_SKILL_FILE_BYTES" in script
     assert "已有同名 Skill" in script
-    # 仍然复用现有 Skill API（不新增后端接口）
+    # zip 包交给后端解析（SKILL.md + references/），不执行包内脚本
+    assert 'suffixOf(file.name) === ".zip"' in script
+    assert "MAX_SKILL_ZIP_BYTES" in script
+    assert 'api("/api/skills/import"' in script
+    # 仍然复用现有 Skill API（Markdown 导入不新增接口）
     assert 'api("/api/skills"' in script
     assert ".dropzone" in styles and ".import-log" in styles
 
@@ -472,6 +476,15 @@ def test_composer_is_compact_and_footer_spans_full_width() -> None:
     assert "margin: 0 0 0 auto" in styles.split(".foot-links {", 1)[1].split("}", 1)[0]
 
 
+def test_upload_limit_is_raised_for_scanned_contracts() -> None:
+    """上传上限放宽到 30 MB（扫描件更大），提示文案与常量保持一致。"""
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "const MAX_BYTES = 30 * 1024 * 1024;" in script
+    assert "文件超过 30 MB" in script
+    assert "15 MB" not in script
+
+
 def test_sidebar_has_skill_repo_and_history_submenu() -> None:
     """侧栏有 Skill 仓库入口；“审查历史”展开为子目录，可改名 / 置顶 / 删除。"""
     page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
@@ -587,11 +600,23 @@ def test_review_shows_chips_then_split_into_clause_panes() -> None:
     assert ".chat-thread" not in styles and ".msg-bubble" not in styles
     assert "streamTimer" not in script
 
-    # 合同 / Skill / 审查重点压成标签行（长文本省略 + hover 全文）
+    # 合同 / Skill / 审查重点压成标签行（长文本省略 + hover 全文），状态也放同一行
     assert 'class="review-chips" id="review-chips"' in script
     assert "function reviewChip" in script
     assert 'class="chip-tag' in script and "chip-wide" in script
     assert ".chip-tag" in styles and ".chip-tag.chip-wide" in styles
+    chips = script.split('id="review-chips"', 1)[1].split("</div>", 1)[0]
+    assert "statusChip(review)" in chips
+    assert ".review-chips .status-chip" in styles
+
+    # 原文全文视图：左栏可切到完整合同文本（保留段落换行，不按条款机械切片）
+    assert 'data-pane="fulltext"' in script and 'data-pane="clauses"' in script
+    assert 'id="contract-fulltext"' in script
+    assert "function renderContractFulltext" in script
+    assert "contract_text" in script
+    assert ".contract-fulltext" in styles
+    pane_css = styles.split(".contract-fulltext {", 1)[1].split("}", 1)[0]
+    assert "overflow-y: auto" in pane_css and "overscroll-behavior: contain" in pane_css
 
     # 内容来自真实审查结果（条款聚合接口），不是前端编造
     assert "/clauses" in script
