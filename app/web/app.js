@@ -43,7 +43,6 @@
     reviewBadge: document.getElementById("nav-review-badge"),
     apiStatus: document.getElementById("api-status"),
     apiStatusText: document.getElementById("api-status-text"),
-    accountLine: document.getElementById("account-line"),
     authLogin: document.getElementById("auth-login"),
     authLogout: document.getElementById("auth-logout"),
     llmState: document.getElementById("llm-state"),
@@ -325,23 +324,6 @@
 
   function renderAccount() {
     const user = state.user;
-    if (dom.accountLine) {
-      dom.accountLine.hidden = !user;
-      if (!user) {
-        dom.accountLine.textContent = "";
-      } else {
-        // 昵称与邮箱分开显示；没填昵称就只显示邮箱（避免 "a@b · a@b" 这种重复）
-        const name = user.display_name || "";
-        dom.accountLine.title = name && name !== user.email ? name + " · " + user.email : user.email;
-        dom.accountLine.innerHTML = name
-          ? '<span class="account-name">' +
-            esc(name) +
-            '</span><span class="account-mail">' +
-            esc(user.email) +
-            "</span>"
-          : '<span class="account-mail">' + esc(user.email) + "</span>";
-      }
-    }
     if (dom.authLogin) dom.authLogin.hidden = !!user;
     const row = document.getElementById("account-row");
     if (row) row.hidden = !user;
@@ -355,16 +337,26 @@
 
   const PREFS_KEY = "alex.prefs";
   const DRAFT_KEY = "alex.draft";
+  const DEFAULT_PREFS = { motion: false, autofocus: true, theme: "teal", font: "md" };
+  const THEMES = ["teal", "indigo", "graphite", "clay", "plum"];
+  const FONTS = ["sm", "md", "lg"];
+  const ACCOUNT_PANELS = ["profile", "general", "data", "about"];
   const prefs = readPrefs();
   let pendingClear = "";
+  let accountPanel = "profile";
 
   function readPrefs() {
     try {
       const raw = localStorage.getItem(PREFS_KEY);
       const data = raw ? JSON.parse(raw) : {};
-      return { motion: !!data.motion, autofocus: data.autofocus !== false };
+      return {
+        motion: !!data.motion,
+        autofocus: data.autofocus !== false,
+        theme: THEMES.includes(data.theme) ? data.theme : DEFAULT_PREFS.theme,
+        font: FONTS.includes(data.font) ? data.font : DEFAULT_PREFS.font,
+      };
     } catch (error) {
-      return { motion: false, autofocus: true };
+      return { ...DEFAULT_PREFS };
     }
   }
 
@@ -378,7 +370,10 @@
   }
 
   function applyPrefs() {
-    document.documentElement.dataset.motion = prefs.motion ? "off" : "on";
+    const root = document.documentElement;
+    root.dataset.motion = prefs.motion ? "off" : "on";
+    root.dataset.theme = prefs.theme;
+    root.dataset.font = prefs.font;
   }
 
   function avatarInitial(user) {
@@ -427,17 +422,98 @@
     }
   }
 
+  function formatDate(value) {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  }
+
+  function syncPrefControls() {
+    document.querySelectorAll("[data-theme-value]").forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.themeValue === prefs.theme));
+    });
+    document.querySelectorAll("[data-font-value]").forEach((button) => {
+      const active = button.dataset.fontValue === prefs.font;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    const motion = document.getElementById("pref-motion");
+    const autofocus = document.getElementById("pref-autofocus");
+    if (motion) motion.checked = prefs.motion;
+    if (autofocus) autofocus.checked = prefs.autofocus;
+  }
+
+  /** 切换弹窗左侧分区；数据/关于按需拉取，避免每次打开都请求 */
+  function setAccountPanel(name) {
+    accountPanel = ACCOUNT_PANELS.includes(name) ? name : "profile";
+    document.querySelectorAll("[data-account-panel]").forEach((button) => {
+      const active = button.dataset.accountPanel === accountPanel;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+    });
+    document.querySelectorAll("[data-account-section]").forEach((section) => {
+      const active = section.dataset.accountSection === accountPanel;
+      section.hidden = !active;
+      section.classList.toggle("is-active", active);
+    });
+    if (accountPanel === "data") loadAccountStats();
+    if (accountPanel === "about") loadAboutInfo();
+  }
+
+  async function loadAccountStats() {
+    const reviews = document.getElementById("data-review-count");
+    const skills = document.getElementById("data-skill-count");
+    if (skills) {
+      skills.textContent = String(state.skills.filter((skill) => !skill.builtin).length);
+    }
+    if (!reviews) return;
+    try {
+      const data = await api("/api/reviews?limit=500");
+      reviews.textContent = String(((data && data.reviews) || []).length);
+    } catch (error) {
+      reviews.textContent = state.history.length ? String(state.history.length) : "—";
+    }
+  }
+
+  async function loadAboutInfo() {
+    const box = document.getElementById("about-version");
+    if (!box) return;
+    try {
+      const response = await fetch("/health", { cache: "no-store" });
+      const data = await response.json();
+      box.textContent = "版本 " + (data.version || "—");
+    } catch (error) {
+      box.textContent = "版本 —";
+    }
+  }
+
+  function resetPrefs() {
+    Object.assign(prefs, DEFAULT_PREFS);
+    writePrefs();
+    syncPrefControls();
+    showAccountStatus("已恢复默认外观与交互设置。");
+  }
+
   function renderAccountDialog() {
     const user = state.user;
     if (!user) return;
     const name = document.getElementById("account-name");
     const email = document.getElementById("account-email");
+    const created = document.getElementById("account-created");
+    const profileName = document.getElementById("profile-name");
+    const profileMail = document.getElementById("profile-mail");
     if (name) name.value = user.display_name || "";
     if (email) email.value = user.email || "";
-    const motion = document.getElementById("pref-motion");
-    const autofocus = document.getElementById("pref-autofocus");
-    if (motion) motion.checked = prefs.motion;
-    if (autofocus) autofocus.checked = prefs.autofocus;
+    if (created) created.value = formatDate(user.created_at);
+    if (profileName) profileName.textContent = user.display_name || "未设置昵称";
+    if (profileMail) profileMail.textContent = user.email || "";
+    syncPrefControls();
     showAccountError("");
     showAccountStatus("");
     cancelClear();
@@ -450,6 +526,7 @@
       return;
     }
     renderAccountDialog();
+    setAccountPanel("profile");
     openDialog("account-dialog");
   }
 
@@ -629,8 +706,10 @@
         } catch (error) {
           /* 隐私模式下删不掉也不报错 */
         }
-        prefs.motion = false;
-        prefs.autofocus = true;
+        prefs.motion = DEFAULT_PREFS.motion;
+        prefs.autofocus = DEFAULT_PREFS.autofocus;
+        prefs.theme = DEFAULT_PREFS.theme;
+        prefs.font = DEFAULT_PREFS.font;
         applyPrefs();
         renderAccountDialog();
         showAccountStatus("已清除本机缓存。");
@@ -656,6 +735,40 @@
     on("account-avatar-input", "change", uploadAvatar);
     on("account-avatar-remove", "click", removeAvatar);
     on("account-form", "submit", saveAccountProfile);
+
+    const tabs = Array.from(document.querySelectorAll("[data-account-panel]"));
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => setAccountPanel(tab.dataset.accountPanel));
+      tab.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+        event.preventDefault();
+        const index = tabs.indexOf(tab);
+        const step = event.key === "ArrowDown" ? 1 : -1;
+        const next = tabs[(index + step + tabs.length) % tabs.length];
+        setAccountPanel(next.dataset.accountPanel);
+        next.focus();
+      });
+    });
+
+    document.querySelectorAll("[data-theme-value]").forEach((button) => {
+      button.addEventListener("click", () => {
+        prefs.theme = button.dataset.themeValue;
+        writePrefs();
+        syncPrefControls();
+      });
+    });
+    document.querySelectorAll("[data-font-value]").forEach((button) => {
+      button.addEventListener("click", () => {
+        prefs.font = button.dataset.fontValue;
+        writePrefs();
+        syncPrefControls();
+      });
+    });
+
+    on("pref-reset", "click", resetPrefs);
+    on("about-privacy", "click", () => openLegal("privacy"));
+    on("about-terms", "click", () => openLegal("terms"));
+
     on("pref-motion", "change", (event) => {
       prefs.motion = event.target.checked;
       writePrefs();

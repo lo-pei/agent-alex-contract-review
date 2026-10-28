@@ -288,22 +288,46 @@ def test_llm_form_does_not_trigger_password_autofill() -> None:
 
 
 def test_account_dialog_has_profile_settings_and_confirm_clear() -> None:
-    """退出登录右侧的头像打开个人账户：资料 / 系统设置 / 清除数据（二次确认）。"""
+    """退出登录右侧的头像打开 B 端设置弹窗：左侧分区 + 资料 / 外观 / 数据 / 关于。"""
     page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
-    # 侧栏：退出登录 + 圆形头像按钮在同一个操作行
+    # 侧栏：退出登录 + 圆形头像按钮在同一个操作行；不再显示昵称 / 邮箱
     assert 'id="account-row"' in page
     assert 'id="account-avatar"' in page
     assert 'class="avatar account-avatar"' in page
-    # 弹窗：头像 / 昵称 / 邮箱 / 系统设置 / 数据
+    assert 'id="account-line"' not in page
+    assert "accountLine" not in script
+    assert ".account-line" not in styles
+
+    # 弹窗：左侧分区导航（个人信息 / 通用 / 数据管理 / 关于）
     assert 'id="account-dialog"' in page
+    assert 'class="account-nav"' in page
+    for panel in ("profile", "general", "data", "about"):
+        assert f'data-account-panel="{panel}"' in page
+        assert f'id="account-panel-{panel}"' in page
+    assert "setAccountPanel" in script
+
+    # 个人信息：头像 / 昵称 / 邮箱 / 注册时间
     assert 'id="account-avatar-input"' in page
     assert 'accept="image/png,image/jpeg,image/webp"' in page
     assert 'id="account-name"' in page
+    assert 'id="account-created"' in page
+
+    # 通用：主题色 / 字号 / 两个交互开关 / 恢复默认
+    assert 'data-theme-value="teal"' in page
+    assert 'data-font-value="lg"' in page
     assert 'id="pref-motion"' in page
     assert 'id="pref-autofocus"' in page
+    assert 'id="pref-reset"' in page
+    assert "root.dataset.theme" in script and "root.dataset.font" in script
+    assert "--ui-text-scale" in styles and 'html[data-font="lg"]' in styles
+    assert ".theme-dot" in styles and ".account-nav" in styles
+
+    # 数据管理：统计 / 清除本机缓存 / 清空审查记录
+    assert 'id="data-review-count"' in page
+    assert 'id="data-skill-count"' in page
     assert 'id="account-clear-cache"' in page
     assert 'id="account-clear-reviews"' in page
     # 清除数据必须再次确认

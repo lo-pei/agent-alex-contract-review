@@ -99,7 +99,6 @@
           </a>
 
           <div class="account" id="account-block">
-            <p class="account-line" id="account-line" hidden></p>
             <button class="nav-item nav-action" type="button" id="auth-login" data-auth="login">
               登录
             </button>
@@ -288,76 +287,243 @@
       </div>
     </dialog>
 
-    <!-- 个人账户：侧栏“退出登录”右侧的头像按钮打开 -->
+    <!-- 个人账户：侧栏“退出登录”右侧的头像按钮打开（B 端设置弹窗：左侧分区导航） -->
     <dialog class="dialog account-dialog" id="account-dialog" aria-labelledby="account-title">
       <div class="dialog-head">
-        <h2 class="dialog-title" id="account-title">个人账户</h2>
+        <div class="account-head-text">
+          <h2 class="dialog-title" id="account-title">账户设置</h2>
+          <p class="account-head-sub">资料、外观与数据管理</p>
+        </div>
         <button class="icon-button dialog-close" type="button" data-close="account-dialog" aria-label="关闭">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
             <path d="m6 6 12 12M18 6 6 18" />
           </svg>
         </button>
       </div>
-      <div class="dialog-body">
-        <section class="account-profile">
-          <div class="avatar-block">
-            <button class="avatar avatar-large" type="button" id="account-avatar-large" aria-label="更换头像">
-              <span class="avatar-initial" id="account-initial">A</span>
-            </button>
-            <div class="avatar-links">
-              <button class="link" type="button" id="account-avatar-pick">更换</button>
-              <button class="link" type="button" id="account-avatar-remove" hidden>移除</button>
-            </div>
-            <input id="account-avatar-input" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+      <div class="dialog-body account-body">
+        <nav class="account-nav" aria-label="账户设置" role="tablist" aria-orientation="vertical">
+          <button
+            class="account-nav-item is-active"
+            type="button"
+            role="tab"
+            id="account-tab-profile"
+            aria-selected="true"
+            aria-controls="account-panel-profile"
+            data-account-panel="profile"
+          >
+            个人信息
+          </button>
+          <button
+            class="account-nav-item"
+            type="button"
+            role="tab"
+            id="account-tab-general"
+            aria-selected="false"
+            aria-controls="account-panel-general"
+            tabindex="-1"
+            data-account-panel="general"
+          >
+            通用
+          </button>
+          <button
+            class="account-nav-item"
+            type="button"
+            role="tab"
+            id="account-tab-data"
+            aria-selected="false"
+            aria-controls="account-panel-data"
+            tabindex="-1"
+            data-account-panel="data"
+          >
+            数据管理
+          </button>
+          <button
+            class="account-nav-item"
+            type="button"
+            role="tab"
+            id="account-tab-about"
+            aria-selected="false"
+            aria-controls="account-panel-about"
+            tabindex="-1"
+            data-account-panel="about"
+          >
+            关于
+          </button>
+          <p class="account-nav-note">偏好只存本机；账号资料存本机数据库。</p>
+        </nav>
+
+        <div class="account-main">
+          <div class="account-panels">
+            <section
+              class="account-panel is-active"
+              id="account-panel-profile"
+              role="tabpanel"
+              aria-labelledby="account-tab-profile"
+              data-account-section="profile"
+            >
+              <div class="account-profile-head">
+                <div class="avatar-block">
+                  <button class="avatar avatar-large" type="button" id="account-avatar-large" aria-label="更换头像">
+                    <span class="avatar-initial" id="account-initial">A</span>
+                  </button>
+                  <div class="avatar-links">
+                    <button class="link" type="button" id="account-avatar-pick">更换</button>
+                    <button class="link" type="button" id="account-avatar-remove" hidden>移除</button>
+                  </div>
+                  <input id="account-avatar-input" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+                </div>
+                <div class="profile-meta">
+                  <p class="profile-name" id="profile-name">—</p>
+                  <p class="profile-mail" id="profile-mail">—</p>
+                  <p class="field-note">头像会居中裁成方形；登录邮箱不可修改。</p>
+                </div>
+              </div>
+              <form class="dialog-form account-form" id="account-form">
+                <label class="field">
+                  <span>昵称</span>
+                  <input id="account-name" type="text" maxlength="40" required autocomplete="off" />
+                </label>
+                <label class="field">
+                  <span>邮箱（登录名，不可修改）</span>
+                  <input id="account-email" type="email" readonly tabindex="-1" />
+                </label>
+                <label class="field">
+                  <span>注册时间</span>
+                  <input id="account-created" type="text" readonly tabindex="-1" />
+                </label>
+                <div class="dialog-actions">
+                  <button class="btn btn-primary btn-compact" type="submit" id="account-save">保存资料</button>
+                </div>
+              </form>
+            </section>
+
+            <section
+              class="account-panel"
+              id="account-panel-general"
+              role="tabpanel"
+              aria-labelledby="account-tab-general"
+              data-account-section="general"
+              hidden
+            >
+              <h3 class="account-group-title">外观</h3>
+              <div class="pref-row">
+                <div class="pref-label">
+                  <span>主题色</span>
+                  <span class="pref-note">按钮、选中态与焦点颜色</span>
+                </div>
+                <div class="theme-row" role="group" aria-label="主题色">
+                  <button class="theme-dot" type="button" data-theme-value="teal" aria-label="松石绿" aria-pressed="true"></button>
+                  <button class="theme-dot" type="button" data-theme-value="indigo" aria-label="靛青" aria-pressed="false"></button>
+                  <button class="theme-dot" type="button" data-theme-value="graphite" aria-label="石墨" aria-pressed="false"></button>
+                  <button class="theme-dot" type="button" data-theme-value="clay" aria-label="陶土" aria-pressed="false"></button>
+                  <button class="theme-dot" type="button" data-theme-value="plum" aria-label="绛紫" aria-pressed="false"></button>
+                </div>
+              </div>
+              <div class="pref-row">
+                <div class="pref-label">
+                  <span>界面字号</span>
+                  <span class="pref-note">正文、表格与表单同步缩放</span>
+                </div>
+                <div class="seg" role="group" aria-label="界面字号">
+                  <button class="seg-item" type="button" data-font-value="sm" aria-pressed="false">小</button>
+                  <button class="seg-item is-active" type="button" data-font-value="md" aria-pressed="true">标准</button>
+                  <button class="seg-item" type="button" data-font-value="lg" aria-pressed="false">大</button>
+                </div>
+              </div>
+
+              <h3 class="account-group-title">交互</h3>
+              <label class="switch-row">
+                <input type="checkbox" id="pref-motion" />
+                <span>减少动效</span>
+                <span class="switch-note">关闭过渡与旋转动画</span>
+              </label>
+              <label class="switch-row">
+                <input type="checkbox" id="pref-autofocus" />
+                <span>自动聚焦输入框</span>
+                <span class="switch-note">打开页面即可写审查重点</span>
+              </label>
+              <div class="account-actions">
+                <button class="btn btn-compact" type="button" id="pref-reset">恢复默认外观</button>
+              </div>
+            </section>
+
+            <section
+              class="account-panel"
+              id="account-panel-data"
+              role="tabpanel"
+              aria-labelledby="account-tab-data"
+              data-account-section="data"
+              hidden
+            >
+              <div class="account-stats">
+                <div class="account-stat">
+                  <span class="account-stat-value" id="data-review-count">—</span>
+                  <span class="account-stat-label">审查记录</span>
+                </div>
+                <div class="account-stat">
+                  <span class="account-stat-value" id="data-skill-count">—</span>
+                  <span class="account-stat-label">我的 Skill</span>
+                </div>
+              </div>
+              <h3 class="account-group-title">本机数据</h3>
+              <div class="account-data">
+                <button class="btn btn-compact" type="button" id="account-clear-cache">清除本机缓存</button>
+              </div>
+              <p class="field-note">界面偏好、主题色与草稿保存在浏览器；清除后恢复默认外观。</p>
+
+              <h3 class="account-group-title">账号数据</h3>
+              <div class="account-data">
+                <button class="btn btn-compact btn-danger-outline" type="button" id="account-clear-reviews">
+                  清空审查记录
+                </button>
+              </div>
+              <p class="field-note">会删除账号下的历史（合同、报告与待确认项），不可恢复。</p>
+              <div class="account-confirm" id="account-confirm" hidden>
+                <p class="account-confirm-text" id="account-confirm-text"></p>
+                <div class="account-confirm-actions">
+                  <button class="btn btn-compact btn-danger" type="button" id="account-confirm-yes">确认清除</button>
+                  <button class="btn btn-compact" type="button" id="account-confirm-no">取消</button>
+                </div>
+              </div>
+            </section>
+
+            <section
+              class="account-panel"
+              id="account-panel-about"
+              role="tabpanel"
+              aria-labelledby="account-tab-about"
+              data-account-section="about"
+              hidden
+            >
+              <div class="about-brand">
+                <span class="about-mark" aria-hidden="true">A</span>
+                <div>
+                  <p class="about-name">外贸合同智审助手</p>
+                  <p class="about-meta" id="about-version">版本 —</p>
+                </div>
+              </div>
+              <p class="field-note">
+                风险等级只由 Python 规则判定，模型负责抽取与解释；红色风险需人工确认后才会出报告。
+              </p>
+              <h3 class="account-group-title">条款与政策</h3>
+              <div class="about-links">
+                <button class="link" type="button" id="about-privacy">隐私条款</button>
+                <span class="foot-sep" aria-hidden="true">·</span>
+                <button class="link" type="button" id="about-terms">使用政策</button>
+              </div>
+              <h3 class="account-group-title">数据位置</h3>
+              <p class="field-note">
+                账号、Skill、审查记录与模型配置保存在本机 SQLite（<code>.data/app.sqlite</code>），API Key
+                只以密文形式入库。
+              </p>
+            </section>
           </div>
-          <form class="dialog-form account-form" id="account-form">
-            <label class="field">
-              <span>昵称</span>
-              <input id="account-name" type="text" maxlength="40" required autocomplete="off" />
-            </label>
-            <label class="field">
-              <span>邮箱（不可修改）</span>
-              <input id="account-email" type="email" readonly tabindex="-1" />
-            </label>
-            <div class="dialog-actions">
-              <button class="btn btn-primary btn-compact" type="submit" id="account-save">保存资料</button>
-            </div>
+
+          <div class="account-feedback">
             <p class="alert" id="account-error" role="alert" hidden></p>
             <p class="field-note" id="account-status" hidden></p>
-          </form>
-        </section>
-
-        <section class="account-section">
-          <h3 class="account-section-title">系统设置</h3>
-          <label class="switch-row">
-            <input type="checkbox" id="pref-motion" />
-            <span>减少动效</span>
-            <span class="switch-note">关闭过渡与旋转动画</span>
-          </label>
-          <label class="switch-row">
-            <input type="checkbox" id="pref-autofocus" />
-            <span>自动聚焦输入框</span>
-            <span class="switch-note">打开页面即可写审查重点</span>
-          </label>
-        </section>
-
-        <section class="account-section">
-          <h3 class="account-section-title">数据</h3>
-          <div class="account-data">
-            <button class="btn btn-compact" type="button" id="account-clear-cache">清除本机缓存</button>
-            <button class="btn btn-compact" type="button" id="account-clear-reviews">清空审查记录</button>
           </div>
-          <div class="account-confirm" id="account-confirm" hidden>
-            <p class="account-confirm-text" id="account-confirm-text"></p>
-            <div class="account-confirm-actions">
-              <button class="btn btn-compact btn-danger" type="button" id="account-confirm-yes">确认清除</button>
-              <button class="btn btn-compact" type="button" id="account-confirm-no">取消</button>
-            </div>
-          </div>
-          <p class="field-note">
-            清除本机缓存只删浏览器里的偏好与草稿；清空审查记录会删除账号下的历史（合同、报告与待确认一并清理），不可恢复。
-          </p>
-        </section>
+        </div>
       </div>
     </dialog>
 

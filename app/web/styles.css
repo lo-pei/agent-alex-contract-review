@@ -69,6 +69,34 @@
 
   --font-sans: "IBM Plex Sans", "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", "Cascadia Mono", Consolas, "Courier New", monospace;
+
+  /* 界面字号：账户设置里的“小 / 标准 / 大”只改这个倍率，
+     所有 font-size 用 calc(... * var(--ui-text-scale)) 跟随缩放 */
+  --ui-text-scale: 1;
+}
+
+/* 主题色：只换强调色，风险红/黄/绿保持语义不变 */
+html[data-theme="teal"] {
+  --accent: #1b6b7d;
+}
+html[data-theme="indigo"] {
+  --accent: #3a4f9b;
+}
+html[data-theme="graphite"] {
+  --accent: #3f4448;
+}
+html[data-theme="clay"] {
+  --accent: #96522a;
+}
+html[data-theme="plum"] {
+  --accent: #6d4a7d;
+}
+
+html[data-font="sm"] {
+  --ui-text-scale: 0.94;
+}
+html[data-font="lg"] {
+  --ui-text-scale: 1.1;
 }
 
 *,
@@ -86,7 +114,7 @@ body {
   background: var(--frame);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: calc(14px * var(--ui-text-scale, 1));
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
@@ -143,7 +171,7 @@ svg {
   border-radius: var(--radius-control);
   background: var(--text);
   color: #fff;
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-text-scale, 1));
   transform: translateY(-160%);
 }
 .skip-link:focus-visible {
@@ -236,12 +264,12 @@ svg {
   line-height: 1.35;
 }
 .brand-text strong {
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--ui-text-scale, 1));
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 .brand-text span {
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
   color: var(--faint);
 }
 
@@ -259,7 +287,7 @@ svg {
   padding: 0 8px;
   border-radius: var(--radius-control);
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-text-scale, 1));
   font-weight: 500;
 }
 .nav-item svg {
@@ -288,7 +316,7 @@ svg {
   background: var(--red-bg);
   color: var(--red-ink);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale, 1));
   line-height: 16px;
   text-align: center;
 }
@@ -300,7 +328,7 @@ svg {
 .external-mark {
   margin-left: auto;
   color: var(--faint);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
 }
 
 .sidebar-foot {
@@ -315,7 +343,7 @@ svg {
 .sidebar-note {
   padding: 0 8px;
   color: var(--faint);
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
   line-height: 1.6;
 }
 
@@ -325,7 +353,7 @@ svg {
   gap: 6px;
   min-width: 0;
   color: var(--faint);
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
 }
 .crumbs-current {
   color: var(--text);
@@ -364,7 +392,7 @@ svg {
   border-radius: 999px;
   background: var(--neutral-bg);
   color: var(--neutral-ink);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   font-weight: 500;
   white-space: nowrap;
 }
@@ -398,7 +426,7 @@ svg {
 /* ---------------------------------------------------------------- 文本 */
 
 .headline {
-  font-size: 28px;
+  font-size: calc(28px * var(--ui-text-scale, 1));
   line-height: 1.25;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -408,7 +436,7 @@ svg {
   margin-top: 10px;
   max-width: 54ch;
   color: var(--muted);
-  font-size: 14.5px;
+  font-size: calc(14.5px * var(--ui-text-scale, 1));
   line-height: 1.7;
 }
 
@@ -416,14 +444,14 @@ svg {
   margin-bottom: 8px;
   color: var(--faint);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   word-break: break-all;
 }
 
 .fine {
   margin-top: 18px;
   color: var(--faint);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   line-height: 1.65;
 }
 
@@ -434,7 +462,7 @@ svg {
   border-radius: var(--radius-card);
   background: var(--sunken);
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-text-scale, 1));
   line-height: 1.65;
 }
 
@@ -445,7 +473,7 @@ svg {
   border-radius: var(--radius-card);
   background: var(--red-bg);
   color: var(--red-ink);
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--ui-text-scale, 1));
   line-height: 1.6;
 }
 
@@ -462,7 +490,7 @@ svg {
   border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--text);
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-text-scale, 1));
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
@@ -493,7 +521,7 @@ svg {
   display: flex;
   width: 100%;
   height: 42px;
-  font-size: 14px;
+  font-size: calc(14px * var(--ui-text-scale, 1));
 }
 .btn:disabled {
   border-color: #d9d9d3;
@@ -567,7 +595,7 @@ svg {
 
 .chat-title {
   margin-top: 14px;
-  font-size: 26px;
+  font-size: calc(26px * var(--ui-text-scale, 1));
   font-weight: 600;
   letter-spacing: -0.022em;
   line-height: 1.3;
@@ -612,7 +640,7 @@ svg {
   background: transparent;
   color: var(--text);
   font-family: inherit;
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--ui-text-scale, 1));
   line-height: 1.65;
   resize: none;
   outline: none;
@@ -642,7 +670,7 @@ svg {
   background: var(--raised);
   color: var(--muted);
   font-family: inherit;
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   cursor: pointer;
 }
 .tool:hover {
@@ -655,14 +683,14 @@ svg {
   min-width: 0;
   overflow: hidden;
   color: var(--faint);
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .tool-file.is-set {
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
 }
 
 .tool-clear {
@@ -673,7 +701,7 @@ svg {
   border-radius: 50%;
   background: transparent;
   color: var(--faint);
-  font-size: 15px;
+  font-size: calc(15px * var(--ui-text-scale, 1));
   line-height: 1;
   cursor: pointer;
 }
@@ -700,7 +728,7 @@ svg {
   background: var(--raised);
   color: var(--text);
   font-family: inherit;
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   cursor: pointer;
 }
 .tool-skill:hover {
@@ -714,7 +742,7 @@ svg {
 .tool-skill-key {
   flex: none;
   color: var(--faint);
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--ui-text-scale, 1));
   font-weight: 500;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -723,7 +751,7 @@ svg {
   min-width: 0;
   max-width: 118px;
   overflow: hidden;
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -767,7 +795,7 @@ svg {
   background: transparent;
   color: var(--text);
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
   text-align: left;
   cursor: pointer;
 }
@@ -790,7 +818,7 @@ svg {
 .skill-option-tag {
   flex: none;
   color: var(--faint);
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--ui-text-scale, 1));
 }
 .skill-menu-sep {
   height: 1px;
@@ -803,7 +831,7 @@ svg {
 .skill-option.is-repo span:last-child {
   margin-left: auto;
   color: var(--faint);
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--ui-text-scale, 1));
 }
 
 .chat-error {
@@ -842,7 +870,7 @@ svg {
   gap: 4px;
   margin-bottom: 20px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-text-scale, 1));
 }
 .back:hover {
   color: var(--text);
@@ -893,7 +921,7 @@ svg {
   padding: 0 7px;
   border: 1px solid;
   border-radius: var(--radius-chip);
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
   font-weight: 500;
 }
 .risk.is-red .tag {
@@ -909,7 +937,7 @@ svg {
 
 .risk-title {
   margin-top: 8px;
-  font-size: 15px;
+  font-size: calc(15px * var(--ui-text-scale, 1));
   font-weight: 600;
   line-height: 1.55;
   letter-spacing: -0.01em;
@@ -918,13 +946,13 @@ svg {
 .risk-explain {
   margin-top: 6px;
   color: var(--muted);
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--ui-text-scale, 1));
   line-height: 1.7;
 }
 
 .risk-fix {
   margin-top: 10px;
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-text-scale, 1));
   line-height: 1.7;
 }
 .risk-fix span {
@@ -934,7 +962,7 @@ svg {
   border-radius: var(--radius-chip);
   background: var(--sunken);
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
 }
 
 .why {
@@ -948,7 +976,7 @@ svg {
   gap: 6px;
   width: fit-content;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
   cursor: pointer;
   list-style: none;
 }
@@ -974,7 +1002,7 @@ svg {
   border-radius: 0 var(--radius-chip) var(--radius-chip) 0;
   background: var(--raised);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
@@ -984,7 +1012,7 @@ svg {
   margin-top: 6px;
   color: var(--faint);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
   word-break: break-all;
 }
 
@@ -998,7 +1026,7 @@ svg {
 
 .confirm-text {
   color: var(--muted);
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--ui-text-scale, 1));
   line-height: 1.7;
 }
 
@@ -1008,7 +1036,7 @@ svg {
   gap: 6px;
   margin-top: 12px;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
 }
 .confirm-field input {
   height: var(--control-h);
@@ -1016,7 +1044,7 @@ svg {
   border: 1px solid var(--control);
   border-radius: var(--radius-control);
   background: var(--surface);
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--ui-text-scale, 1));
 }
 .confirm-field input:focus {
   border-color: var(--accent);
@@ -1034,7 +1062,7 @@ svg {
   display: block;
   margin: 12px auto 0;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
 }
 .confirm .link:hover {
   color: var(--text);
@@ -1049,7 +1077,7 @@ svg {
   gap: 10px;
   margin-top: 22px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-text-scale, 1));
 }
 .down a {
   color: var(--text);
@@ -1066,7 +1094,7 @@ svg {
   gap: 6px;
   margin-top: 18px;
   color: var(--muted);
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--ui-text-scale, 1));
 }
 .reasons li {
   position: relative;
@@ -1096,7 +1124,7 @@ svg {
   background: var(--surface);
   color: var(--muted);
   font-family: inherit;
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   white-space: nowrap;
   cursor: pointer;
 }
@@ -1126,7 +1154,7 @@ svg {
 .nav-hint {
   margin-left: auto;
   color: var(--faint);
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale, 1));
 }
 .nav-hint[data-state="on"] {
   color: var(--green-ink);
@@ -1138,32 +1166,6 @@ svg {
   gap: 2px;
   padding-top: 6px;
   border-top: 1px solid var(--border);
-}
-
-.account-line {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-  padding: 0 8px 4px;
-  color: var(--faint);
-  font-size: 11.5px;
-  line-height: 1.5;
-}
-
-.account-name {
-  overflow: hidden;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account-mail {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* 账号操作行：退出登录在左，圆形头像入口在右 */
@@ -1190,7 +1192,7 @@ svg {
   background: var(--raised);
   color: var(--muted);
   font-family: inherit;
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   font-weight: 600;
   cursor: pointer;
   transition:
@@ -1216,26 +1218,117 @@ svg {
 .account-avatar {
   width: 26px;
   height: 26px;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale, 1));
 }
 .avatar-large {
   width: 62px;
   height: 62px;
-  font-size: 23px;
+  font-size: calc(23px * var(--ui-text-scale, 1));
 }
 
-/* ---------------------------------------------------------------- 个人账户弹窗 */
+/* ---------------------------------------------------------------- 个人账户弹窗（B 端设置） */
 
-.account-dialog {
-  width: min(520px, calc(100vw - 32px));
+/* 覆盖 .dialog 的默认 460px：类选择器要带 .dialog 才有更高优先级 */
+.dialog.account-dialog {
+  width: min(760px, calc(100vw - 32px));
+  height: min(560px, calc(100vh - 48px));
+}
+.account-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.account-head-sub {
+  color: var(--faint);
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
+}
+.account-dialog .dialog-body {
+  padding: 0;
+  overflow: hidden;
+}
+.account-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-.account-profile {
+/* 左侧分区导航 */
+.account-nav {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+  width: 164px;
+  padding: 12px 10px;
+  border-right: 1px solid var(--rule);
+  background: var(--raised);
+  overflow-y: auto;
+}
+.account-nav-item {
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.account-nav-item:hover {
+  background: var(--sunken);
+  color: var(--text);
+}
+.account-nav-item.is-active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(12, 12, 10, 0.07);
+}
+.account-nav-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.account-nav-note {
+  margin-top: auto;
+  padding: 12px 10px 2px;
+  color: var(--faint);
+  font-size: calc(10.5px * var(--ui-text-scale, 1));
+  line-height: 1.5;
+}
+
+/* 右侧分区内容 + 固定反馈区 */
+.account-main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.account-panels {
+  flex: 1 1 auto;
+  padding: 18px 20px 8px;
+  overflow-y: auto;
+}
+.account-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.account-panel[hidden] {
+  display: none;
+}
+
+.account-profile-head {
   display: flex;
   align-items: flex-start;
   gap: 14px;
 }
-
 .avatar-block {
   display: flex;
   flex: none;
@@ -1248,13 +1341,37 @@ svg {
   gap: 8px;
 }
 .avatar-links .link {
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale, 1));
+}
+.profile-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding-top: 2px;
+}
+.profile-name {
+  overflow: hidden;
+  color: var(--text);
+  font-size: calc(14px * var(--ui-text-scale, 1));
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profile-mail {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: calc(12px * var(--ui-text-scale, 1));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profile-meta .field-note {
+  margin-top: 4px;
 }
 
 .account-form {
-  flex: 1 1 auto;
-  min-width: 0;
-  gap: 8px;
+  gap: 9px;
+  margin-top: 4px;
 }
 .account-form .dialog-actions {
   margin-top: 2px;
@@ -1263,19 +1380,104 @@ svg {
   color: var(--green-ink);
 }
 
-.account-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 16px;
-  padding-top: 13px;
-  border-top: 1px solid var(--rule);
+.account-group-title {
+  margin-top: 4px;
+  color: var(--faint);
+  font-size: calc(10.5px * var(--ui-text-scale, 1));
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.account-panel > .account-group-title:first-child {
+  margin-top: 0;
 }
 
-.account-section-title {
+.pref-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.pref-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  color: var(--text);
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
+}
+.pref-note {
+  color: var(--faint);
+  font-size: calc(11px * var(--ui-text-scale, 1));
+}
+
+.theme-row {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+.theme-dot {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: var(--swatch, var(--accent));
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+}
+.theme-dot[data-theme-value="teal"] {
+  --swatch: #1b6b7d;
+}
+.theme-dot[data-theme-value="indigo"] {
+  --swatch: #3a4f9b;
+}
+.theme-dot[data-theme-value="graphite"] {
+  --swatch: #3f4448;
+}
+.theme-dot[data-theme-value="clay"] {
+  --swatch: #96522a;
+}
+.theme-dot[data-theme-value="plum"] {
+  --swatch: #6d4a7d;
+}
+.theme-dot[aria-pressed="true"] {
+  border-color: var(--surface);
+  outline: 2px solid var(--swatch);
+  outline-offset: 1px;
+}
+.theme-dot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.seg {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--raised);
+}
+.seg-item {
+  min-width: 40px;
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
   color: var(--muted);
-  font-size: 12px;
+  font-family: inherit;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
+  cursor: pointer;
+}
+.seg-item.is-active {
+  background: var(--surface);
+  color: var(--text);
   font-weight: 600;
+  box-shadow: 0 1px 2px rgba(12, 12, 10, 0.08);
 }
 
 .switch-row {
@@ -1284,7 +1486,7 @@ svg {
   gap: 1px 8px;
   align-items: center;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
   cursor: pointer;
 }
 .switch-row input {
@@ -1297,7 +1499,36 @@ svg {
 .switch-note {
   grid-column: 2;
   color: var(--faint);
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale, 1));
+}
+
+.account-actions {
+  margin-top: 4px;
+}
+
+.account-stats {
+  display: flex;
+  gap: 10px;
+}
+.account-stat {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 1px;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--raised);
+}
+.account-stat-value {
+  color: var(--text);
+  font-size: calc(18px * var(--ui-text-scale, 1));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.account-stat-label {
+  color: var(--faint);
+  font-size: calc(11px * var(--ui-text-scale, 1));
 }
 
 .account-data {
@@ -1315,12 +1546,68 @@ svg {
 .account-confirm-text {
   margin: 0 0 8px;
   color: var(--red-ink);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   line-height: 1.6;
 }
 .account-confirm-actions {
   display: flex;
   gap: 7px;
+}
+
+.account-feedback {
+  flex: none;
+  padding: 0 20px 14px;
+}
+.account-feedback .alert {
+  margin: 0 0 4px;
+}
+
+.about-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.about-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--text);
+  color: #fff;
+  font-size: calc(16px * var(--ui-text-scale, 1));
+  font-weight: 600;
+}
+.about-name {
+  color: var(--text);
+  font-size: calc(13.5px * var(--ui-text-scale, 1));
+  font-weight: 600;
+}
+.about-meta {
+  color: var(--faint);
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
+}
+.about-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.account-panel code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--sunken);
+  font-family: var(--font-mono);
+  font-size: calc(11px * var(--ui-text-scale, 1));
+}
+
+.btn-danger-outline {
+  border-color: var(--red-line);
+  color: var(--red-ink);
+}
+.btn-danger-outline:hover {
+  border-color: var(--red-ink);
+  background: var(--red-bg);
 }
 
 .btn-danger {
@@ -1367,7 +1654,7 @@ svg {
   padding-top: 8px;
   border-top: 1px solid var(--rule);
   color: var(--faint);
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
   line-height: 1.45;
 }
 
@@ -1385,7 +1672,7 @@ svg {
 
 .foot-links .link {
   color: var(--faint);
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
 }
 .foot-links .link:hover {
   color: var(--text);
@@ -1437,7 +1724,7 @@ svg {
 }
 
 .dialog-title {
-  font-size: 15px;
+  font-size: calc(15px * var(--ui-text-scale, 1));
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -1455,14 +1742,14 @@ svg {
 
 .dialog-lead {
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
   line-height: 1.7;
 }
 
 .dialog-section {
   margin-top: 18px;
   color: var(--faint);
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale, 1));
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1486,7 +1773,7 @@ svg {
   background: transparent;
   color: var(--muted);
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
   cursor: pointer;
 }
 .dialog-tab.is-active {
@@ -1523,7 +1810,7 @@ svg {
   align-items: center;
   gap: 5px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   line-height: 1.6;
 }
 
@@ -1541,7 +1828,7 @@ svg {
 }
 
 .auth-consent .link {
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   color: var(--muted);
 }
 
@@ -1550,7 +1837,7 @@ svg {
   flex-direction: column;
   gap: 5px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
 }
 
 .field input,
@@ -1563,7 +1850,7 @@ svg {
   background: var(--surface);
   color: var(--text);
   font-family: inherit;
-  font-size: 13px;
+  font-size: calc(13px * var(--ui-text-scale, 1));
   line-height: 1.5;
 }
 .field input,
@@ -1577,7 +1864,7 @@ svg {
 
 .field-note {
   color: var(--faint);
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
   line-height: 1.6;
 }
 .field-note.is-error {
@@ -1593,7 +1880,7 @@ svg {
 .dialog-actions .link {
   margin-left: auto;
   color: var(--faint);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
 }
 
 .dialog .fine {
@@ -1610,7 +1897,7 @@ svg {
 }
 
 .skills-page > .headline {
-  font-size: 23px;
+  font-size: calc(23px * var(--ui-text-scale, 1));
 }
 
 .skills-grid {
@@ -1648,14 +1935,14 @@ svg {
 
 .panel-meta {
   color: var(--faint);
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--ui-text-scale, 1));
   letter-spacing: 0.01em;
 }
 
 .panel-title {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   font-weight: 600;
   letter-spacing: 0.01em;
 }
@@ -1676,21 +1963,21 @@ svg {
 }
 .skill-form .field-compact {
   gap: 3px;
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
 }
 .skill-form .field-compact input {
   height: 30px;
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
 }
 .skill-form .field-compact textarea {
   min-height: 68px;
   padding: 6px 8px;
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
 }
 .btn-compact {
   height: 30px;
   padding: 0 10px;
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
 }
 .skill-form .btn-compact {
   width: 100%;
@@ -1748,7 +2035,7 @@ svg {
 .skill-name {
   overflow: hidden;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1771,7 +2058,7 @@ svg {
   border-radius: 999px;
   background: var(--neutral-bg);
   color: var(--neutral-ink);
-  font-size: 10px;
+  font-size: calc(10px * var(--ui-text-scale, 1));
   font-weight: 500;
   line-height: 14px;
   white-space: nowrap;
@@ -1785,7 +2072,7 @@ svg {
 .skill-desc {
   margin: 0;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
   line-height: 1.5;
 }
 
@@ -1794,7 +2081,7 @@ svg {
   margin: 4px 0 0;
   overflow: auto;
   color: var(--text);
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
@@ -1813,13 +2100,13 @@ svg {
 .chip-mini {
   height: 22px;
   padding: 0 8px;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale, 1));
 }
 
 .skill-empty {
   padding: 8px 2px;
   color: var(--faint);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
 }
 
 /* Markdown / 文件夹导入 */
@@ -1831,7 +2118,7 @@ svg {
 }
 .skill-import .field-note {
   margin: 0;
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale, 1));
   line-height: 1.5;
 }
 .skill-import code {
@@ -1839,7 +2126,7 @@ svg {
   border-radius: 3px;
   background: var(--sunken);
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--ui-text-scale, 1));
 }
 
 .dropzone {
@@ -1853,7 +2140,7 @@ svg {
   border-radius: 8px;
   background: var(--raised);
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   text-align: center;
   cursor: pointer;
   transition:
@@ -1870,7 +2157,7 @@ svg {
 }
 .dropzone-hint {
   color: var(--faint);
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--ui-text-scale, 1));
 }
 
 .import-actions {
@@ -1888,7 +2175,7 @@ svg {
   gap: 3px;
   margin-top: 1px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale, 1));
   line-height: 1.5;
 }
 .import-log li.ok {
@@ -1924,14 +2211,14 @@ svg {
   margin: 0;
   padding: 2px 4px 6px;
   color: var(--faint);
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
   line-height: 1.55;
 }
 
 .nav-sub-error {
   margin: 0 0 4px;
   padding: 6px 8px;
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
   line-height: 1.5;
 }
 
@@ -1971,7 +2258,7 @@ svg {
 .rec-title {
   overflow: hidden;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
   line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1983,7 +2270,7 @@ svg {
   border: 1px solid var(--accent);
   border-radius: 3px;
   color: var(--accent);
-  font-size: 9.5px;
+  font-size: calc(9.5px * var(--ui-text-scale, 1));
   line-height: 1.4;
   vertical-align: 1px;
 }
@@ -1992,7 +2279,7 @@ svg {
 .rec-time {
   overflow: hidden;
   color: var(--faint);
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--ui-text-scale, 1));
   line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2018,7 +2305,7 @@ svg {
   border-radius: 4px;
   background: transparent;
   color: var(--faint);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   line-height: 1;
   cursor: pointer;
 }
@@ -2048,12 +2335,12 @@ svg {
   background: var(--surface);
   color: var(--text);
   font-family: inherit;
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
 }
 .rec-rename .chip {
   height: 24px;
   padding: 0 7px;
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
 }
 
 /* 隐私条款 / 使用政策 */
@@ -2069,7 +2356,7 @@ svg {
   padding-bottom: 12px;
   border-bottom: 1px solid var(--rule);
   color: var(--faint);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-text-scale, 1));
   line-height: 1.5;
 }
 
@@ -2077,7 +2364,7 @@ svg {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  font-size: 14px;
+  font-size: calc(14px * var(--ui-text-scale, 1));
   font-weight: 600;
   letter-spacing: -0.005em;
   line-height: 1.4;
@@ -2087,7 +2374,7 @@ svg {
   flex: none;
   color: var(--accent);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-text-scale, 1));
   font-weight: 500;
   letter-spacing: 0.04em;
 }
@@ -2095,7 +2382,7 @@ svg {
 .legal-section p {
   margin: 4px 0 0 30px;
   color: var(--muted);
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--ui-text-scale, 1));
   line-height: 1.62;
 }
 
@@ -2143,16 +2430,16 @@ svg {
 
 @media (max-width: 640px) {
   .headline {
-    font-size: 23px;
+    font-size: calc(23px * var(--ui-text-scale, 1));
   }
   .lead {
-    font-size: 13.5px;
+    font-size: calc(13.5px * var(--ui-text-scale, 1));
   }
   .chat {
     padding-bottom: 4vh;
   }
   .chat-title {
-    font-size: 22px;
+    font-size: calc(22px * var(--ui-text-scale, 1));
   }
   .composer-box {
     padding: 10px 10px 8px;
@@ -2192,6 +2479,37 @@ svg {
   }
   .legal-section p {
     margin-left: 0;
+  }
+  /* 窄屏：账户设置的分区导航改成顶部横向标签 */
+  .dialog.account-dialog {
+    width: calc(100vw - 16px);
+    height: min(640px, calc(100vh - 16px));
+  }
+  .account-body {
+    flex-direction: column;
+  }
+  .account-nav {
+    flex-direction: row;
+    width: auto;
+    padding: 8px;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+    overflow-x: auto;
+  }
+  .account-nav-item {
+    flex: none;
+    height: 28px;
+  }
+  .account-nav-note {
+    display: none;
+  }
+  .account-panels {
+    padding: 14px;
+  }
+  .pref-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }
 
@@ -2240,6 +2558,23 @@ svg {
     border-color: #3a3b35;
     background: #262722;
     color: #8b8d84;
+  }
+
+  /* 深色下主题色改用更亮的同色系，避免选中态看不清 */
+  html[data-theme="teal"] {
+    --accent: #74b3c4;
+  }
+  html[data-theme="indigo"] {
+    --accent: #93a8e0;
+  }
+  html[data-theme="graphite"] {
+    --accent: #b9bdb6;
+  }
+  html[data-theme="clay"] {
+    --accent: #d79a6b;
+  }
+  html[data-theme="plum"] {
+    --accent: #c39ad1;
   }
 }
 
