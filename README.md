@@ -12,7 +12,7 @@
 |---|---|---|
 | 1. GitHub 调研 | ✅ | 8 个开源项目源码级分析，产出借鉴/不借鉴清单 |
 | 2. 架构设计 | ✅ | ADR-001 ~ ADR-013 全部已接受 |
-| 3. 代码实现 | ✅ 第 6 步完成 | 环境、9 节点图（含文档类型闸门）、规则引擎（13 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭；本机 `.env` 已开启，真实语料 14 篇：模型不可用时解释回退规则理由，但仍列出检索到的 `source_id#section`）、FastAPI + 对话式 Web 前端 + 账号/审查历史（改名/置顶/删除）/Skill 仓库独立页/BYOK + Streamlit、297 个测试 |
+| 3. 代码实现 | ✅ 第 6 步完成 | 环境、9 节点图（含文档类型闸门）、规则引擎（13 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭；本机 `.env` 已开启，真实语料 14 篇：模型不可用时解释回退规则理由，但仍列出检索到的 `source_id#section`）、FastAPI + 对话式 Web 前端 + 账号/审查历史（改名/置顶/删除）/Skill 仓库独立页（支持 Markdown 与文件夹导入）/BYOK + Streamlit、298 个测试 |
 | 4. 测试与评测 | ⏳ 第 4 轮完成 | 50 份模拟合同 + 21 个 silver gold 现象 + 四批留出集 40 份；三组指标（rule/contract/coverage）；**holdout4（唯一未消耗）P=1.00 / R=0.889 / F1=0.941，silver gold 待人工复核**；检索评测未做 |
 | 5. 文档与交付 | ⏳ 进行中 | 开发日志、ADR、交接文档、评测结果与 RAG 资料清单已建立 |
 
@@ -54,6 +54,9 @@ py -3.12 -m venv .venv
 # 4) FastAPI + 对话式页面（默认 SQLite checkpointer + 本地账号库；单 worker 演示）
 .\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000
 # 打开 http://127.0.0.1:8000/      对话式首屏：给审查重点 + 合同 + Skill → 风险点（#/ → #/review/{id}）
+# 打开 http://127.0.0.1:8000/#/skills  Skill 仓库（推荐 / 我的 / 新建 / 从 Markdown 导入）
+# ⚠️ 改了后端代码必须重启这条 uvicorn（没有 --reload）；旧进程可能只有 /api/reviews，
+#    前端点“注册”就会看到 not found —— 用 curl http://127.0.0.1:8000/openapi.json 看版本应为 1.0.0
 # 打开 http://127.0.0.1:8000/docs  Swagger UI，可直接试接口：
 #   POST /api/reviews（multipart：file + focus + skill_id + 可选 reference）→ awaiting_human=true
 #   POST /api/reviews/{id}/decisions  {"action":"approve","reviewer":"zhangsan"}
@@ -71,7 +74,7 @@ py -3.12 -m venv .venv
 
 # 6) 测试与静态检查
 .\.venv\Scripts\python.exe -m pytest
-# 297 passed
+# 298 passed
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
@@ -153,7 +156,8 @@ RAG_MIN_SCORE=1.0
 | 视图 / 路由 | 内容 |
 |---|---|
 | 对话首屏 `#/` | 居中的品牌小块 + 标题（未登录“今天想审查哪份合同？”/ 登录后“欢迎回来，{昵称}”）+ 720px 圆角输入区：多行“审查重点”文本域 + 工具行（**合同**按钮 / 文件名 / **Skill 胶囊下拉**（内置 + 自建，末项固定“Skill 仓库…”，12px 卡片、键盘可达）/ 圆形发送键）；**Enter 发送、Shift+Enter 换行**，合同也可直接拖进输入区（txt / md / 文本型 pdf / docx，前端先校验类型、空文件与 15 MB 上限） |
-| Skill 仓库 `#/skills` | **独立页面**（不再是弹窗）：左侧“推荐 Skill（7 个）/ 我的 Skill”，右侧“新建 Skill”（名称 / 一句话说明 / 审查重点指令）；列表可“使用”（回到 `#/` 并带上该 Skill）与删除，新建后立即出现在下拉里 |
+| Skill 仓库 `#/skills` | **独立页面**（不再是弹窗）：左侧“推荐 Skill（7 个）/ 我的 Skill”，右侧“新建 Skill”（名称 / 一句话说明 / 审查重点指令）与“**从 Markdown 导入**”；列表可“使用”（回到 `#/` 并带上该 Skill）与删除，新建后立即出现在下拉里 |
+| 导入 Skill | 拖入一个或多个 `.md` / `.markdown` 文件，或直接拖**整个文件夹**（也可以点“选择文件夹”）；按 `name:` / 一级标题 / 文件名取名，`description:` 或首段作说明，正文作审查重点（超过 1000 字截断，同名跳过）；一次最多 30 个、单文件 ≤ 200 KB，仍走同一套 `POST /api/skills` |
 | 风险点 `#/review/{id}` | 待确认：先列出规则已定位的**红色风险**（结论 + 建议 + 折叠的原文/位置），再请人工确认；确认后同一路由刷新为完整风险清单（含解释与知识引用），并提供 Markdown 报告下载 |
 | 不是合同 `#/review/{id}` | 文档类型闸门判否时：标题“这份文件不是合同”+ 判定依据 + “换一份合同”，不显示任何风险结论 |
 
@@ -229,7 +233,7 @@ data/contracts_holdout3/ # 8 份留出合同（H21–H28）→ 第 4 轮已消�
 data/contracts_holdout4/ # 12 份留出合同（H29–H40）→ 唯一未消耗，对外报数用这一批
 data/eval/               # gold_contracts.json（105 条检索期望）/ gold_rules.json（21 个 silver 现象）/ gold_holdout{,2,3,4}.json
 data/knowledge/          # 真实语料 14 篇 + manifest（RAG 默认关闭）；模拟合同1..6.md 为评测来源，不进 manifest
-tests/                   # 297 个测试（账号/记录/Skill/BYOK 28 / API 17 / 前端 18 / 文档类型 11 / pending 11 / RAG 22 + 解释 15 / HITL 17 / 指标 11 / 规则 53 含四批留出回归，无需 Key）
+tests/                   # 298 个测试（账号/记录/Skill/BYOK 28 / API 17 / 前端 19 / 文档类型 11 / pending 11 / RAG 22 + 解释 15 / HITL 17 / 指标 11 / 规则 53 含四批留出回归，无需 Key）
 tests/fakes.py           # Fake LLM（实现 StructuredLLM 协议）
 docs/devlog/             # 项目状态、调研、ADR、开发日志、交接、待决事项、RAG 资料清单
 ```
@@ -265,6 +269,7 @@ docs/devlog/             # 项目状态、调研、ADR、开发日志、交接�
 - **API/UI 只做了单机单 worker**：并发锁是进程内 `RLock`；多 worker 部署前需换文件锁/数据库锁；上传与 pending 文件无保留期清理（ISSUE-019）；`LLMRuntime` 也是进程内字典，多 worker 时 `resume` 会退回环境默认模型（等级不受影响）。
 - **账号与密钥是演示形态**：无找回密码/邮箱验证/登录失败限流；Cookie 未加 `Secure`（本地 HTTP，`HttpOnly` + `SameSite=Lax` 已有）；`.data/app.sqlite` 与 `.data/secret.key` 必须一起备份，缺主密钥则已存 Key 无法解密（ISSUE-025）。
 - 用户自建 Skill 与“参考材料”只影响解释措辞（`<untrusted_focus>`），不提供自定义规则或改等级能力；参考材料限 `.txt/.md`、64 KB。
+- **Skill 的 Markdown / 文件夹导入是在浏览器里解析**：只认 `.md` / `.markdown`，一次最多 30 个、单文件 ≤ 200 KB、同名跳过；指令超过 1000 字截断。这些上限在前端执行，**服务端仍会按原有规则校验长度**，但不做文件内容扫描（不落盘、不进数据库，只把解析后的文本 POST 给 `POST /api/skills`）。
 - HITL 超时是惰性检查（`GET` 时判定），不是后台定时任务；pending 时间戳已落盘，进程重启后仍可判定。
 - **指标口径**：对外只引用**当前未被消耗**的留出集（holdout4，12 份，`P=1.00 / R=0.889 / F1=0.941`），并注明“silver gold 待人工复核、样本 12 份、规则 version 5、唯一漏报 H39”。主集（50 份）`P/R=1.0` 是**同分布**产物（规则就是在该批合同上设计的）；holdout、holdout2、holdout3 已被用于定位缺陷，修复后即使全对也只是回归结果——两者都不能当准确率。
 - **留出集“消耗”规则**：一批留出集一旦被用来定位缺陷，就降级为回归守卫，下轮必须**另写新样本**才能对外报数（ADR-011 第 4 轮补充）；`test_holdout4_hits_are_stable` 用断言钉住 H39 必须是漏报，修好那天测试失败，强制同步降级旧集并另写 holdout5。

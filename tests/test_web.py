@@ -215,6 +215,36 @@ def test_skill_repo_is_standalone_page_not_dialog() -> None:
     assert ".skills-grid" in styles
 
 
+def test_skill_repo_imports_markdown_files_and_folders() -> None:
+    """Skill 仓库支持把 .md 文件或整个文件夹拖进来，自动建成 Skill。"""
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    # 两个入口：多选 .md 与整目录（webkitdirectory）
+    assert 'id="skill-import-input"' in script
+    assert 'accept=".md,.markdown,text/markdown"' in script
+    assert 'id="skill-import-dir"' in script
+    assert "webkitdirectory" in script
+    # 拖拽区 + 键盘可达（Enter / 空格也能选文件）
+    assert 'id="skill-drop"' in script
+    assert "filesFromDataTransfer" in script
+    assert "webkitGetAsEntry" in script
+    assert 'event.key !== "Enter"' in script
+    # 解析规则：frontmatter / 一级标题 / 首段，长度与服务端上限一致
+    assert "parseSkillMarkdown" in script
+    assert "meta.instruction" in script
+    assert "SKILL_NAME_MAX = 40" in script
+    assert "SKILL_DESC_MAX = 160" in script
+    assert "SKILL_INSTRUCTION_MAX = 1000" in script
+    # 单文件大小与数量上限、同名跳过
+    assert "MAX_IMPORT_FILES = 30" in script
+    assert "MAX_SKILL_FILE_BYTES" in script
+    assert "已有同名 Skill" in script
+    # 仍然复用现有 Skill API（不新增后端接口）
+    assert 'api("/api/skills"' in script
+    assert ".dropzone" in styles and ".import-log" in styles
+
+
 def test_composer_is_compact_and_footer_spans_full_width() -> None:
     """对话框收窄一点；页脚铺满整行，政策链接贴住页面右侧且不占高度。"""
     styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")

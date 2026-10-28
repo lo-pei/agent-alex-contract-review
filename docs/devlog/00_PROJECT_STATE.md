@@ -1,6 +1,6 @@
 ﻿# 项目状态快照
 
-> 更新时间：2026-10-27（界面轮 7：Skill 仓库独立页面 + 自绘 Skill 下拉 + 页脚贴右/降高 + 输入区收窄；界面轮 6：审查历史子目录 + 记录改名/置顶/删除 + 侧栏 Skill 仓库 + 满屏布局 + 登录弹窗定高与同意勾选；界面轮 5：账号/审查记录/Skill 仓库/BYOK + 右侧对话式首屏；界面轮 4：极简 C 端页“上传合同 → 看风险点”；界面轮 3：非合同闸门 + 收掉内部信息；界面轮 2：B 端工作台；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
+> 更新时间：2026-10-27（界面轮 8：注册 not found 根因（旧进程 0.9.0）+ Skill 支持 Markdown/文件夹批量导入；界面轮 7：Skill 仓库独立页面 + 自绘 Skill 下拉 + 页脚贴右/降高 + 输入区收窄；界面轮 6：审查历史子目录 + 记录改名/置顶/删除 + 侧栏 Skill 仓库 + 满屏布局 + 登录弹窗定高与同意勾选；界面轮 5：账号/审查记录/Skill 仓库/BYOK + 右侧对话式首屏；界面轮 4：极简 C 端页“上传合同 → 看风险点”；界面轮 3：非合同闸门 + 收掉内部信息；界面轮 2：B 端工作台；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
 > 当前阶段：**交付形态补齐：对话式 Web 前端（`app/web/` 原生 HTML/CSS/JS，右侧对话式首屏 + 结果页；侧栏 = 导航壳 + API 配置 + 接口文档 + 账号区；无框架/无 CDN/无构建/本地字体）；账号体系按 **ADR-013** 落地（本地 SQLite：口令 PBKDF2、会话只存哈希、审查记录按账号隔离、Skill 仓库、BYOK 密文盒 + 每审查模型运行时，`API_VERSION 1.0.0`）；上传先做**文档类型闸门**（论文/法规不进入判级）；第四阶段（测试与评测）进行中：规则 13 条（`version: 5`）；silver gold 21 个现象；四批留出集 40 份；当前唯一可对外报的数来自 holdout4（12 份）：P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）**
 > 项目目录：`d:\A项目\Agent_Alex外贸合同智审助手`
 > Git：`cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`（第 3 步）、`e41d235`（第 4 步）、`c7f24a9`（第 6 步）、`6eaff8c`（第 4 阶段第 1 轮）、`5dc05bd`（第 2 轮）、`c540259`（第 3 轮）、`eba67c0`（界面轮 1）、`892ddf2`（界面轮 2），本轮提交见 `git log`
@@ -22,6 +22,7 @@
 | 第三阶段第 4 步：HITL 真中断 | ✅ 100% | 条件边/`interrupt()`/审批载荷/checkpointer/幂等/惰性超时；15 个 HITL 测试 |
 | 第三阶段第 5 步：解释 + 质量门 + RAG MVP | ✅ 100% | `explain_risks` 节点/越权拦截/引用定位/BM25 检索/引用白名单；28 个新测试 |
 | 第三阶段第 6 步：FastAPI + Streamlit | ✅ 100% | 上传/审查/人工决定/下载 JSON+Markdown；pending 落盘；37 个新测试 |
+| 界面轮 8：注册 not found + Skill 导入 | ✅ 100% | 注册失败根因是 8000 端口跑着旧进程（`openapi` 0.9.0，无 `/api/auth/*`）→ 重启为 `API_VERSION 1.0.0` 后 `/api/auth/me` 200；Skill 仓库新增“从 Markdown 导入”：拖拽文件/文件夹 + 两个选择入口，前端解析 frontmatter/标题/首段后逐条 `POST /api/skills`（同名跳过、超长截断、单次 30 个 / 单文件 200 KB）；全量 **298 测试** + CDP 10 项 |
 | 界面轮 7：仓库独立页 / 自绘下拉 / 页脚贴右 / 输入区收窄 | ✅ 100% | `#/skills` 独立页面（推荐 7 + 我的 + 新建），删除仓库弹窗；系统 select 换成胶囊 + 自绘 listbox（12px 卡片、键盘可达、末项仓库、8 项无滚动条）；页脚铺满整行、政策链接贴右、高度 26px；输入区 880→720；全量 **297 测试** + CDP 20 项 |
 | 界面轮 6：历史子目录 / Skill 归位 / 满屏 / 弹窗定高 | ✅ 100% | “当前审查”改“审查历史”并在侧栏展开子目录（改名 / 置顶 / 删除）；Skill 仓库入口收到侧栏、下拉末项固定“Skill 仓库…”且默认 `builtin:full`；主区铺满屏幕；登录弹窗两种模式定高 460×453；登录/注册都必须手勾同意；`PATCH|DELETE /api/reviews/{id}`；全量 **295 测试** |
 | 界面轮 5：账号 / 记录 / Skill / BYOK + 对话式首屏 | ✅ 100% | 本地 SQLite 五表（账号/会话/Skill/模型配置/审查记录）、PBKDF2 口令与哈希会话、密文盒 Key（只回尾号）、每审查 `LLMRuntime`、7 个内置 Skill + 自建、右侧对话式输入区（Enter 发送/拖拽/审查重点/Skill 下拉）、底部免责 + 右下角政策弹窗；`API_VERSION 1.0.0`；`tests/test_accounts.py` 24 项 + `tests/test_web.py` 14 项；全量 **288 测试** |
@@ -31,7 +32,25 @@
 | 第四阶段：测试与评测 | ⏳ 85% | 规则 13 条（`version: 5`：三类措辞 + 保额邻近判定）；50 份合同 + 21 个 silver gold 现象 + 四批留出集 40 份；**当前唯一未消耗的 holdout4：P=1.00 / R=0.889 / F1=0.941**（漏报 H39，故意不修）；检索评测（ISSUE-018）与人工复核 gold 仍未做 |
 | 第五阶段：文档与交付 | ⏳ 45% | README/状态/交接/ADR/资料清单/开发日志已同步；答辩材料未做 |
 
-## 最新产出（2026-10-27 界面轮 7：Skill 仓库独立页、自绘下拉、页脚贴右、输入区收窄）
+## 最新产出（2026-10-27 界面轮 8：注册 not found 根因、Skill 支持 Markdown/文件夹导入）
+
+- **起因（用户原话 2 条）**：
+  1. “为什么我注册账号显示 not found”；
+  2. “skill 仓库增加，用户可以自己上传文件夹或 md 格式，来快捷纳入 skill”。
+- **注册 not found 的根因**：不是前端路径写错，而是 8000 端口跑的是**旧进程**——`GET /openapi.json` 的 `info.version` 是 **0.9.0**（界面轮 3 的代码，只有 `/api/reviews`、`/api/rules`、`/health`），没有 `/api/auth/*`；前端 `POST /api/auth/register` 命中不存在的路由，FastAPI 返回 404 `{"detail":"Not Found"}`，`api()` 把 detail 原文显示到 `#auth-error`，用户看到的就是 “Not Found”。处理：停掉旧进程，用 `.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000 --host 127.0.0.1` 重启当前代码；复测 `version=1.0.0`、`GET /api/auth/me` → **200**。（uvicorn 没有 `--reload`，改后端必须手动重启；这条已写进 README 快速开始。）
+- **Skill 导入（前端解析，不新增后端接口）**（`app/web/app.js`、`app/web/styles.css`）：
+  - 仓库页右栏在“新建 Skill”表单下方新增 `<section class="panel skill-import">`：虚线 `.dropzone`（可聚焦、Enter/空格触发选择）+ 两个入口“选择 .md 文件”（`accept=".md,.markdown,text/markdown"`、`multiple`）与“选择文件夹”（`webkitdirectory directory multiple`）+ 错误行 `<p class="alert" id="skill-import-error">` + 结果日志 `<ul class="import-log">`；
+  - 拖拽支持**整个文件夹**：`DataTransferItem.webkitGetAsEntry()` → `FileSystemDirectoryReader.readEntries()` 递归（`readEntryFiles`），非 md 后缀一律过滤；
+  - 解析 `parseSkillMarkdown(fileName, rawText)`：优先 frontmatter（`name:` / `description:` / `instruction:`），其次一级标题、文件名、首段；长度与服务端上限对齐（名称 40 / 说明 160 / 指令 1000），超长截断并在日志里标注；
+  - 逐条 `POST /api/skills`，**只提交 `name`/`description`/`instruction` 三字段**（`SkillCreate` 是 `extra="forbid"`，不能把 `truncated` 一起发）；同名（与已有列表比对）直接标记“已有同名 Skill，跳过”；
+  - 上限：单次 **30** 个文件、单文件 **≤200 KB**；未登录先拦下并弹登录框（登录后不自动重试）；401 立即停止后续提交；全部失败时提示看日志原因；
+  - 成功后 `loadSkills()` + `renderSkillList()` + `renderSkillSelect()`，侧栏 `#skill-count` 与下拉立即出现新 Skill。
+- **验证**：
+  - `pytest` **298 passed**（`tests/test_web.py` 新增 `test_skill_repo_imports_markdown_files_and_folders`，共 19 项），`ruff check .` All checks passed，`node --check app/web/app.js` 通过；
+  - **CDP 冒烟 10 项全过**：拖拽区与两个入口存在、`accept` 正确、拖入时 `.is-over` 高亮、2 个 md 建成 2 个 Skill 且 `.txt` 被过滤、frontmatter 的 `name/description` 生效、侧栏计数 8→9、同名第二次导入被跳过、未登录导入被拦并弹登录、480px 无横向溢出；截图复核 `skills-import-done.png`、`skills-import-480.png`。
+- **仍未做**：导入只在浏览器解析（服务端仅校验长度，不扫描文件内容）；上限只在前端执行（直接调 API 可绕过）；没有“批量导入预览/逐条编辑”；`GET /api/skills` 仍无搜索/分页（ISSUE-022）。
+
+## 上一轮产出（2026-10-27 界面轮 7：Skill 仓库独立页、自绘下拉、页脚贴右、输入区收窄）
 
 - **起因（用户原话 4 条）**：
   1. Skill 仓库不要弹窗，要**独立的页面**；
@@ -402,7 +421,7 @@ START → ingest → precheck(是不是合同?) ─否→ report(not_contract)
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
-# 297 个用例：236 基础 + 前端（test_web.py 18）+ 规则目录 + 文档类型闸门 11
+# 298 个用例：237 基础 + 前端（test_web.py 19）+ 规则目录 + 文档类型闸门 11
 #   + 账号/记录/Skill/BYOK（test_accounts.py 28）+ RAG 兜底
 
 .\.venv\Scripts\python.exe -m ruff check .
@@ -502,6 +521,7 @@ API/UI（`tests/test_api.py` 16 个 + `tests/test_web.py` 6 个 + `tests/test_pe
    - ~~界面轮 5：账号 / 记录 / Skill 仓库 / BYOK + 右侧对话式~~ ✅ 已完成（2026-10-27，288 个测试）：本地 SQLite 五表 + PBKDF2 口令 + 哈希会话；密文盒 Key（只回尾号）+ 每审查 `LLMRuntime`；7 个内置 Skill + 自建；审查重点/附件/Skill 移到右侧对话式输入区；侧栏只留登录（注册在弹窗内、尺寸不变）；底部免责 + 右下角政策弹窗（编号排版）；`API_VERSION 1.0.0`。
    - ~~界面轮 6：审查历史可运维 + Skill 归位 + 满屏 + 弹窗定高~~ ✅ 已完成（2026-10-27，295 个测试）：删掉首屏三行说明；Skill 下拉末项固定“Skill 仓库…”并默认 `builtin:full`，仓库入口移到侧栏；“当前审查”→“审查历史”侧栏子目录（改名 / 置顶 / 删除，`PATCH|DELETE /api/reviews/{id}`）；主区铺满整屏；登录/注册弹窗定高 460×453、邮箱→密码 gap 34px；两种模式都需手勾同意。
    - ~~界面轮 7：Skill 仓库独立页 + 自绘下拉 + 页脚贴右 + 输入区收窄~~ ✅ 已完成（2026-10-27，297 个测试）：`#/skills` 两栏页面（推荐 7 / 我的 / 新建）替换仓库弹窗；系统 select 换成胶囊 + `role=listbox` 卡片（键盘可达、末项仓库、8 项无滚动条、窄屏左对齐）；页脚 `max-width:none` 铺满、政策链接贴右、高度 26px；输入区 880→720。
+   - ~~界面轮 8：注册 not found 根因 + Skill 导入~~ ✅ 已完成（2026-10-27，298 个测试）：8000 端口旧进程（`openapi` 0.9.0、无 `/api/auth/*`）导致注册 404，重启为 1.0.0 后 `/api/auth/me` 200；仓库页新增“从 Markdown 导入”（拖拽文件/文件夹 + 两个选择入口，frontmatter/标题/首段解析，逐条 `POST /api/skills`，同名跳过、单次 30 个、单文件 200 KB）。
 6. **第四阶段（进行中）**：
    - ~~第 1 轮：规则 7 → 13 条（ISSUE-009）~~ ✅ 每条新规则都有语料命中集合回归；
    - ~~第 2 轮：silver gold（21 现象）+ 指标（rule/contract/coverage）+ 独立留出集（8 份）~~ ✅ 留出集 P=1.00 / R=0.71 / F1=0.83，暴露 2 个英文/同义改写漏报（ISSUE-021）；

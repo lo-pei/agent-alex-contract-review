@@ -1456,6 +1456,11 @@ svg {
   min-width: 0;
 }
 
+/* 右栏：新建表单 + 导入面板，两个卡片之间留一点距离 */
+.skills-side {
+  gap: 14px;
+}
+
 .panel {
   padding: 18px;
   border: 1px solid var(--border);
@@ -1548,6 +1553,83 @@ svg {
   padding: 10px;
   color: var(--faint);
   font-size: 12px;
+}
+
+/* Markdown / 文件夹导入 */
+
+.skill-import {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.skill-import .field-note {
+  margin: 0;
+}
+.skill-import code {
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--sunken);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 20px 12px;
+  border: 1px dashed var(--control);
+  border-radius: 10px;
+  background: var(--raised);
+  color: var(--muted);
+  font-size: 12.5px;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.dropzone:hover,
+.dropzone:focus-visible,
+.dropzone.is-over {
+  border-color: var(--accent);
+  background: var(--surface);
+  color: var(--text);
+}
+.dropzone-hint {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.import-actions .btn {
+  flex: 1 1 auto;
+}
+
+.import-log {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.import-log li.ok {
+  color: var(--positive);
+}
+.import-log li.bad {
+  color: var(--red-ink);
+}
+.import-log li.skip {
+  color: var(--faint);
 }
 
 /* 审查历史（侧栏子目录） */

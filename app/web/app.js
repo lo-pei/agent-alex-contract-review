@@ -12,6 +12,13 @@
   const ALLOWED = [".pdf", ".docx", ".txt", ".md", ".markdown"];
   /** Skill 下拉里的固定末项：选中即打开侧栏的 Skill 仓库 */
   const SKILL_REPO_VALUE = "__repo__";
+  /** Markdown 批量导入：只吃文本型 Skill 定义，大小与服务端上限对齐 */
+  const SKILL_IMPORT_SUFFIXES = [".md", ".markdown"];
+  const MAX_IMPORT_FILES = 30;
+  const MAX_SKILL_FILE_BYTES = 200 * 1024;
+  const SKILL_NAME_MAX = 40;
+  const SKILL_DESC_MAX = 160;
+  const SKILL_INSTRUCTION_MAX = 1000;
 
   const STATUS_LABEL = {
     awaiting_human: "待确认",
@@ -644,6 +651,7 @@
       '<h2 class="panel-title">我的 Skill</h2>' +
       '<ul class="skill-list" id="skill-own"></ul>' +
       "</div>" +
+      '<div class="skills-column skills-side">' +
       '<form class="panel skill-form" id="skill-form">' +
       '<h2 class="panel-title">新建 Skill</h2>' +
       '<label class="field"><span>名称</span>' +
@@ -657,13 +665,36 @@
       '<p class="field-note" id="skill-login-note" hidden>登录后即可保存自己的 Skill。</p>' +
       '<button class="btn btn-primary btn-block" type="submit" id="skill-submit">保存 Skill</button>' +
       "</form>" +
+      '<section class="panel skill-import">' +
+      '<h2 class="panel-title">从 Markdown 导入</h2>' +
+      '<p class="field-note">' +
+      "把 .md 文件或整个文件夹拖到虚线框里，会按“文件名 / 一级标题”自动建 Skill。" +
+      "文件名或 <code>name:</code> 作名称，首段或 <code>description:</code> 作说明，正文作审查重点（超过 " +
+      SKILL_INSTRUCTION_MAX +
+      " 字会截断）。" +
+      "</p>" +
+      '<div class="dropzone" id="skill-drop" tabindex="0" role="button" ' +
+      'aria-label="拖入 Markdown 文件或文件夹，或按回车选择文件">' +
+      "<span>拖入 .md 文件或文件夹</span>" +
+      '<span class="dropzone-hint">或点击这里选择</span>' +
+      "</div>" +
+      '<div class="import-actions">' +
+      '<button class="btn" type="button" id="skill-import-files">选择 .md 文件</button>' +
+      '<button class="btn" type="button" id="skill-import-folder">选择文件夹</button>' +
+      "</div>" +
+      '<input id="skill-import-input" type="file" accept=".md,.markdown,text/markdown" multiple hidden />' +
+      '<input id="skill-import-dir" type="file" webkitdirectory directory multiple hidden />' +
+      '<p class="alert" id="skill-import-error" role="alert" hidden></p>' +
+      '<ul class="import-log" id="skill-import-log" hidden></ul>' +
+      "</section>" +
+      "</div>" +
       "</div>" +
       "</section>";
     renderSkillList();
   }
 
   function bindSkills() {
-    // 仓库是独立页面，列表会重渲染：使用 / 删除走事件委托
+    // 仓库是独立页面，列表会重渲染：使用 / 删除 / 导入走事件委托
     dom.view.addEventListener("click", async (event) => {
       const useButton = event.target.closest("[data-use-skill]");
       if (useButton) {
@@ -672,20 +703,59 @@
         return;
       }
       const deleteButton = event.target.closest("[data-delete-skill]");
-      if (!deleteButton) return;
-      const id = deleteButton.dataset.deleteSkill;
-      deleteButton.disabled = true;
-      try {
-        await api("/api/skills/" + encodeURIComponent(id), { method: "DELETE" });
-        if (state.skillId === id) state.skillId = "";
-        await loadSkills();
-      } catch (error) {
-        showSkillError(error.message || "删除失败，请重试。");
-        deleteButton.disabled = false;
+      if (deleteButton) {
+        const id = deleteButton.dataset.deleteSkill;
+        deleteButton.disabled = true;
+        try {
+          await api("/api/skills/" + encodeURIComponent(id), { method: "DELETE" });
+          if (state.skillId === id) state.skillId = "";
+          await loadSkills();
+        } catch (error) {
+          showSkillError(error.message || "删除失败，请重试。");
+          deleteButton.disabled = false;
+        }
+        return;
       }
+      if (event.target.closest("#skill-drop") || event.target.closest("#skill-import-files")) {
+        pickSkillFiles();
+        return;
+      }
+      if (event.target.closest("#skill-import-folder")) pickSkillFolder();
     });
     dom.view.addEventListener("submit", (event) => {
       if (event.target && event.target.id === "skill-form") submitSkill(event);
+    });
+    // 文件夹 / 多选文件：input 在页面重渲染后仍由 view 代理
+    dom.view.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!target || !target.files) return;
+      if (target.id !== "skill-import-input" && target.id !== "skill-import-dir") return;
+      const files = Array.from(target.files);
+      target.value = "";
+      importSkillFiles(files);
+    });
+    dom.view.addEventListener("dragover", (event) => {
+      const zone = event.target.closest("#skill-drop");
+      if (!zone) return;
+      event.preventDefault();
+      zone.classList.add("is-over");
+    });
+    dom.view.addEventListener("dragleave", (event) => {
+      const zone = event.target.closest("#skill-drop");
+      if (zone) zone.classList.remove("is-over");
+    });
+    dom.view.addEventListener("drop", async (event) => {
+      const zone = event.target.closest("#skill-drop");
+      if (!zone) return;
+      event.preventDefault();
+      zone.classList.remove("is-over");
+      importSkillFiles(await filesFromDataTransfer(event.dataTransfer));
+    });
+    dom.view.addEventListener("keydown", (event) => {
+      if (event.target.id !== "skill-drop") return;
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      pickSkillFiles();
     });
     // 下拉菜单：点空白处或按 Esc 收起（整个页面只绑一次）
     document.addEventListener("click", (event) => {
@@ -750,6 +820,219 @@
     if (!box) return;
     box.textContent = text;
     box.hidden = false;
+  }
+
+  /* ---------- Skill：Markdown / 文件夹批量导入 ---------- */
+
+  function pickSkillFiles() {
+    const input = document.getElementById("skill-import-input");
+    if (input) input.click();
+  }
+
+  function pickSkillFolder() {
+    const input = document.getElementById("skill-import-dir");
+    if (input) input.click();
+  }
+
+  function showSkillImportError(text) {
+    const box = document.getElementById("skill-import-error");
+    if (!box) return;
+    box.textContent = text || "";
+    box.hidden = !text;
+  }
+
+  function truncateText(value, limit) {
+    const text = String(value || "");
+    return text.length > limit ? text.slice(0, limit).trim() : text;
+  }
+
+  function plainInline(value) {
+    return String(value || "")
+      .replace(/`([^`]*)`/g, "$1")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1")
+      .replace(/\[([^\]]+)\]\(([^)]*)\)/g, "$1")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  /** 解析一个 Markdown 文件：frontmatter（name/description/instruction）优先，其次标题与首段。 */
+  function parseSkillMarkdown(fileName, rawText) {
+    const text = String(rawText || "").replace(/\r\n?/g, "\n");
+    const meta = {};
+    let body = text;
+    const front = text.match(/^---\n([\s\S]*?)\n---\n?/);
+    if (front) {
+      front[1].split("\n").forEach((line) => {
+        const pair = line.match(/^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)$/);
+        if (pair) meta[pair[1].toLowerCase()] = pair[2].trim().replace(/^["']|["']$/g, "");
+      });
+      body = text.slice(front[0].length);
+    }
+    const heading = (body.match(/^#\s+(.+)$/m) || [])[1];
+    const baseName = String(fileName || "未命名").replace(/\.[^.]+$/, "");
+    const name = truncateText(plainInline(meta.name || heading || baseName), SKILL_NAME_MAX);
+    const paragraph = body
+      .split("\n")
+      .map((line) => line.trim())
+      .find(
+        (line) =>
+          line &&
+          !/^#{1,6}\s/.test(line) &&
+          !/^[-*+>]\s/.test(line) &&
+          !/^\|/.test(line) &&
+          !/^---+$/.test(line),
+      );
+    const description = truncateText(
+      plainInline(meta.description || paragraph || ""),
+      SKILL_DESC_MAX,
+    );
+    const normalized = (meta.instruction || body).trim().replace(/\n{3,}/g, "\n\n");
+    return {
+      name,
+      description,
+      instruction: truncateText(normalized, SKILL_INSTRUCTION_MAX),
+      truncated: normalized.length > SKILL_INSTRUCTION_MAX,
+    };
+  }
+
+  function readEntryFiles(entry) {
+    if (!entry) return Promise.resolve([]);
+    if (entry.isFile) {
+      return new Promise((resolve) => {
+        entry.file(
+          (file) => resolve([file]),
+          () => resolve([]),
+        );
+      });
+    }
+    if (!entry.isDirectory) return Promise.resolve([]);
+    return new Promise((resolve) => {
+      const reader = entry.createReader();
+      const collected = [];
+      const readNext = () => {
+        reader.readEntries(
+          (batch) => {
+            if (!batch.length) {
+              resolve(collected);
+              return;
+            }
+            Promise.all(batch.map(readEntryFiles)).then((groups) => {
+              groups.forEach((group) => collected.push(...group));
+              readNext();
+            });
+          },
+          () => resolve(collected),
+        );
+      };
+      readNext();
+    });
+  }
+
+  /** 拖入的可能是文件夹（webkitGetAsEntry），逐个读成文件列表。 */
+  async function filesFromDataTransfer(transfer) {
+    const items = transfer && transfer.items ? Array.from(transfer.items) : [];
+    const entries = items
+      .map((item) => (item.webkitGetAsEntry ? item.webkitGetAsEntry() : null))
+      .filter(Boolean);
+    if (entries.length) {
+      const groups = await Promise.all(entries.map(readEntryFiles));
+      return groups.flat();
+    }
+    return transfer && transfer.files ? Array.from(transfer.files) : [];
+  }
+
+  async function importSkillFiles(files) {
+    showSkillImportError("");
+    const log = document.getElementById("skill-import-log");
+    const lines = [];
+    if (log) {
+      log.innerHTML = "";
+      log.hidden = true;
+    }
+    const addLog = (text, kind) => {
+      lines.push('<li class="' + kind + '">' + text + "</li>");
+      if (log) {
+        log.innerHTML = lines.join("");
+        log.hidden = false;
+      }
+    };
+    if (!state.user) {
+      showSkillImportError("请先登录，再导入 Skill。");
+      openAuth("login");
+      return;
+    }
+    const list = (files || []).filter((file) =>
+      SKILL_IMPORT_SUFFIXES.includes(suffixOf(file.name)),
+    );
+    if (!list.length) {
+      showSkillImportError("没有可导入的 Markdown（.md / .markdown）文件。");
+      return;
+    }
+    if (list.length > MAX_IMPORT_FILES) {
+      showSkillImportError("一次最多导入 " + MAX_IMPORT_FILES + " 个文件，请分批拖入。");
+      return;
+    }
+    const existing = new Set(state.skills.map((skill) => skill.name.trim().toLowerCase()));
+    let imported = 0;
+    for (const file of list) {
+      const label = esc(file.webkitRelativePath || file.name);
+      if (file.size > MAX_SKILL_FILE_BYTES) {
+        addLog(label + "：超过 " + humanSize(MAX_SKILL_FILE_BYTES) + "，已跳过", "bad");
+        continue;
+      }
+      let text = "";
+      try {
+        text = await file.text();
+      } catch (error) {
+        addLog(label + "：读不出内容", "bad");
+        continue;
+      }
+      const parsed = parseSkillMarkdown(file.name, text);
+      if (!parsed.name || !parsed.instruction) {
+        addLog(label + "：没有可用的名称或审查重点", "bad");
+        continue;
+      }
+      if (existing.has(parsed.name.toLowerCase())) {
+        addLog(label + "：已有同名 Skill「" + esc(parsed.name) + "」，跳过", "skip");
+        continue;
+      }
+      try {
+        const created = await api("/api/skills", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: parsed.name,
+            description: parsed.description,
+            instruction: parsed.instruction,
+          }),
+        });
+        existing.add(created.name.trim().toLowerCase());
+        imported += 1;
+        addLog(
+          label +
+            " → 「" +
+            esc(created.name) +
+            "」" +
+            (parsed.truncated ? "（审查重点已截断到 " + SKILL_INSTRUCTION_MAX + " 字）" : ""),
+          "ok",
+        );
+      } catch (error) {
+        if (error.status === 401) {
+          addLog(label + "：登录状态失效，导入已停止", "bad");
+          openAuth("login");
+          break;
+        }
+        addLog(label + "：" + esc(error.message || "导入失败"), "bad");
+      }
+    }
+    if (imported) {
+      await loadSkills();
+      renderSkillList();
+      renderSkillSelect();
+    } else {
+      showSkillImportError("这次没有导入成功的文件，原因见下方列表。");
+    }
   }
 
   /* ---------- 模型配置（BYOK） ---------- */

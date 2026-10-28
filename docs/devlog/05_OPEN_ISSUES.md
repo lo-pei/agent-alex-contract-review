@@ -1,9 +1,9 @@
 # 待解决问题 / 风险登记
 
-> 更新时间：2026-10-27（界面轮 7：Skill 仓库独立页 + 自绘下拉 + 页脚贴右/降高 + 输入区收窄；界面轮 6：审查历史子目录 + 记录改名/置顶/删除 + 侧栏 Skill 仓库 + 满屏 + 弹窗定高；界面轮 5：账号 / 审查记录 / Skill / BYOK；界面轮 4：侧栏保留 + 主区两屏；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
+> 更新时间：2026-10-27（界面轮 8：注册 not found 根因（旧进程 0.9.0）+ Skill 支持 Markdown/文件夹导入；界面轮 7：Skill 仓库独立页 + 自绘下拉 + 页脚贴右/降高 + 输入区收窄；界面轮 6：审查历史子目录 + 记录改名/置顶/删除 + 侧栏 Skill 仓库 + 满屏 + 弹窗定高；界面轮 5：账号 / 审查记录 / Skill / BYOK；界面轮 4：侧栏保留 + 主区两屏；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
 > 状态标记：`[OPEN]` 待处理 / `[CLOSED]` 已解决 / `[DEFERRED]` 本阶段不处理
 > 规则：未决事项不写进代码；影响架构的必须先拍板，再进第二阶段。
-> 本轮变化：界面轮 7 把 Skill 仓库从弹窗改为独立页面 `#/skills`、原生 select 换成自绘 listbox、页脚铺满并贴右降高、输入区 880→720；**ISSUE-022** 补“仓库页无搜索/分页、我的 Skill 不可编辑”。界面轮 6 把“当前审查”改成侧栏“审查历史”子目录（记录可改名/置顶/删除，`PATCH|DELETE /api/reviews/{id}`），Skill 仓库入口收到侧栏、下拉末项固定为仓库，主区铺满屏幕，登录弹窗定高且登录/注册都必须手勾同意；**ISSUE-025** 补“同意条款未留痕（`consent_version`/`consent_at`）”与“删记录只清本机痕迹”；界面轮 5 按 ADR-013 增加账号、审查记录、Skill 仓库与 BYOK（**ISSUE-025**：账号/密钥的运维边界——密码找回、登录限流、主密钥备份、Cookie `Secure`、多 worker 运行时）；ISSUE-024 仍待做“这份报告怎么读”；ISSUE-021/020/009 与上轮一致（H39 故意不修、silver gold 待复核、覆盖率 52.4%）。
+> 本轮变化：界面轮 8 定位“注册显示 not found”是 **8000 端口跑着旧进程**（`openapi` 0.9.0，无 `/api/auth/*`）→ 重启为 1.0.0；并给 Skill 仓库加“从 Markdown 导入”（拖拽文件/文件夹 + 两个选择入口，前端解析 frontmatter/标题/首段，逐条 `POST /api/skills`，同名跳过、单次 30 个 / 单文件 200 KB）。**ISSUE-022** 补“导入上限只在前端执行、服务端不扫描内容”；**新增 ISSUE-026**（开发服务未开 `--reload`，前后端版本可能错位）。界面轮 7 把 Skill 仓库从弹窗改为独立页面 `#/skills`、原生 select 换成自绘 listbox、页脚铺满并贴右降高、输入区 880→720；**ISSUE-022** 补“仓库页无搜索/分页、我的 Skill 不可编辑”。界面轮 6 把“当前审查”改成侧栏“审查历史”子目录（记录可改名/置顶/删除，`PATCH|DELETE /api/reviews/{id}`），Skill 仓库入口收到侧栏、下拉末项固定为仓库，主区铺满屏幕，登录弹窗定高且登录/注册都必须手勾同意；**ISSUE-025** 补“同意条款未留痕（`consent_version`/`consent_at`）”与“删记录只清本机痕迹”；界面轮 5 按 ADR-013 增加账号、审查记录、Skill 仓库与 BYOK（**ISSUE-025**：账号/密钥的运维边界——密码找回、登录限流、主密钥备份、Cookie `Secure`、多 worker 运行时）；ISSUE-024 仍待做“这份报告怎么读”；ISSUE-021/020/009 与上轮一致（H39 故意不修、silver gold 待复核、覆盖率 52.4%）。
 > 阅读提示：已关闭条目仍保留“决策前”的问题/选项/建议，最终以 **状态** 与 **决策** 段落为准。
 
 ---
@@ -33,10 +33,11 @@
 | ISSUE-019 | OPEN | P2 | 并发锁仅进程内、上传/报告文件无清理策略 | 单机演示可接受；多进程部署前需换文件锁/数据库并加保留期 |
 | ISSUE-020 | OPEN | P1 | 规则级 gold、留出合同集与模拟合同数量不符 | silver gold（21 现象）+ 四批留出集（40 份）已就位；**待人工复核**，且用户所称 60 份实为 50 份 |
 | ISSUE-021 | OPEN | P1 | 规则对英文条款与同义改写漏报 | 已修两轮（version 4 → 5）：英文/同义改写、子串误命中、窗口截断、保额全文级判定、3 类措辞写法；holdout4 仍剩 H39 一个漏报（modal 与动词间插时间状语），下轮修 + 另写 holdout5 |
-| ISSUE-022 | OPEN | P2 | 主区交互无自动化测试、待确认态依赖审批载荷口径、历史列表无分页 | `tests/test_web.py` 覆盖加载/无外链/本地字体/不判级/侧栏保留且主区无工作台内容/待确认先展示规则风险/Skill 末项仓库/历史子目录工具/同意默认不勾选；上传、抽屉、确认、改名置顶删除仍靠真实浏览器 + CDP 冒烟；`approval` 只含 red，黄色风险只在确认后的报告出现；历史只取 20 条 |
+| ISSUE-022 | OPEN | P2 | 主区交互无自动化测试、待确认态依赖审批载荷口径、历史列表无分页 | `tests/test_web.py` 覆盖加载/无外链/本地字体/不判级/侧栏保留且主区无工作台内容/待确认先展示规则风险/Skill 末项仓库/历史子目录工具/同意默认不勾选/Markdown 导入入口；上传、抽屉、确认、改名置顶删除仍靠真实浏览器 + CDP 冒烟；`approval` 只含 red，黄色风险只在确认后的报告出现；历史只取 20 条；导入上限与同名跳过只在前端执行，服务端仅校验长度 |
 | ISSUE-023 | OPEN | P1 | 文档类型闸门边界：召回优先、非中英合同可能误拒、阈值需真实语料调参 | 闸门只判“是不是合同”，不判类型、不判风险；误拒/误放率无统计口径；扫描件无文本只能按“过短”拒绝并提示 OCR |
 | ISSUE-024 | OPEN | P2 | 主区不再展示规则目录与报告全貌，用户无法自助判断“规则覆盖到哪” | 当前把规则范围、抽取状态、解释来源、limitations 全部放在 Markdown 报告；后续在结果页加“这份报告怎么读 / 规则覆盖范围”说明链接，而不是新增主区视图 |
 | ISSUE-025 | OPEN | P1 | 账号与密钥的运维边界（找回密码、登录限流、主密钥备份、Cookie `Secure`、多 worker、同意留痕） | 演示形态：无找回/验证码/限流；主密钥与库必须一起备份，丢失只能重填 Key；Cookie 未加 `Secure`（本地 HTTP）；多 worker 时 `_RUNTIME` 不共享；登录/注册手勾同意但未记 `consent_version`/`consent_at` |
+| ISSUE-026 | OPEN | P2 | 开发服务未开 `--reload`，8000 端口可能跑着旧代码（注册 404 “not found”） | 演示用单进程 uvicorn；改后端后手动重启，用 `GET /openapi.json` 的 `info.version` 核对是否为 1.0.0；长期方案是本地开 `--reload` 或启动脚本打印版本 |
 
 ---
 
@@ -413,13 +414,15 @@
   2. 真正的交互（拖拽上传、换文件、窄屏抽屉开合、确认/拒绝、刷新 `#/review/{id}` 恢复、历史记录改名/置顶/删除、登录/注册切换后的等高）目前只靠真实浏览器（Edge headless 截图 + 零依赖 CDP 脚本）手工冒烟，脚本不入 CI；
   3. 待确认页渲染的是 `ReviewSummary.approval`（只含 red、quotes、citations），而完整报告在确认后才生成：页面必须区分两种数据源，否则会退化成“0 处风险 + 请确认”；
   4. 历史列表只取 `limit=20`，没有分页/搜索/滚动加载，记录多了以后只能看到最近 20 条；
-  5. Skill 仓库页同样一次性渲染（7 个推荐 + 自建），没有搜索/分页，“我的 Skill”只能新建与删除、**不能编辑**（改名/改指令要删了重建）。
+  5. Skill 仓库页同样一次性渲染（7 个推荐 + 自建），没有搜索/分页，“我的 Skill”只能新建与删除、**不能编辑**（改名/改指令要删了重建）；
+  6. Markdown 批量导入的约束（单次 30 个、单文件 200 KB、同名跳过、超长截断）**只在前端执行**：服务端仍只校验三字段长度，绕过页面直接 `POST /api/skills` 可以提交任意多次；导入也不做内容扫描（`.md` 写什么都按文本收下），只靠 `<untrusted_focus>` 与系统提示约束解释模型。
 - **默认建议**：
   - 用零依赖的 CDP 脚本写一到两条**冒烟回归**：上传 C47 → 出现 3 条红 → approve → 报告出现全部风险与下载链接；再覆盖“历史改名 / 置顶 / 删除”；脚本放在 `scripts/smoke_web.mjs`，不进 CI 阻塞；
   - `approval` 若新增字段（如 yellow 预览），必须同时改 `app/schemas.py`、`tests/test_web.py` 与 `renderApproval`，保持“页面只渲染后端结论”；
   - 历史列表要扩容时，先给 `GET /api/reviews` 加 `offset`（或游标）再改前端，不把 200 条一次性塞进 DOM；Skill 仓库页同理，先加 `GET /api/skills` 的搜索/分页，再补“编辑 Skill”（复用 `POST` 的校验，指令长度上限不变）。
   - 若未来确需批量审查/趋势图，仍须遵守无框架约束（手写 SVG），不得引入图表库。
-- **证据**：`app/web/app.js`、`app/web/index.html`、`tests/test_web.py`、`tests/test_accounts.py`、`app/schemas.py`（`ApprovalPayload`）、ADR-009 第 5 轮补充、ADR-013 第 2 轮补充。
+  - 导入侧若要做服务端约束，先加 `POST /api/skills` 的**每账号配额**（例如 50 个）与速率限制，再考虑服务端解析 Markdown；不要为了“校验导入”把原文件落盘。
+- **证据**：`app/web/app.js`、`app/web/index.html`、`tests/test_web.py`、`tests/test_accounts.py`、`app/schemas.py`（`ApprovalPayload`）、ADR-009 第 5 轮补充、ADR-013 第 2/4 轮补充。
 
 ---
 
@@ -476,6 +479,23 @@
   3. 备份脚本一并复制 `.data/app.sqlite` 与 `.data/secret.key`，并在文档里写明“缺一不可”；
   4. 同意条款要留痕：在 `users`（或独立的 `consents` 表）记 `consent_version` + `consent_at` + IP，注册/登录请求体带 `consent` 布尔并在服务端校验，前端弹窗每次打开都复位为未勾选。
 - **证据**：`app/services/accounts.py`、`app/services/secret_box.py`、`app/services/llm.py`（`_RUNTIME` / `review_llm_scope`）、`app/api.py`（`/api/reviews` 的 PATCH / DELETE）、ADR-013「代价 / 已知边界」与第 2 轮补充。
+
+---
+
+## ISSUE-026 · 开发服务未开 `--reload`，运行中的进程可能落后于代码
+
+- **状态**：OPEN
+- **优先级**：P2
+- **背景**：界面轮 8 用户报“注册显示 not found”。排查发现 8000 端口是界面轮 3 时启动的进程（`/openapi.json` 的 `info.version = 0.9.0`，只有 `/api/reviews`、`/api/rules`、`/health`），当前代码已是 1.0.0 且有 `/api/auth/*`；前端 `POST /api/auth/register` 因此命中不存在的路由 → FastAPI 返回 404 `{"detail":"Not Found"}` → 弹窗原样显示 “Not Found”。
+- **问题**：
+  1. 启动命令是 `uvicorn app.api:create_app --factory --port 8000`，**没有 `--reload`**：只要忘了重启，前端看到的就是旧接口集合，症状会伪装成“前端写错了”；
+  2. 页面没有“后端版本”可见入口（界面轮 3 按要求把接口版本从侧栏移除），用户无法自查；
+  3. 前端 `api()` 对 404 直接显示 `detail` 原文，FastAPI 默认就是英文 “Not Found”，可读性差。
+- **默认建议**：
+  - 开发时用 `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --reload --port 8000`（仅本地；生产/演示仍单进程无 reload）；
+  - 排障口诀写进 README 与交接文档：**先 `GET /openapi.json` 看版本，再怀疑前端**（版本应为 1.0.0）；
+  - 前端可把 404 且 `detail === "Not Found"` 归一成“后端版本不匹配，请重启服务”的提示，但不要把后端路径/版本硬编码进业务文案。
+- **证据**：`app/api.py`（`API_VERSION`）、`README.md`「快速开始」、`docs/devlog/04_HANDOVER.md` 已知坑 124。
 
 ---
 
