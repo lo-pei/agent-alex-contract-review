@@ -46,9 +46,12 @@ MAX_MODEL_CHARS = 120
 MAX_API_KEY_CHARS = 256
 MAX_FILENAME_CHARS = 200
 MAX_TITLE_CHARS = 60
+#: 头像以 data URL 存库；前端会先压到 128px，正常只有几十 KB
+MAX_AVATAR_CHARS = 400_000
 
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,185}\.[^@\s]{2,63}$")
 BASE_URL_RE = re.compile(r"^https?://[^\s]+$")
+AVATAR_RE = re.compile(r"^data:image/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$")
 
 
 class AccountError(RuntimeError):
@@ -59,6 +62,36 @@ class AccountError(RuntimeError):
         self.code = code
 
 
+MAX_SKILL_NAME_CHARS = 40
+MAX_SKILL_DESCRIPTION_CHARS = 160
+
+
+def _clean_skill_fields(
+    name: str, description: str, instruction: str
+) -> tuple[str, str, str]:
+    """名称/说明/指令的统一校验（新建与编辑共用，前端上限与此一致）。"""
+    cleaned_name = (name or "").strip()
+    cleaned_description = (description or "").strip()
+    cleaned_instruction = (instruction or "").strip()
+    if not cleaned_name:
+        raise AccountError("Skill 名称不能为空", code="invalid")
+    if len(cleaned_name) > MAX_SKILL_NAME_CHARS:
+        raise AccountError(
+            f"Skill 名称最多 {MAX_SKILL_NAME_CHARS} 个字符", code="invalid"
+        )
+    if len(cleaned_description) > MAX_SKILL_DESCRIPTION_CHARS:
+        raise AccountError(
+            f"Skill 说明最多 {MAX_SKILL_DESCRIPTION_CHARS} 个字符", code="invalid"
+        )
+    if not cleaned_instruction:
+        raise AccountError("请写一句审查重点说明，模型才能理解你的关注方向", code="invalid")
+    if len(cleaned_instruction) > MAX_SKILL_INSTRUCTION_CHARS:
+        raise AccountError(
+            f"审查重点最多 {MAX_SKILL_INSTRUCTION_CHARS} 个字符", code="invalid"
+        )
+    return cleaned_name, cleaned_description, cleaned_instruction
+
+
 class User(BaseModel):
     """对外可见的账号信息（不含口令与盐）。"""
 
@@ -67,6 +100,8 @@ class User(BaseModel):
     id: str
     email: str
     display_name: str
+    #: 头像 data URL（空串 = 用昵称首字母）
+    avatar: str = ""
     created_at: datetime
 
 
@@ -182,6 +217,7 @@ class AccountsStore:
                 id TEXT PRIMARY KEY,
                 email TEXT NOT NULL UNIQUE,
                 display_name TEXT NOT NULL,
+                avatar TEXT NOT NULL DEFAULT '',
                 password_hash TEXT NOT NULL,
                 salt TEXT NOT NULL,
                 created_at TEXT NOT NULL
@@ -234,7 +270,18 @@ class AccountsStore:
             """
         )
         self._ensure_review_columns()
+        self._ensure_user_columns()
         self._connection.commit()
+
+    def _ensure_user_columns(self) -> None:
+        """老库平滑升级：`avatar` 是界面轮 9 新增列（个人账户头像）。"""
+        existing = {
+            row["name"] for row in self._connection.execute("PRAGMA table_info(users)")
+        }
+        if "avatar" not in existing:
+            self._connection.execute(
+                "ALTER TABLE users ADD COLUMN avatar TEXT NOT NULL DEFAULT ''"
+            )
 
     def _ensure_review_columns(self) -> None:
         """老库平滑升级：`title` / `pinned` 是本轮新增列（ADR-013 第 2 轮）。"""
@@ -294,6 +341,45 @@ class AccountsStore:
         if row is None:
             raise AccountError("账号不存在", code="not_found")
         return self._user_from_row(row)
+
+    def update_profile(
+        self,
+        user_id: str,
+        *,
+        display_name: str | None = None,
+        avatar: str | None = None,
+    ) -> User:
+        """改昵称 / 头像；两个参数都是“给了才改”，传空串头像表示移除。"""
+        updates: dict[str, str] = {}
+        if display_name is not None:
+            cleaned = display_name.strip()
+            if not cleaned:
+                raise AccountError("昵称不能为空", code="invalid")
+            if len(cleaned) > MAX_DISPLAY_NAME_CHARS:
+                raise AccountError(
+                    f"昵称最多 {MAX_DISPLAY_NAME_CHARS} 个字符", code="invalid"
+                )
+            updates["display_name"] = cleaned
+        if avatar is not None:
+            cleaned_avatar = avatar.strip()
+            if cleaned_avatar:
+                if len(cleaned_avatar) > MAX_AVATAR_CHARS:
+                    raise AccountError("头像太大，请换一张小一点的图片", code="invalid")
+                if not AVATAR_RE.match(cleaned_avatar):
+                    raise AccountError("头像格式不支持，请上传 PNG/JPG 图片", code="invalid")
+            updates["avatar"] = cleaned_avatar
+        if not updates:
+            return self.get_user(user_id)
+        assignments = ", ".join(f"{column} = ?" for column in updates)
+        with self._lock:
+            cursor = self._connection.execute(
+                f"UPDATE users SET {assignments} WHERE id = ?",  # noqa: S608 - 列名来自闭集
+                (*updates.values(), user_id),
+            )
+            self._connection.commit()
+        if cursor.rowcount == 0:
+            raise AccountError("账号不存在", code="not_found")
+        return self.get_user(user_id)
 
     def resolve_session(self, token: str | None) -> User | None:
         """token → 用户；过期/未知/超长一律返回 None，不抛异常。"""
@@ -370,21 +456,9 @@ class AccountsStore:
         description: str = "",
         instruction: str,
     ) -> Skill:
-        cleaned_name = (name or "").strip()
-        cleaned_description = (description or "").strip()
-        cleaned_instruction = (instruction or "").strip()
-        if not cleaned_name:
-            raise AccountError("Skill 名称不能为空", code="invalid")
-        if len(cleaned_name) > 40:
-            raise AccountError("Skill 名称最多 40 个字符", code="invalid")
-        if len(cleaned_description) > 160:
-            raise AccountError("Skill 说明最多 160 个字符", code="invalid")
-        if not cleaned_instruction:
-            raise AccountError("请写一句审查重点说明，模型才能理解你的关注方向", code="invalid")
-        if len(cleaned_instruction) > MAX_SKILL_INSTRUCTION_CHARS:
-            raise AccountError(
-                f"审查重点最多 {MAX_SKILL_INSTRUCTION_CHARS} 个字符", code="invalid"
-            )
+        cleaned_name, cleaned_description, cleaned_instruction = _clean_skill_fields(
+            name, description, instruction
+        )
 
         skill_id = "sk_" + uuid.uuid4().hex[:16]
         created = _now()
@@ -412,6 +486,43 @@ class AccountsStore:
             owner_id=owner_id,
             created_at=created,
         )
+
+    def update_skill(
+        self,
+        owner_id: str,
+        skill_id: str,
+        *,
+        name: str,
+        description: str = "",
+        instruction: str,
+    ) -> Skill:
+        """改自建 Skill；内置推荐 Skill 是代码常量，只读（另存为自建即可）。"""
+        if skill_id.startswith("builtin:"):
+            raise AccountError("推荐 Skill 不能直接改，请另存为我的 Skill", code="invalid")
+        cleaned_name, cleaned_description, cleaned_instruction = _clean_skill_fields(
+            name, description, instruction
+        )
+        with self._lock:
+            cursor = self._connection.execute(
+                "UPDATE skills SET name = ?, description = ?, instruction = ?"
+                " WHERE id = ? AND owner_id = ?",
+                (
+                    cleaned_name,
+                    cleaned_description,
+                    cleaned_instruction,
+                    skill_id,
+                    owner_id,
+                ),
+            )
+            self._connection.commit()
+        if cursor.rowcount == 0:
+            raise AccountError("没有找到这个 Skill（或不属于当前账号）", code="not_found")
+        row = self._fetchone(
+            "SELECT * FROM skills WHERE id = ? AND owner_id = ?", (skill_id, owner_id)
+        )
+        if row is None:  # pragma: no cover - rowcount 已保证存在
+            raise AccountError("没有找到这个 Skill（或不属于当前账号）", code="not_found")
+        return self._skill_from_row(row)
 
     def delete_skill(self, owner_id: str, skill_id: str) -> None:
         if skill_id.startswith("builtin:"):
@@ -668,6 +779,7 @@ class AccountsStore:
             id=row["id"],
             email=row["email"],
             display_name=row["display_name"],
+            avatar=row["avatar"] if "avatar" in row.keys() else "",
             created_at=_parse_time(row["created_at"]),
         )
 

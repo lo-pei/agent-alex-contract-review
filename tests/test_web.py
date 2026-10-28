@@ -245,6 +245,78 @@ def test_skill_repo_imports_markdown_files_and_folders() -> None:
     assert ".dropzone" in styles and ".import-log" in styles
 
 
+def test_skill_rows_are_compact_and_editable() -> None:
+    """仓库列表默认只占一行；点开才显示审查重点，推荐 Skill 可“存为我的”。"""
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    # 一行：名称 + 标签 + 使用；展开区放说明与审查重点
+    assert 'class="skill-head"' in script
+    assert 'class="skill-toggle"' in script
+    assert 'data-toggle-skill' in script
+    assert 'class="skill-detail"' in script
+    assert 'class="skill-instruction"' in script
+    assert 'class="chip-mini"' in script or "chip chip-mini" in script
+    # 推荐 Skill 只读，但可以填进表单另存为我的；自建可编辑/删除
+    assert 'data-edit-skill' in script
+    assert "存为我的" in script
+    assert "fillSkillForm" in script
+    assert 'method: editingId ? "PATCH" : "POST"' in script
+    assert "/api/skills/" in script
+    # 页头那段说明（用户要求删掉）不再渲染
+    assert "开箱可用" not in script
+    assert 'class="page-head"' not in script
+    # 右栏两个卡片紧凑：小字号、小高度、无大段留白
+    assert ".skill-form .field-compact input" in styles
+    assert "height: 30px" in styles
+    assert ".dropzone" in styles and "padding: 11px 8px" in styles
+
+
+def test_llm_form_does_not_trigger_password_autofill() -> None:
+    """API 配置不是账号密码：阻止浏览器把保存的账号密码“快捷填入”。"""
+    page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+
+    assert 'id="llm-form" autocomplete="off"' in page
+    assert 'name="llm_api_key"' in page
+    assert 'autocomplete="new-password"' in page
+    assert 'data-lpignore="true"' in page
+    # 不要把 Key 输入框伪装成登录表单（浏览器会据此弹出账号密码建议）
+    llm_form = page.split('id="llm-form"', 1)[1].split("</form>", 1)[0]
+    assert "current-password" not in llm_form
+    assert 'name="password"' not in llm_form
+    assert 'name="email"' not in llm_form
+
+
+def test_account_dialog_has_profile_settings_and_confirm_clear() -> None:
+    """退出登录右侧的头像打开个人账户：资料 / 系统设置 / 清除数据（二次确认）。"""
+    page = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+
+    # 侧栏：退出登录 + 圆形头像按钮在同一个操作行
+    assert 'id="account-row"' in page
+    assert 'id="account-avatar"' in page
+    assert 'class="avatar account-avatar"' in page
+    # 弹窗：头像 / 昵称 / 邮箱 / 系统设置 / 数据
+    assert 'id="account-dialog"' in page
+    assert 'id="account-avatar-input"' in page
+    assert 'accept="image/png,image/jpeg,image/webp"' in page
+    assert 'id="account-name"' in page
+    assert 'id="pref-motion"' in page
+    assert 'id="pref-autofocus"' in page
+    assert 'id="account-clear-cache"' in page
+    assert 'id="account-clear-reviews"' in page
+    # 清除数据必须再次确认
+    assert 'id="account-confirm"' in page
+    assert 'id="account-confirm-yes"' in page
+    assert 'id="account-confirm-no"' in page
+    assert "askClear" in script and "runClear" in script
+    # 头像在浏览器压成 128px 方图后走同一套 profile 接口
+    assert "squareThumbnail" in script
+    assert "/api/auth/profile" in script
+    assert ".avatar-large" in styles and ".account-confirm" in styles
+
+
 def test_composer_is_compact_and_footer_spans_full_width() -> None:
     """对话框收窄一点；页脚铺满整行，政策链接贴住页面右侧且不占高度。"""
     styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")

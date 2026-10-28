@@ -63,6 +63,10 @@
     providers: [],
     history: [],
     authMode: "login",
+    /** 正在编辑的自建 Skill id（空串 = 新建） */
+    editingSkillId: "",
+    /** 右侧表单预填来源（推荐 Skill 的“存为我的”会填进来，但仍按新建提交） */
+    skillFormSource: "",
   };
 
   /* ---------- 基础工具 ---------- */
@@ -339,7 +343,331 @@
       }
     }
     if (dom.authLogin) dom.authLogin.hidden = !!user;
+    const row = document.getElementById("account-row");
+    if (row) row.hidden = !user;
     if (dom.authLogout) dom.authLogout.hidden = !user;
+    renderAvatar();
+  }
+
+  /* ---------- 个人账户：头像 / 设置 / 数据清除 ----------
+   * 头像压到 128px 的方形 JPEG 后再 PATCH /api/auth/profile（库里只存 data URL），
+   * 偏好只放 localStorage，不上传后端；清空审查记录要二次确认。 */
+
+  const PREFS_KEY = "alex.prefs";
+  const DRAFT_KEY = "alex.draft";
+  const prefs = readPrefs();
+  let pendingClear = "";
+
+  function readPrefs() {
+    try {
+      const raw = localStorage.getItem(PREFS_KEY);
+      const data = raw ? JSON.parse(raw) : {};
+      return { motion: !!data.motion, autofocus: data.autofocus !== false };
+    } catch (error) {
+      return { motion: false, autofocus: true };
+    }
+  }
+
+  function writePrefs() {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    } catch (error) {
+      /* 隐私模式下写不进去也不影响使用 */
+    }
+    applyPrefs();
+  }
+
+  function applyPrefs() {
+    document.documentElement.dataset.motion = prefs.motion ? "off" : "on";
+  }
+
+  function avatarInitial(user) {
+    const name = (user && (user.display_name || user.email)) || "";
+    return (String(name).trim()[0] || "A").toUpperCase();
+  }
+
+  function avatarMarkup(user) {
+    if (user && user.avatar) {
+      return '<img src="' + esc(user.avatar) + '" alt="" />';
+    }
+    return '<span class="avatar-initial">' + esc(avatarInitial(user)) + "</span>";
+  }
+
+  function renderAvatar() {
+    const small = document.getElementById("account-avatar");
+    if (small) small.innerHTML = avatarMarkup(state.user);
+    const large = document.getElementById("account-avatar-large");
+    if (large) large.innerHTML = avatarMarkup(state.user);
+    const remove = document.getElementById("account-avatar-remove");
+    if (remove) remove.hidden = !(state.user && state.user.avatar);
+  }
+
+  function showAccountError(text) {
+    const box = document.getElementById("account-error");
+    if (!box) return;
+    box.hidden = !text;
+    box.textContent = text || "";
+  }
+
+  function showAccountStatus(text) {
+    const box = document.getElementById("account-status");
+    if (!box) return;
+    box.hidden = !text;
+    box.textContent = text || "";
+  }
+
+  function cancelClear() {
+    pendingClear = "";
+    const box = document.getElementById("account-confirm");
+    if (box) box.hidden = true;
+    const yes = document.getElementById("account-confirm-yes");
+    if (yes) {
+      yes.disabled = false;
+      yes.textContent = "确认清除";
+    }
+  }
+
+  function renderAccountDialog() {
+    const user = state.user;
+    if (!user) return;
+    const name = document.getElementById("account-name");
+    const email = document.getElementById("account-email");
+    if (name) name.value = user.display_name || "";
+    if (email) email.value = user.email || "";
+    const motion = document.getElementById("pref-motion");
+    const autofocus = document.getElementById("pref-autofocus");
+    if (motion) motion.checked = prefs.motion;
+    if (autofocus) autofocus.checked = prefs.autofocus;
+    showAccountError("");
+    showAccountStatus("");
+    cancelClear();
+    renderAvatar();
+  }
+
+  function openAccountDialog() {
+    if (!state.user) {
+      openAuth("login");
+      return;
+    }
+    renderAccountDialog();
+    openDialog("account-dialog");
+  }
+
+  function pickAvatar() {
+    const input = document.getElementById("account-avatar-input");
+    if (input) input.click();
+  }
+
+  /** 居中裁成正方形并压到 size×size 的 JPEG，避免把整张原图塞进 SQLite */
+  function squareThumbnail(file, size) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = size;
+          canvas.height = size;
+          const context = canvas.getContext("2d");
+          context.fillStyle = "#ffffff";
+          context.fillRect(0, 0, size, size);
+          const side = Math.min(image.width, image.height);
+          context.drawImage(
+            image,
+            (image.width - side) / 2,
+            (image.height - side) / 2,
+            side,
+            side,
+            0,
+            0,
+            size,
+            size,
+          );
+          resolve(canvas.toDataURL("image/jpeg", 0.85));
+        } catch (error) {
+          reject(error);
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("图片读取失败，请换一张试试。"));
+      };
+      image.src = url;
+    });
+  }
+
+  async function patchProfile(body) {
+    return api("/api/auth/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  async function uploadAvatar(event) {
+    const input = event.target;
+    const file = input && input.files ? input.files[0] : null;
+    if (input) input.value = "";
+    if (!file) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+      showAccountError("请选择 PNG / JPG / WebP 图片。");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showAccountError("图片请小于 5 MB。");
+      return;
+    }
+    try {
+      const dataUrl = await squareThumbnail(file, 128);
+      state.user = await patchProfile({ avatar: dataUrl });
+      renderAccount();
+      renderAvatar();
+      showAccountError("");
+      showAccountStatus("头像已更新。");
+    } catch (error) {
+      if (error.status === 401) openAuth("login");
+      showAccountError(error.message || "头像保存失败，请重试。");
+    }
+  }
+
+  async function removeAvatar() {
+    try {
+      state.user = await patchProfile({ avatar: "" });
+      renderAccount();
+      renderAvatar();
+      showAccountStatus("已恢复默认头像（昵称首字母）。");
+    } catch (error) {
+      showAccountError(error.message || "操作失败，请重试。");
+    }
+  }
+
+  async function saveAccountProfile(event) {
+    event.preventDefault();
+    const name = document.getElementById("account-name");
+    const value = name ? name.value.trim() : "";
+    if (!value) {
+      showAccountError("昵称不能为空。");
+      return;
+    }
+    const save = document.getElementById("account-save");
+    if (save) {
+      save.disabled = true;
+      save.textContent = "保存中…";
+    }
+    try {
+      state.user = await patchProfile({ display_name: value });
+      renderAccount();
+      renderAccountDialog();
+      showAccountStatus("资料已保存。");
+    } catch (error) {
+      if (error.status === 401) openAuth("login");
+      showAccountError(error.message || "保存失败，请重试。");
+    } finally {
+      if (save) {
+        save.disabled = false;
+        save.textContent = "保存资料";
+      }
+    }
+  }
+
+  async function askClear(kind) {
+    pendingClear = kind;
+    showAccountError("");
+    showAccountStatus("");
+    const box = document.getElementById("account-confirm");
+    const text = document.getElementById("account-confirm-text");
+    if (kind === "reviews") {
+      let count = state.history.length;
+      try {
+        const data = await api("/api/reviews?limit=500");
+        count = data && data.reviews ? data.reviews.length : count;
+      } catch (error) {
+        /* 拉不到数量就按本地缓存的条数提示 */
+      }
+      if (!count) {
+        pendingClear = "";
+        showAccountStatus("还没有审查记录，不需要清除。");
+        return;
+      }
+      if (text) {
+        text.textContent =
+          "将删除账号下 " + count + " 条审查记录（含上传的合同、报告与待确认项），不可恢复。确认清除？";
+      }
+    } else if (text) {
+      text.textContent =
+        "将清除浏览器里保存的界面偏好与草稿；账号里的审查记录、Skill 与头像不受影响。确认清除？";
+    }
+    if (box) box.hidden = false;
+  }
+
+  async function runClear() {
+    const yes = document.getElementById("account-confirm-yes");
+    if (yes) {
+      yes.disabled = true;
+      yes.textContent = "清除中…";
+    }
+    const kind = pendingClear;
+    try {
+      if (kind === "reviews") {
+        const data = await api("/api/reviews?limit=500");
+        const items = (data && data.reviews) || [];
+        for (const item of items) {
+          await api("/api/reviews/" + encodeURIComponent(item.review_id), {
+            method: "DELETE",
+          });
+        }
+        state.reviewId = null;
+        state.history = [];
+        if (historySubOpen()) await loadHistory();
+        showAccountStatus("已清空 " + items.length + " 条审查记录。");
+      } else {
+        try {
+          localStorage.removeItem(PREFS_KEY);
+          localStorage.removeItem(DRAFT_KEY);
+        } catch (error) {
+          /* 隐私模式下删不掉也不报错 */
+        }
+        prefs.motion = false;
+        prefs.autofocus = true;
+        applyPrefs();
+        renderAccountDialog();
+        showAccountStatus("已清除本机缓存。");
+      }
+    } catch (error) {
+      if (error.status === 401) openAuth("login");
+      showAccountError(error.message || "清除失败，请重试。");
+    } finally {
+      pendingClear = "";
+      if (yes) {
+        yes.disabled = false;
+        yes.textContent = "确认清除";
+      }
+      const box = document.getElementById("account-confirm");
+      if (box) box.hidden = true;
+    }
+  }
+
+  function bindAccount() {
+    on("account-avatar", "click", openAccountDialog);
+    on("account-avatar-large", "click", pickAvatar);
+    on("account-avatar-pick", "click", pickAvatar);
+    on("account-avatar-input", "change", uploadAvatar);
+    on("account-avatar-remove", "click", removeAvatar);
+    on("account-form", "submit", saveAccountProfile);
+    on("pref-motion", "change", (event) => {
+      prefs.motion = event.target.checked;
+      writePrefs();
+    });
+    on("pref-autofocus", "change", (event) => {
+      prefs.autofocus = event.target.checked;
+      writePrefs();
+    });
+    on("account-clear-cache", "click", () => askClear("cache"));
+    on("account-clear-reviews", "click", () => askClear("reviews"));
+    on("account-confirm-yes", "click", runClear);
+    on("account-confirm-no", "click", cancelClear);
   }
 
   function setAuthMode(mode) {
@@ -395,6 +723,8 @@
         state.user = null;
         state.llm = null;
         state.history = [];
+        closeDialog("account-dialog");
+        cancelClear();
         renderAccount();
         updateLlmState();
         renderUploadIfIdle();
@@ -588,27 +918,53 @@
     if (trigger) trigger.focus();
   }
 
+  /** 列表项：默认只占一行（名称 + 标签 + 使用），点开才显示审查重点与编辑按钮。 */
   function skillRow(skill) {
+    const id = esc(skill.id);
+    const detailId = "skill-detail-" + id;
     return (
-      '<li class="skill-item">' +
-      '<div class="skill-main">' +
-      '<p class="skill-name">' +
+      '<li class="skill-item' +
+      (state.editingSkillId === skill.id ? " is-editing" : "") +
+      '">' +
+      '<div class="skill-head">' +
+      '<button class="skill-toggle" type="button" data-toggle-skill="' +
+      id +
+      '" aria-expanded="false" aria-controls="' +
+      detailId +
+      '">' +
+      '<span class="skill-name">' +
       esc(skill.name) +
-      (skill.builtin ? '<span class="skill-tag">推荐</span>' : '<span class="skill-tag">我的</span>') +
-      "</p>" +
-      '<p class="skill-desc">' +
-      esc(skill.description || skill.instruction) +
-      "</p>" +
-      "</div>" +
-      '<div class="skill-actions">' +
-      '<button class="chip" type="button" data-use-skill="' +
-      esc(skill.id) +
+      "</span>" +
+      '<span class="skill-tag">' +
+      (skill.builtin ? "推荐" : "我的") +
+      "</span>" +
+      '<svg class="skill-caret" viewBox="0 0 24 24" width="11" height="11" aria-hidden="true">' +
+      '<path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      "</button>" +
+      '<button class="chip chip-mini" type="button" data-use-skill="' +
+      id +
       '">使用</button>' +
+      "</div>" +
+      '<div class="skill-detail" id="' +
+      detailId +
+      '" hidden>' +
+      (skill.description ? '<p class="skill-desc">' + esc(skill.description) + "</p>" : "") +
+      '<p class="skill-instruction">' +
+      esc(skill.instruction) +
+      "</p>" +
+      '<div class="skill-actions">' +
+      '<button class="chip chip-mini chip-quiet" type="button" data-edit-skill="' +
+      id +
+      '">' +
+      (skill.builtin ? "存为我的" : "编辑") +
+      "</button>" +
       (skill.builtin
         ? ""
-        : '<button class="chip chip-quiet" type="button" data-delete-skill="' +
-          esc(skill.id) +
+        : '<button class="chip chip-mini chip-quiet" type="button" data-delete-skill="' +
+          id +
           '">删除</button>') +
+      "</div>" +
       "</div>" +
       "</li>"
     );
@@ -632,18 +988,16 @@
     if (submit) submit.disabled = !state.user;
     const note = document.getElementById("skill-login-note");
     if (note) note.hidden = !!state.user;
+    updateSkillFormMode();
   }
 
   function renderSkillsPage() {
+    // 每次进入仓库页都从“新建”开始：编辑/预填状态不跨页面保留
+    state.editingSkillId = "";
+    state.skillFormSource = "";
     dom.view.innerHTML =
       '<section class="skills-page">' +
-      '<header class="page-head">' +
       '<h1 class="headline">Skill 仓库</h1>' +
-      '<p class="lead">' +
-      "推荐 Skill 开箱可用；也可以写自己的 Skill，把“这次要盯什么”固定下来。" +
-      "Skill 只改变解释的侧重与建议方向，风险等级仍由规则判定。" +
-      "</p>" +
-      "</header>" +
       '<div class="skills-grid">' +
       '<div class="skills-column">' +
       '<h2 class="panel-title">推荐 Skill</h2>' +
@@ -653,34 +1007,39 @@
       "</div>" +
       '<div class="skills-column skills-side">' +
       '<form class="panel skill-form" id="skill-form">' +
-      '<h2 class="panel-title">新建 Skill</h2>' +
-      '<label class="field"><span>名称</span>' +
+      '<div class="panel-head">' +
+      '<h2 class="panel-title" id="skill-form-title">新建 Skill</h2>' +
+      '<button class="link" type="button" id="skill-form-cancel" hidden>取消</button>' +
+      "</div>" +
+      '<label class="field field-compact"><span>名称</span>' +
       '<input id="skill-name" type="text" maxlength="40" required placeholder="例如：信用证付款" /></label>' +
-      '<label class="field"><span>一句话说明（可留空）</span>' +
-      '<input id="skill-desc" type="text" maxlength="160" placeholder="这个 Skill 主要看什么" /></label>' +
-      '<label class="field"><span>审查重点指令</span>' +
-      '<textarea id="skill-instruction" rows="5" maxlength="1000" required ' +
+      '<label class="field field-compact"><span>一句话说明</span>' +
+      '<input id="skill-desc" type="text" maxlength="160" placeholder="主要看什么（可留空）" /></label>' +
+      '<label class="field field-compact"><span>审查重点</span>' +
+      '<textarea id="skill-instruction" rows="4" maxlength="1000" required ' +
       'placeholder="例如：重点核对信用证开立时间、议付单据与最迟装运期是否匹配"></textarea></label>' +
       '<p class="alert" id="skill-error" role="alert" hidden></p>' +
       '<p class="field-note" id="skill-login-note" hidden>登录后即可保存自己的 Skill。</p>' +
-      '<button class="btn btn-primary btn-block" type="submit" id="skill-submit">保存 Skill</button>' +
+      '<button class="btn btn-primary btn-block btn-compact" type="submit" id="skill-submit">保存 Skill</button>' +
       "</form>" +
       '<section class="panel skill-import">' +
+      '<div class="panel-head">' +
       '<h2 class="panel-title">从 Markdown 导入</h2>' +
+      '<span class="panel-meta">.md / 文件夹</span>' +
+      "</div>" +
       '<p class="field-note">' +
-      "把 .md 文件或整个文件夹拖到虚线框里，会按“文件名 / 一级标题”自动建 Skill。" +
-      "文件名或 <code>name:</code> 作名称，首段或 <code>description:</code> 作说明，正文作审查重点（超过 " +
+      "文件名或 <code>name:</code> 作名称，首段作说明，正文作审查重点（超过 " +
       SKILL_INSTRUCTION_MAX +
-      " 字会截断）。" +
+      " 字截断）。" +
       "</p>" +
       '<div class="dropzone" id="skill-drop" tabindex="0" role="button" ' +
       'aria-label="拖入 Markdown 文件或文件夹，或按回车选择文件">' +
-      "<span>拖入 .md 文件或文件夹</span>" +
-      '<span class="dropzone-hint">或点击这里选择</span>' +
+      "<span>拖入 .md 或文件夹</span>" +
+      '<span class="dropzone-hint">或点击选择</span>' +
       "</div>" +
       '<div class="import-actions">' +
-      '<button class="btn" type="button" id="skill-import-files">选择 .md 文件</button>' +
-      '<button class="btn" type="button" id="skill-import-folder">选择文件夹</button>' +
+      '<button class="btn btn-compact" type="button" id="skill-import-files">选择 .md</button>' +
+      '<button class="btn btn-compact" type="button" id="skill-import-folder">选择文件夹</button>' +
       "</div>" +
       '<input id="skill-import-input" type="file" accept=".md,.markdown,text/markdown" multiple hidden />' +
       '<input id="skill-import-dir" type="file" webkitdirectory directory multiple hidden />' +
@@ -691,11 +1050,99 @@
       "</div>" +
       "</section>";
     renderSkillList();
+    // 进页面就拉一次：新导入/新建的 Skill 不必等刷新会话才出现
+    loadSkills();
+  }
+
+  /** 右侧表单的“新建 / 编辑”状态（标题、按钮文案、取消按钮） */
+  function updateSkillFormMode() {
+    const editing = !!state.editingSkillId;
+    const title = document.getElementById("skill-form-title");
+    const submit = document.getElementById("skill-submit");
+    const cancel = document.getElementById("skill-form-cancel");
+    if (title) {
+      title.textContent = editing
+        ? "编辑我的 Skill"
+        : state.skillFormSource
+          ? "新建 Skill（来自推荐）"
+          : "新建 Skill";
+    }
+    if (submit) submit.textContent = editing ? "保存修改" : "保存 Skill";
+    if (cancel) cancel.hidden = !editing && !state.skillFormSource;
+  }
+
+  function resetSkillForm() {
+    const name = document.getElementById("skill-name");
+    const desc = document.getElementById("skill-desc");
+    const instruction = document.getElementById("skill-instruction");
+    if (name) name.value = "";
+    if (desc) desc.value = "";
+    if (instruction) instruction.value = "";
+    state.editingSkillId = "";
+    state.skillFormSource = "";
+    const errorBox = document.getElementById("skill-error");
+    if (errorBox) errorBox.hidden = true;
+    updateSkillFormMode();
+  }
+
+  /** 点 Skill 的“编辑 / 存为我的”：把内容填进右侧表单。 */
+  function fillSkillForm(skill) {
+    if (!state.user) {
+      openAuth("login");
+      showSkillError("请先登录，再保存自己的 Skill。");
+      return;
+    }
+    const name = document.getElementById("skill-name");
+    const desc = document.getElementById("skill-desc");
+    const instruction = document.getElementById("skill-instruction");
+    if (!name || !desc || !instruction) return;
+    if (skill.builtin) {
+      state.editingSkillId = "";
+      state.skillFormSource = skill.id;
+      name.value = truncateText(skill.name + "（我的）", SKILL_NAME_MAX);
+    } else {
+      state.editingSkillId = skill.id;
+      state.skillFormSource = "";
+      name.value = skill.name;
+    }
+    desc.value = skill.description || "";
+    instruction.value = skill.instruction || "";
+    const errorBox = document.getElementById("skill-error");
+    if (errorBox) errorBox.hidden = true;
+    updateSkillFormMode();
+    renderSkillList();
+    const form = document.getElementById("skill-form");
+    if (form && typeof form.scrollIntoView === "function") {
+      form.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+    name.focus({ preventScroll: true });
   }
 
   function bindSkills() {
-    // 仓库是独立页面，列表会重渲染：使用 / 删除 / 导入走事件委托
+    // 仓库是独立页面，列表会重渲染：展开 / 使用 / 编辑 / 删除 / 导入走事件委托
     dom.view.addEventListener("click", async (event) => {
+      if (event.target.closest("#skill-form-cancel")) {
+        resetSkillForm();
+        return;
+      }
+      const toggle = event.target.closest("[data-toggle-skill]");
+      if (toggle) {
+        const item = toggle.closest(".skill-item");
+        const detail = item ? item.querySelector(".skill-detail") : null;
+        if (detail) {
+          const open = detail.hidden;
+          detail.hidden = !open;
+          item.classList.toggle("is-open", open);
+          toggle.setAttribute("aria-expanded", String(open));
+        }
+        return;
+      }
+      const editButton = event.target.closest("[data-edit-skill]");
+      if (editButton) {
+        const skill = state.skills.find((item) => item.id === editButton.dataset.editSkill);
+        if (skill) fillSkillForm(skill);
+        return;
+      }
       const useButton = event.target.closest("[data-use-skill]");
       if (useButton) {
         state.skillId = useButton.dataset.useSkill;
@@ -788,29 +1235,36 @@
       submit.disabled = true;
       submit.innerHTML = spinner() + "保存中…";
     }
+    const editingId = state.editingSkillId;
     try {
-      const created = await api("/api/skills", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.value.trim(),
-          description: description ? description.value.trim() : "",
-          instruction: instruction.value.trim(),
-        }),
-      });
+      const saved = await api(
+        editingId ? "/api/skills/" + encodeURIComponent(editingId) : "/api/skills",
+        {
+          method: editingId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: name.value.trim(),
+            description: description ? description.value.trim() : "",
+            instruction: instruction.value.trim(),
+          }),
+        },
+      );
       if (name) name.value = "";
       if (description) description.value = "";
       if (instruction) instruction.value = "";
-      state.skillId = created.id;
+      state.editingSkillId = "";
+      state.skillFormSource = "";
+      state.skillId = saved.id;
       await loadSkills();
       renderSkillSelect();
+      updateSkillFormMode();
     } catch (error) {
       if (error.status === 401) openAuth("login");
       showSkillError(error.message || "保存失败，请重试。");
     } finally {
       if (submit) {
         submit.disabled = !state.user;
-        submit.textContent = "保存 Skill";
+        updateSkillFormMode();
       }
     }
   }
@@ -1674,6 +2128,10 @@
     }
 
     renderSkillSelect();
+    // 偏好“自动聚焦输入框”：只在不打扰弹窗/已有焦点时聚焦
+    if (prefs.autofocus && focus && !document.querySelector("dialog[open]")) {
+      focus.focus({ preventScroll: true });
+    }
     const trigger = document.getElementById("skill-select");
     const menu = document.getElementById("skill-menu");
     if (trigger) trigger.addEventListener("click", toggleSkillMenu);
@@ -2181,11 +2639,13 @@
   bindDialogs();
   bindSidebarActions();
   bindAuth();
+  bindAccount();
   bindSkills();
   bindLlm();
   bindHistory();
   bindLegal();
   checkHealth();
+  applyPrefs();
   loadProviders();
   refreshSession();
   window.addEventListener("hashchange", route);

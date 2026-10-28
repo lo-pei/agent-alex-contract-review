@@ -12,7 +12,7 @@
 |---|---|---|
 | 1. GitHub 调研 | ✅ | 8 个开源项目源码级分析，产出借鉴/不借鉴清单 |
 | 2. 架构设计 | ✅ | ADR-001 ~ ADR-013 全部已接受 |
-| 3. 代码实现 | ✅ 第 6 步完成 | 环境、9 节点图（含文档类型闸门）、规则引擎（13 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭；本机 `.env` 已开启，真实语料 14 篇：模型不可用时解释回退规则理由，但仍列出检索到的 `source_id#section`）、FastAPI + 对话式 Web 前端 + 账号/审查历史（改名/置顶/删除）/Skill 仓库独立页（支持 Markdown 与文件夹导入）/BYOK + Streamlit、298 个测试 |
+| 3. 代码实现 | ✅ 第 6 步完成 | 环境、9 节点图（含文档类型闸门）、规则引擎（13 条规则）、PDF/DOCX/TXT 解析、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭；本机 `.env` 已开启，真实语料 14 篇：模型不可用时解释回退规则理由，但仍列出检索到的 `source_id#section`）、FastAPI + 对话式 Web 前端 + 账号/审查历史（改名/置顶/删除）/Skill 仓库独立页（Markdown/文件夹导入、查看与编辑）/个人账户（头像/昵称/系统设置/二次确认清数据）/BYOK（20 个厂商）+ Streamlit、308 个测试 |
 | 4. 测试与评测 | ⏳ 第 4 轮完成 | 50 份模拟合同 + 21 个 silver gold 现象 + 四批留出集 40 份；三组指标（rule/contract/coverage）；**holdout4（唯一未消耗）P=1.00 / R=0.889 / F1=0.941，silver gold 待人工复核**；检索评测未做 |
 | 5. 文档与交付 | ⏳ 进行中 | 开发日志、ADR、交接文档、评测结果与 RAG 资料清单已建立 |
 
@@ -61,10 +61,10 @@ py -3.12 -m venv .venv
 #   POST /api/reviews（multipart：file + focus + skill_id + 可选 reference）→ awaiting_human=true
 #   POST /api/reviews/{id}/decisions  {"action":"approve","reviewer":"zhangsan"}
 #   GET  /api/reviews/{id}/report?format=json|markdown
-#   账号：POST /api/auth/register|login、POST /api/auth/logout、GET /api/auth/me
+#   账号：POST /api/auth/register|login、POST /api/auth/logout、GET /api/auth/me、PATCH /api/auth/profile（昵称 / 头像）
 #   记录：GET /api/reviews（需登录；未登录 401；跨账号 404）
 #   记录运维：PATCH /api/reviews/{id}（title / pinned，空串恢复文件名）、DELETE /api/reviews/{id}（204，连带清 pending/checkpoint/上传目录）
-#   Skill：GET /api/skills（未登录只给内置 7 个）、POST /api/skills、DELETE /api/skills/{id}
+#   Skill：GET /api/skills（未登录只给内置 7 个）、POST /api/skills、PATCH /api/skills/{id}（自建；推荐只读）、DELETE /api/skills/{id}
 #   BYOK：GET /api/llm/providers、GET|PUT|DELETE /api/llm（只回 has_key + 尾号）、POST /api/llm/test
 #   GET  /api/rules                  规则目录（只读；13 条，不返回正则/DSL；页面不再消费）
 
@@ -74,7 +74,7 @@ py -3.12 -m venv .venv
 
 # 6) 测试与静态检查
 .\.venv\Scripts\python.exe -m pytest
-# 298 passed
+# 308 passed
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
@@ -156,12 +156,14 @@ RAG_MIN_SCORE=1.0
 | 视图 / 路由 | 内容 |
 |---|---|
 | 对话首屏 `#/` | 居中的品牌小块 + 标题（未登录“今天想审查哪份合同？”/ 登录后“欢迎回来，{昵称}”）+ 720px 圆角输入区：多行“审查重点”文本域 + 工具行（**合同**按钮 / 文件名 / **Skill 胶囊下拉**（内置 + 自建，末项固定“Skill 仓库…”，12px 卡片、键盘可达）/ 圆形发送键）；**Enter 发送、Shift+Enter 换行**，合同也可直接拖进输入区（txt / md / 文本型 pdf / docx，前端先校验类型、空文件与 15 MB 上限） |
-| Skill 仓库 `#/skills` | **独立页面**（不再是弹窗）：左侧“推荐 Skill（7 个）/ 我的 Skill”，右侧“新建 Skill”（名称 / 一句话说明 / 审查重点指令）与“**从 Markdown 导入**”；列表可“使用”（回到 `#/` 并带上该 Skill）与删除，新建后立即出现在下拉里 |
+| Skill 仓库 `#/skills` | **独立页面**（不再是弹窗）：左侧“推荐 Skill（7 个）/ 我的 Skill”，右侧“新建 / 编辑 Skill”（名称 / 一句话说明 / 审查重点指令）与“**从 Markdown 导入**”；列表默认一行（名称 + 标签 + 使用），**点名称展开审查重点**，自建可“编辑 / 删除”，推荐可“存为我的”，新建后立即出现在下拉里 |
 | 导入 Skill | 拖入一个或多个 `.md` / `.markdown` 文件，或直接拖**整个文件夹**（也可以点“选择文件夹”）；按 `name:` / 一级标题 / 文件名取名，`description:` 或首段作说明，正文作审查重点（超过 1000 字截断，同名跳过）；一次最多 30 个、单文件 ≤ 200 KB，仍走同一套 `POST /api/skills` |
 | 风险点 `#/review/{id}` | 待确认：先列出规则已定位的**红色风险**（结论 + 建议 + 折叠的原文/位置），再请人工确认；确认后同一路由刷新为完整风险清单（含解释与知识引用），并提供 Markdown 报告下载 |
 | 不是合同 `#/review/{id}` | 文档类型闸门判否时：标题“这份文件不是合同”+ 判定依据 + “换一份合同”，不显示任何风险结论 |
 
-弹窗：**登录**（tab 内可切“注册”，两种模式弹窗尺寸一致 460×453；注册多一个昵称字段；**登录/注册都必须手勾“同意隐私条款与使用政策”，默认不勾选**）、“API 配置”（厂商 / Base URL / 模型 / Key / 测试连接 / 清除）、“隐私条款 / 使用政策”（`01…` 编号条款，从页面右下角打开）。**Skill 仓库已改为独立页面**，不在这份弹窗清单里。
+弹窗：**登录**（tab 内可切“注册”，两种模式弹窗尺寸一致 460×453；注册多一个昵称字段；**登录/注册都必须手勾“同意隐私条款与使用政策”，默认不勾选**）、**个人账户**（侧栏“退出登录”右侧的圆形头像打开：换头像 / 改昵称 / 系统设置 / 清除数据）、**API 配置**（厂商 20 个 / Base URL / 模型 / Key / 测试连接 / 清除）、“隐私条款 / 使用政策”（`01…` 编号条款，从页面右下角打开）。**Skill 仓库已改为独立页面**，不在这份弹窗清单里。
+
+个人账户：头像在浏览器里居中裁成方形并压到 128px（JPEG data URL）后 `PATCH /api/auth/profile`，库里只存这一串；没设头像时显示昵称首字母。“系统设置”只有两项本机偏好（减少动效 / 自动聚焦输入框，存 `localStorage`，不上传）。数据区两档，点按钮后**先出二次确认条**再执行：“清除本机缓存”只删偏好与草稿；“清空审查记录”逐条 `DELETE /api/reviews/{id}`，连带删除合同、报告与待确认项。
 
 页脚：`只做合同预审辅助，不构成法律意见。` 在左，`隐私条款 · 使用政策` 贴住页面右侧，同一行、高度 26px；白纸画布铺满，只有正文段落各自限制阅读宽度。
 
@@ -233,7 +235,7 @@ data/contracts_holdout3/ # 8 份留出合同（H21–H28）→ 第 4 轮已消�
 data/contracts_holdout4/ # 12 份留出合同（H29–H40）→ 唯一未消耗，对外报数用这一批
 data/eval/               # gold_contracts.json（105 条检索期望）/ gold_rules.json（21 个 silver 现象）/ gold_holdout{,2,3,4}.json
 data/knowledge/          # 真实语料 14 篇 + manifest（RAG 默认关闭）；模拟合同1..6.md 为评测来源，不进 manifest
-tests/                   # 298 个测试（账号/记录/Skill/BYOK 28 / API 17 / 前端 19 / 文档类型 11 / pending 11 / RAG 22 + 解释 15 / HITL 17 / 指标 11 / 规则 53 含四批留出回归，无需 Key）
+tests/                   # 308 个测试（账号/记录/Skill/BYOK 35 / API 17 / 前端 22 / 文档类型 11 / pending 11 / RAG 22 + 解释 15 / HITL 17 / 指标 11 / 规则 53 含四批留出回归，无需 Key）
 tests/fakes.py           # Fake LLM（实现 StructuredLLM 协议）
 docs/devlog/             # 项目状态、调研、ADR、开发日志、交接、待决事项、RAG 资料清单
 ```

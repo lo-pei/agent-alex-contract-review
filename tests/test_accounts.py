@@ -178,7 +178,159 @@ def test_other_users_skill_is_not_visible(client: TestClient) -> None:
     assert created["id"] not in ids
 
 
+def test_skill_can_be_edited_but_builtin_is_read_only(client: TestClient) -> None:
+    """仓库页支持“查看并修改”：自建 Skill 用 PATCH，推荐 Skill 只读（可另存为我的）。"""
+    register(client)
+    skill = client.post(
+        "/api/skills",
+        json={"name": "旧名字", "description": "旧说明", "instruction": "看付款节点"},
+    ).json()
+
+    updated = client.patch(
+        f"/api/skills/{skill['id']}",
+        json={
+            "name": "新名字",
+            "description": "新说明",
+            "instruction": "重点看预付款比例与交付期限是否挂钩",
+        },
+    )
+    assert updated.status_code == 200, updated.text
+    body = updated.json()
+    assert body["id"] == skill["id"]
+    assert body["name"] == "新名字"
+    assert body["description"] == "新说明"
+    assert "预付款比例" in body["instruction"]
+    # 列表里同步更新（页面“使用”下拉也读同一份数据）
+    listed = {item["id"]: item for item in client.get("/api/skills").json()["skills"]}
+    assert listed[skill["id"]]["name"] == "新名字"
+
+    builtin = client.patch(
+        "/api/skills/builtin:full",
+        json={"name": "改内置", "description": "", "instruction": "随便"},
+    )
+    assert builtin.status_code == 400
+    assert "另存为" in builtin.json()["detail"]
+
+    too_long = client.patch(
+        f"/api/skills/{skill['id']}",
+        json={"name": "字" * 41, "description": "", "instruction": "看付款"},
+    )
+    # Pydantic 的 max_length 先拦下（422），服务层还有同样的 400 兜底
+    assert too_long.status_code == 422
+
+
+def test_skill_edit_is_scoped_to_owner(client: TestClient) -> None:
+    register(client)
+    skill = client.post(
+        "/api/skills", json={"name": "私有", "description": "", "instruction": "只看付款"}
+    ).json()
+    client.post("/api/auth/logout")
+    register(client, "seller@example.com")
+    response = client.patch(
+        f"/api/skills/{skill['id']}",
+        json={"name": "抢过来", "description": "", "instruction": "改掉"},
+    )
+    assert response.status_code == 404
+
+
+def test_skill_edit_requires_login(client: TestClient) -> None:
+    response = client.patch(
+        "/api/skills/sk_missing",
+        json={"name": "x", "description": "", "instruction": "看付款"},
+    )
+    assert response.status_code == 401
+
+
+def test_profile_updates_display_name_and_avatar(client: TestClient) -> None:
+    """个人账户弹窗：昵称与头像走 PATCH /api/auth/profile，头像只回 data URL。"""
+    account = register(client)
+    user_id = account["user"]["id"]
+
+    renamed = client.patch("/api/auth/profile", json={"display_name": "  张三  "})
+    assert renamed.status_code == 200, renamed.text
+    assert renamed.json()["display_name"] == "张三"
+    assert renamed.json()["id"] == user_id
+    assert "password" not in renamed.json()
+
+    avatar = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg=="
+    with_avatar = client.patch("/api/auth/profile", json={"avatar": avatar})
+    assert with_avatar.status_code == 200
+    assert with_avatar.json()["avatar"] == avatar
+    # /api/auth/me 也要带上，页面刷新后仍显示头像
+    assert client.get("/api/auth/me").json()["user"]["avatar"] == avatar
+
+    removed = client.patch("/api/auth/profile", json={"avatar": ""})
+    assert removed.status_code == 200
+    assert removed.json()["avatar"] == ""
+
+
+def test_profile_rejects_bad_input(client: TestClient) -> None:
+    register(client)
+    assert client.patch("/api/auth/profile", json={"display_name": "  "}).status_code == 400
+    # 超长昵称先被 Pydantic 的 max_length 拦下（422）
+    assert client.patch("/api/auth/profile", json={"display_name": "字" * 41}).status_code == 422
+    bad_avatar = client.patch("/api/auth/profile", json={"avatar": "https://example.com/a.png"})
+    assert bad_avatar.status_code == 400
+    # extra="forbid"：只允许昵称与头像，避免夹带邮箱/口令
+    assert client.patch("/api/auth/profile", json={"email": "x@y.com"}).status_code == 422
+    client.post("/api/auth/logout")
+    assert client.patch("/api/auth/profile", json={"display_name": "x"}).status_code == 401
+
+
+def test_legacy_users_table_gets_avatar_column(tmp_path: Path) -> None:
+    """老库没有 avatar 列时自动 ALTER，不用删库重建。"""
+    db_path = tmp_path / "legacy.sqlite"
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        "CREATE TABLE users ("
+        "id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL, "
+        "password_hash TEXT NOT NULL, salt TEXT NOT NULL, created_at TEXT NOT NULL)"
+    )
+    connection.commit()
+    connection.close()
+
+    store = AccountsStore(db_path, tmp_path / "secret.key")
+    user, _ = store.register("old@example.com", "secret123", "老用户")
+    assert user.avatar == ""
+    assert store.update_profile(user.id, avatar="data:image/png;base64,AAAA").avatar
+
+
 # ---------------------------------------------------------------- 模型配置
+
+
+def test_provider_catalog_covers_major_vendors(client: TestClient) -> None:
+    """厂商目录扩容后仍只给“默认值”，不暴露 Key；用户可自由改地址与模型。"""
+    providers = client.get("/api/llm/providers").json()["providers"]
+    ids = {item["id"] for item in providers}
+    assert {
+        "openai",
+        "deepseek",
+        "moonshot",
+        "zhipu",
+        "dashscope",
+        "siliconflow",
+        "openrouter",
+        "gemini",
+        "xai",
+        "groq",
+        "mistral",
+        "together",
+        "volcano",
+        "qianfan",
+        "hunyuan",
+        "minimax",
+        "stepfun",
+        "lmstudio",
+        "ollama",
+        "custom",
+    } <= ids
+    assert len(providers) >= 20
+    by_id = {item["id"]: item for item in providers}
+    assert by_id["volcano"]["base_url"].endswith("/api/v3")
+    assert by_id["gemini"]["base_url"].endswith("/v1beta/openai")
+    assert by_id["lmstudio"]["key_optional"] is True
+    # 自定义端点同样允许不填 Key（部分内网代理不需要）
+    assert by_id["custom"]["key_optional"] is True
 
 
 def test_provider_catalog_has_no_secrets(client: TestClient) -> None:

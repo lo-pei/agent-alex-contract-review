@@ -1,6 +1,6 @@
 ﻿# 项目状态快照
 
-> 更新时间：2026-10-27（界面轮 8：注册 not found 根因（旧进程 0.9.0）+ Skill 支持 Markdown/文件夹批量导入；界面轮 7：Skill 仓库独立页面 + 自绘 Skill 下拉 + 页脚贴右/降高 + 输入区收窄；界面轮 6：审查历史子目录 + 记录改名/置顶/删除 + 侧栏 Skill 仓库 + 满屏布局 + 登录弹窗定高与同意勾选；界面轮 5：账号/审查记录/Skill 仓库/BYOK + 右侧对话式首屏；界面轮 4：极简 C 端页“上传合同 → 看风险点”；界面轮 3：非合同闸门 + 收掉内部信息；界面轮 2：B 端工作台；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
+> 更新时间：2026-10-28（界面轮 9：个人账户弹窗（头像/昵称/系统设置/二次确认清数据）+ Skill 查看与编辑 + 仓库紧凑化 + 厂商 20 个 + 阻止密码自动填充；界面轮 8：注册 not found 根因（旧进程 0.9.0）+ Skill 支持 Markdown/文件夹批量导入；界面轮 7：Skill 仓库独立页面 + 自绘 Skill 下拉 + 页脚贴右/降高 + 输入区收窄；界面轮 6：审查历史子目录 + 记录改名/置顶/删除 + 侧栏 Skill 仓库 + 满屏布局 + 登录弹窗定高与同意勾选；界面轮 5：账号/审查记录/Skill 仓库/BYOK + 右侧对话式首屏；界面轮 4：极简 C 端页“上传合同 → 看风险点”；界面轮 3：非合同闸门 + 收掉内部信息；界面轮 2：B 端工作台；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
 > 当前阶段：**交付形态补齐：对话式 Web 前端（`app/web/` 原生 HTML/CSS/JS，右侧对话式首屏 + 结果页；侧栏 = 导航壳 + API 配置 + 接口文档 + 账号区；无框架/无 CDN/无构建/本地字体）；账号体系按 **ADR-013** 落地（本地 SQLite：口令 PBKDF2、会话只存哈希、审查记录按账号隔离、Skill 仓库、BYOK 密文盒 + 每审查模型运行时，`API_VERSION 1.0.0`）；上传先做**文档类型闸门**（论文/法规不进入判级）；第四阶段（测试与评测）进行中：规则 13 条（`version: 5`）；silver gold 21 个现象；四批留出集 40 份；当前唯一可对外报的数来自 holdout4（12 份）：P=1.00 / R=0.889 / F1=0.941（唯一漏报 H39，故意不修）**
 > 项目目录：`d:\A项目\Agent_Alex外贸合同智审助手`
 > Git：`cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`（第 3 步）、`e41d235`（第 4 步）、`c7f24a9`（第 6 步）、`6eaff8c`（第 4 阶段第 1 轮）、`5dc05bd`（第 2 轮）、`c540259`（第 3 轮）、`eba67c0`（界面轮 1）、`892ddf2`（界面轮 2），本轮提交见 `git log`
@@ -22,6 +22,7 @@
 | 第三阶段第 4 步：HITL 真中断 | ✅ 100% | 条件边/`interrupt()`/审批载荷/checkpointer/幂等/惰性超时；15 个 HITL 测试 |
 | 第三阶段第 5 步：解释 + 质量门 + RAG MVP | ✅ 100% | `explain_risks` 节点/越权拦截/引用定位/BM25 检索/引用白名单；28 个新测试 |
 | 第三阶段第 6 步：FastAPI + Streamlit | ✅ 100% | 上传/审查/人工决定/下载 JSON+Markdown；pending 落盘；37 个新测试 |
+| 界面轮 9：个人账户 / Skill 编辑 / 紧凑 / 厂商扩容 | ✅ 100% | 侧栏“退出登录”右侧 26px 圆形头像 → `#account-dialog`（头像 128px JPEG、昵称、系统设置、清除本机缓存 / 清空审查记录均二次确认）；仓库列表一行折叠、自建可编辑（`PATCH /api/skills/{id}`）、推荐可“存为我的”；右栏面板收紧；厂商 10→20；API Key 输入 `autocomplete=new-password` 等属性阻止浏览器快捷填入；全量 **308 测试** + CDP 冒烟 |
 | 界面轮 8：注册 not found + Skill 导入 | ✅ 100% | 注册失败根因是 8000 端口跑着旧进程（`openapi` 0.9.0，无 `/api/auth/*`）→ 重启为 `API_VERSION 1.0.0` 后 `/api/auth/me` 200；Skill 仓库新增“从 Markdown 导入”：拖拽文件/文件夹 + 两个选择入口，前端解析 frontmatter/标题/首段后逐条 `POST /api/skills`（同名跳过、超长截断、单次 30 个 / 单文件 200 KB）；全量 **298 测试** + CDP 10 项 |
 | 界面轮 7：仓库独立页 / 自绘下拉 / 页脚贴右 / 输入区收窄 | ✅ 100% | `#/skills` 独立页面（推荐 7 + 我的 + 新建），删除仓库弹窗；系统 select 换成胶囊 + 自绘 listbox（12px 卡片、键盘可达、末项仓库、8 项无滚动条）；页脚铺满整行、政策链接贴右、高度 26px；输入区 880→720；全量 **297 测试** + CDP 20 项 |
 | 界面轮 6：历史子目录 / Skill 归位 / 满屏 / 弹窗定高 | ✅ 100% | “当前审查”改“审查历史”并在侧栏展开子目录（改名 / 置顶 / 删除）；Skill 仓库入口收到侧栏、下拉末项固定“Skill 仓库…”且默认 `builtin:full`；主区铺满屏幕；登录弹窗两种模式定高 460×453；登录/注册都必须手勾同意；`PATCH|DELETE /api/reviews/{id}`；全量 **295 测试** |
@@ -32,7 +33,33 @@
 | 第四阶段：测试与评测 | ⏳ 85% | 规则 13 条（`version: 5`：三类措辞 + 保额邻近判定）；50 份合同 + 21 个 silver gold 现象 + 四批留出集 40 份；**当前唯一未消耗的 holdout4：P=1.00 / R=0.889 / F1=0.941**（漏报 H39，故意不修）；检索评测（ISSUE-018）与人工复核 gold 仍未做 |
 | 第五阶段：文档与交付 | ⏳ 45% | README/状态/交接/ADR/资料清单/开发日志已同步；答辩材料未做 |
 
-## 最新产出（2026-10-27 界面轮 8：注册 not found 根因、Skill 支持 Markdown/文件夹导入）
+## 最新产出（2026-10-28 界面轮 9：个人账户弹窗、Skill 查看/编辑、仓库紧凑化、厂商目录扩容、阻止密码自动填充）
+
+- **起因（用户原话 6 条，来自两轮输入）**：
+  1. 仓库页头那段“推荐 Skill 开箱可用…风险等级仍由规则判定”**可以删掉**；
+  2. 推荐 Skill 点击可以**查看与修改**，UI 组件要**小巧**；
+  3. 仓库整体布局**紧凑**，尤其右侧“新建 Skill”和“从外部导入”；
+  4. API 配置里**增加一些厂商和模型类型**；
+  5. 点 API 配置的填写框会弹**浏览器“快捷填入账号密码”**；
+  6. “退出登录”右边加**圆形个人账户头像**，点击弹窗可设昵称/头像/系统设置/清除数据（清数据要二次确认）。
+- **前端（`app/web/*`）**：
+  - 仓库页去掉 `page-head` 说明段；列表项由“两行卡片”改成**一行**（名称 + 推荐/我的标签 + 折叠箭头 + 使用），点名称才展开说明、审查重点与“编辑/存为我的/删除”（`.skill-head` / `.skill-toggle` / `.skill-detail`，行高 36px→展开后按内容长），`aria-expanded` + `aria-controls` 同步；
+  - 右侧两卡片收紧：`.panel` 18→12/13px 内边距、`.field-compact` 30px 输入、textarea 68px、`.btn-compact` 30px，卡片间距 14→10px；
+  - 表单支持**新建 / 编辑**两种模式：点自建 Skill 的“编辑”把内容填进右栏（标题变“编辑我的 Skill”、按钮变“保存修改”、“取消”出现），提交走 `PATCH /api/skills/{id}`；推荐 Skill 只读，点“存为我的”预填并改名“（我的）”，提交仍是 `POST`；
+  - 侧栏账号区改成 `.account-row`：左“退出登录”，右 **26px 圆形头像**（无头像时显示昵称首字母）；
+  - 新增 `#account-dialog`：大头像 + “更换/移除”、昵称、只读邮箱、系统设置（减少动效 / 自动聚焦输入框）、数据区（清除本机缓存 / 清空审查记录），两个清除动作都**先出红色二次确认条**再执行；
+  - 头像在浏览器里居中裁成正方形并压到 **128×128 JPEG**（`squareThumbnail`）后 `PATCH /api/auth/profile`，只传 data URL；偏好写 `localStorage`（`alex.prefs`），`data-motion="off"` 时全局关过渡；
+  - API 配置表单：`autocomplete="off"` + Key 输入 `autocomplete="new-password"` + `data-lpignore` + `data-form-type="other"` + `name="llm_api_key"`，并给厂商/地址/模型都加 `autocomplete="off"`，避免浏览器当成登录表单弹出“快捷填入账号密码”。
+- **后端**：
+  - `PATCH /api/auth/profile`（`ProfileUpdate`：`display_name` ≤40、`avatar` ≤400k 且必须是 `data:image/(png|jpeg|webp|gif);base64,…`），`users` 表新增 `avatar` 列并通过 `_ensure_user_columns()` 对老库 `ALTER TABLE` 升级；`User` 模型带 `avatar`，`/api/auth/me` 一并返回；
+  - `PATCH /api/skills/{id}`（自建可改；`builtin:*` 返回 400“请另存为我的 Skill”；跨账号 404；未登录 401），`update_skill` 与 `create_skill` 共用 `_clean_skill_fields()` 做 40/160/1000 校验；
+  - 厂商目录 10 → **20**：新增 Gemini（OpenAI 兼容）、xAI、Groq、Mistral、Together、火山方舟（豆包）、百度千帆、腾讯混元、MiniMax、阶跃星辰、LM Studio（本地，Key 可空），每个都带默认 Base URL 与候选模型。
+- **验证**：
+  - `pytest` **308 passed**（账号/记录/Skill/BYOK 35、前端 `test_web.py` 22），`ruff check .` All checks passed，`node --check app/web/app.js` 通过；
+  - **CDP 冒烟全过**（临时 8101 + 临时库 + Edge headless）：头像按钮在“退出登录”右侧且 <40px、点开弹窗、改昵称后首字母跟着变、`data-motion="off"` 生效、两个清除按钮都先出确认条、取消后隐藏、无记录时提示“不需要清除”、上传 PNG 后头像变成 128×128 JPEG、列表折叠/展开高度变化、编辑自建后列表改名、推荐 Skill 显示“存为我的”且预填成功、右栏表单 318px / 导入 187px（gap 10px）、厂商 option = 20 且包含火山与 Gemini、Key 输入 `autocomplete=new-password`；`exceptions: []`（无运行时报错）；截图复核 `skills-compact.png`、`account-dialog.png`。
+- **仍未做**：没有“改密码 / 绑定邮箱 / 注销账号”；头像上限只按 data URL 长度拦（未做服务端重新编码）；清除审查记录是前端逐条 `DELETE`（N 条 N 次请求，没有批量接口）；推荐 Skill 仍不可直接改（设计如此）。
+
+## 上一轮产出（2026-10-27 界面轮 8：注册 not found 根因、Skill 支持 Markdown/文件夹导入）
 
 - **起因（用户原话 2 条）**：
   1. “为什么我注册账号显示 not found”；
@@ -421,8 +448,8 @@ START → ingest → precheck(是不是合同?) ─否→ report(not_contract)
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
-# 298 个用例：237 基础 + 前端（test_web.py 19）+ 规则目录 + 文档类型闸门 11
-#   + 账号/记录/Skill/BYOK（test_accounts.py 28）+ RAG 兜底
+# 308 个用例：247 基础 + 前端（test_web.py 22）+ 规则目录 + 文档类型闸门 11
+#   + 账号/记录/Skill/BYOK（test_accounts.py 35）+ RAG 兜底
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
@@ -522,6 +549,7 @@ API/UI（`tests/test_api.py` 16 个 + `tests/test_web.py` 6 个 + `tests/test_pe
    - ~~界面轮 6：审查历史可运维 + Skill 归位 + 满屏 + 弹窗定高~~ ✅ 已完成（2026-10-27，295 个测试）：删掉首屏三行说明；Skill 下拉末项固定“Skill 仓库…”并默认 `builtin:full`，仓库入口移到侧栏；“当前审查”→“审查历史”侧栏子目录（改名 / 置顶 / 删除，`PATCH|DELETE /api/reviews/{id}`）；主区铺满整屏；登录/注册弹窗定高 460×453、邮箱→密码 gap 34px；两种模式都需手勾同意。
    - ~~界面轮 7：Skill 仓库独立页 + 自绘下拉 + 页脚贴右 + 输入区收窄~~ ✅ 已完成（2026-10-27，297 个测试）：`#/skills` 两栏页面（推荐 7 / 我的 / 新建）替换仓库弹窗；系统 select 换成胶囊 + `role=listbox` 卡片（键盘可达、末项仓库、8 项无滚动条、窄屏左对齐）；页脚 `max-width:none` 铺满、政策链接贴右、高度 26px；输入区 880→720。
    - ~~界面轮 8：注册 not found 根因 + Skill 导入~~ ✅ 已完成（2026-10-27，298 个测试）：8000 端口旧进程（`openapi` 0.9.0、无 `/api/auth/*`）导致注册 404，重启为 1.0.0 后 `/api/auth/me` 200；仓库页新增“从 Markdown 导入”（拖拽文件/文件夹 + 两个选择入口，frontmatter/标题/首段解析，逐条 `POST /api/skills`，同名跳过、单次 30 个、单文件 200 KB）。
+   - ~~界面轮 9：个人账户 + Skill 查看/编辑 + 紧凑 + 厂商扩容~~ ✅ 已完成（2026-10-28，308 个测试）：删掉仓库页头说明；列表一行折叠、点开看审查重点；自建可 `PATCH /api/skills/{id}`，推荐可“存为我的”；右栏两卡片收紧；侧栏“退出登录”右侧圆形头像 → `#account-dialog`（头像压 128px JPEG、昵称、减少动效/自动聚焦、清除本机缓存与清空审查记录都二次确认）；厂商 10→20；API Key 输入加 `autocomplete=new-password` 等属性避免浏览器快捷填入账号密码。
 6. **第四阶段（进行中）**：
    - ~~第 1 轮：规则 7 → 13 条（ISSUE-009）~~ ✅ 每条新规则都有语料命中集合回归；
    - ~~第 2 轮：silver gold（21 现象）+ 指标（rule/contract/coverage）+ 独立留出集（8 份）~~ ✅ 留出集 P=1.00 / R=0.71 / F1=0.83，暴露 2 个英文/同义改写漏报（ISSUE-021）；

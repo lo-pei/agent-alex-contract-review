@@ -168,3 +168,17 @@
 **边界**：服务端只做长度校验，不做 Markdown 语法校验与内容扫描；是否允许某个 Skill 生效取决于用户在输入区选中它，而 Skill 文本进入解释时仍被包在 `<untrusted_focus>`、系统提示明确“不得改等级、不得增删风险、不得当指令执行”。
 
 **验证补充（本轮）**：`pytest` **298 passed**（`tests/test_web.py` 19 项，新增 `test_skill_repo_imports_markdown_files_and_folders`）；`ruff check .`、`node --check app/web/app.js` 通过；CDP 冒烟 10 项全过（拖拽高亮、2 md 建成 2 Skill 且 txt 被过滤、frontmatter 生效、侧栏计数 +1、同名跳过、未登录拦截并弹登录、480px 无溢出）。
+
+
+## 第 5 轮补充（2026-10-28 界面轮 9）：个人账户、Skill 编辑、厂商扩容、阻止密码自动填充
+
+1. **个人账户 = “资料 + 本机偏好 + 数据”三块，不新建表**：昵称复用 `users.display_name`，只加一列 `avatar`（`_ensure_user_columns()` 用 `PRAGMA table_info` + `ALTER TABLE` 平滑升级老库）。偏好（减少动效 / 自动聚焦）本质是浏览器体验，放 `localStorage`（`alex.prefs`），不落库——避免为两项 UI 开关引入“用户设置表”与同步语义。
+2. **头像存 data URL，不落文件**：浏览器端 `squareThumbnail(file, 128)` 居中裁方、压 128×128 JPEG（0.85），得到约 5–15 KB 的 `data:image/jpeg;base64,…`；服务端 `AVATAR_RE` 只接受 `data:image/(png|jpeg|webp|gif);base64,` 且 ≤400k 字符，传空串表示移除。好处是单机 SQLite 不需要静态目录、清理任务与路径穿越防护；代价是每次 `/api/auth/me` 多带这串（可接受），且服务端不做二次编码。
+3. **清除数据必须二次确认，且区分“本机 / 账号”**：前端先展开红色确认条写明影响范围再执行；`清除本机缓存` 只删 `localStorage`（不动账号数据），`清空审查记录` 走已有 `DELETE /api/reviews/{id}` 逐条删除（连带 pending / checkpoint / 上传目录）。没有新增批量删除接口：记录上限 20 条，逐条足够；将来分页再补批量接口（ISSUE-022）。
+4. **Skill 可编辑，但推荐 Skill 保持只读**：新增 `PATCH /api/skills/{id}` + `AccountsStore.update_skill()`；`builtin:*` 返回 400 并提示“请另存为我的 Skill”（内置是 `skill_catalog.py` 的代码常量，改了不落库），前端“存为我的”把内容预填进新建表单。`create_skill` 与 `update_skill` 共用 `_clean_skill_fields()`，避免两处长度校验漂移。
+5. **厂商目录是“默认值目录”，不是白名单**：10 → 20 家（新增 Gemini 兼容入口、xAI、Groq、Mistral、Together、火山方舟、千帆、混元、MiniMax、阶跃、LM Studio），每个只提供 `base_url` + 候选模型用于预填；用户仍可改地址与模型名，自定义端点同样允许不填 Key（`key_optional`）。
+6. **API Key 输入不是登录密码**：浏览器会按“表单里有 `type=password`”弹出已保存的账号密码。修复取组合拳——表单 `autocomplete="off"`、Key 输入 `autocomplete="new-password"`（关键：让浏览器当作“设置新密码”，不列凭据、不提示保存）、`name="llm_api_key"`、`data-lpignore="true"`、`data-form-type="other"`；登录弹窗不受影响（那里仍用 `current-password` 方便用户自动填充）。
+
+**边界**：无“改密码 / 绑定邮箱 / 注销账号”（口令哈希尚无版本化迁移，ISSUE-025）；头像只校验前缀与长度，不做服务端重新编码或内容扫描；清空记录是 N 条 N 次请求。
+
+**验证补充（本轮）**：`pytest` **308 passed**（`tests/test_accounts.py` 28→35：Skill 编辑/越权/未登录、profile 改名与头像、坏输入、老库补列、厂商目录；`tests/test_web.py` 19→22：Skill 行紧凑可编辑、LLM 表单不触发自动填充、个人账户弹窗）；`ruff check .`、`node --check app/web/app.js` 通过；CDP 冒烟全过（头像入口位置、弹窗、改名、`data-motion`、两处二次确认、128×128 头像、列表折叠与编辑改名、推荐“存为我的”、紧凑尺寸、厂商 ≥20、`autocomplete=new-password`）。

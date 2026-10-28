@@ -115,6 +115,15 @@ class Credentials(BaseModel):
     display_name: str = Field(default="", max_length=40)
 
 
+class ProfileUpdate(BaseModel):
+    """个人账户：昵称 / 头像（avatar 传空串表示移除）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: str | None = Field(default=None, max_length=40)
+    avatar: str | None = Field(default=None, max_length=400_000)
+
+
 class SessionInfo(BaseModel):
     """当前登录态：未登录时 `authenticated=false`，其余字段为空。"""
 
@@ -445,6 +454,16 @@ def create_app(
         response.status_code = 204
         return response
 
+    @app.patch("/api/auth/profile", response_model=User)
+    def update_profile(payload: ProfileUpdate, request: Request) -> User:
+        """改昵称或头像；只传了的字段才更新（头像传空串 = 移除）。"""
+        user = require_user(request)
+        return store_of(request).update_profile(
+            user.id,
+            display_name=payload.display_name,
+            avatar=payload.avatar,
+        )
+
     @app.get("/api/auth/me", response_model=SessionInfo)
     def me(request: Request) -> SessionInfo:
         user = current_user(request)
@@ -505,6 +524,22 @@ def create_app(
         user = require_user(request)
         return store_of(request).create_skill(
             user.id,
+            name=payload.name,
+            description=payload.description,
+            instruction=payload.instruction,
+        )
+
+    @app.patch("/api/skills/{skill_id}", response_model=Skill)
+    def update_skill(
+        payload: SkillCreate,
+        request: Request,
+        skill_id: str = ApiPath(pattern=SKILL_ID_PATTERN),
+    ) -> Skill:
+        """改自建 Skill；推荐 Skill 只读（会返回 400，前端提示另存为我的）。"""
+        user = require_user(request)
+        return store_of(request).update_skill(
+            user.id,
+            skill_id,
             name=payload.name,
             description=payload.description,
             instruction=payload.instruction,

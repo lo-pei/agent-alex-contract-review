@@ -103,9 +103,12 @@
             <button class="nav-item nav-action" type="button" id="auth-login" data-auth="login">
               登录
             </button>
-            <button class="nav-item nav-action" type="button" id="auth-logout" hidden>
-              退出登录
-            </button>
+            <div class="account-row" id="account-row" hidden>
+              <button class="nav-item nav-action" type="button" id="auth-logout">退出登录</button>
+              <button class="avatar account-avatar" type="button" id="account-avatar" aria-label="个人账户">
+                <span class="avatar-initial" id="account-avatar-initial">A</span>
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -224,26 +227,46 @@
         <p class="alert" id="llm-login-note" role="note" hidden>
           请先登录或注册，Key 才会加密保存到你的账号。
         </p>
-        <form class="dialog-form" id="llm-form">
+        <form class="dialog-form" id="llm-form" autocomplete="off">
           <label class="field">
             <span>厂商</span>
-            <select id="llm-provider"></select>
+            <select id="llm-provider" name="llm_provider" autocomplete="off"></select>
           </label>
           <label class="field">
             <span>服务地址</span>
-            <input id="llm-base" type="url" placeholder="https://api.openai.com/v1" />
+            <input
+              id="llm-base"
+              name="llm_base_url"
+              type="url"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="https://api.openai.com/v1"
+            />
           </label>
           <label class="field">
             <span>模型</span>
-            <input id="llm-model" type="text" list="llm-models" maxlength="120" />
+            <input
+              id="llm-model"
+              name="llm_model"
+              type="text"
+              list="llm-models"
+              maxlength="120"
+              autocomplete="off"
+              spellcheck="false"
+            />
             <datalist id="llm-models"></datalist>
           </label>
           <label class="field">
             <span>API Key</span>
+            <!-- autocomplete=new-password + 非账号密码的 name：避免浏览器/密码管理器弹出“快捷填入账号密码” -->
             <input
               id="llm-key"
+              name="llm_api_key"
               type="password"
-              autocomplete="off"
+              autocomplete="new-password"
+              spellcheck="false"
+              data-lpignore="true"
+              data-form-type="other"
               maxlength="256"
               placeholder="留空表示沿用已保存的 Key"
             />
@@ -262,6 +285,79 @@
           Key 只以密文保存在本机数据库中，接口不会回传明文；删除 .data/secret.key
           会使已保存的 Key 失效。
         </p>
+      </div>
+    </dialog>
+
+    <!-- 个人账户：侧栏“退出登录”右侧的头像按钮打开 -->
+    <dialog class="dialog account-dialog" id="account-dialog" aria-labelledby="account-title">
+      <div class="dialog-head">
+        <h2 class="dialog-title" id="account-title">个人账户</h2>
+        <button class="icon-button dialog-close" type="button" data-close="account-dialog" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path d="m6 6 12 12M18 6 6 18" />
+          </svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <section class="account-profile">
+          <div class="avatar-block">
+            <button class="avatar avatar-large" type="button" id="account-avatar-large" aria-label="更换头像">
+              <span class="avatar-initial" id="account-initial">A</span>
+            </button>
+            <div class="avatar-links">
+              <button class="link" type="button" id="account-avatar-pick">更换</button>
+              <button class="link" type="button" id="account-avatar-remove" hidden>移除</button>
+            </div>
+            <input id="account-avatar-input" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+          </div>
+          <form class="dialog-form account-form" id="account-form">
+            <label class="field">
+              <span>昵称</span>
+              <input id="account-name" type="text" maxlength="40" required autocomplete="off" />
+            </label>
+            <label class="field">
+              <span>邮箱（不可修改）</span>
+              <input id="account-email" type="email" readonly tabindex="-1" />
+            </label>
+            <div class="dialog-actions">
+              <button class="btn btn-primary btn-compact" type="submit" id="account-save">保存资料</button>
+            </div>
+            <p class="alert" id="account-error" role="alert" hidden></p>
+            <p class="field-note" id="account-status" hidden></p>
+          </form>
+        </section>
+
+        <section class="account-section">
+          <h3 class="account-section-title">系统设置</h3>
+          <label class="switch-row">
+            <input type="checkbox" id="pref-motion" />
+            <span>减少动效</span>
+            <span class="switch-note">关闭过渡与旋转动画</span>
+          </label>
+          <label class="switch-row">
+            <input type="checkbox" id="pref-autofocus" />
+            <span>自动聚焦输入框</span>
+            <span class="switch-note">打开页面即可写审查重点</span>
+          </label>
+        </section>
+
+        <section class="account-section">
+          <h3 class="account-section-title">数据</h3>
+          <div class="account-data">
+            <button class="btn btn-compact" type="button" id="account-clear-cache">清除本机缓存</button>
+            <button class="btn btn-compact" type="button" id="account-clear-reviews">清空审查记录</button>
+          </div>
+          <div class="account-confirm" id="account-confirm" hidden>
+            <p class="account-confirm-text" id="account-confirm-text"></p>
+            <div class="account-confirm-actions">
+              <button class="btn btn-compact btn-danger" type="button" id="account-confirm-yes">确认清除</button>
+              <button class="btn btn-compact" type="button" id="account-confirm-no">取消</button>
+            </div>
+          </div>
+          <p class="field-note">
+            清除本机缓存只删浏览器里的偏好与草稿；清空审查记录会删除账号下的历史（合同、报告与待确认一并清理），不可恢复。
+          </p>
+        </section>
       </div>
     </dialog>
 

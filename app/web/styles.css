@@ -1166,6 +1166,184 @@ svg {
   white-space: nowrap;
 }
 
+/* 账号操作行：退出登录在左，圆形头像入口在右 */
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.account-row .nav-item {
+  flex: 1 1 auto;
+}
+
+.avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--raised);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.avatar:hover {
+  border-color: var(--control);
+  color: var(--text);
+}
+.avatar:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.avatar-initial {
+  line-height: 1;
+}
+.account-avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+.avatar-large {
+  width: 62px;
+  height: 62px;
+  font-size: 23px;
+}
+
+/* ---------------------------------------------------------------- 个人账户弹窗 */
+
+.account-dialog {
+  width: min(520px, calc(100vw - 32px));
+}
+
+.account-profile {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.avatar-block {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+.avatar-links {
+  display: flex;
+  gap: 8px;
+}
+.avatar-links .link {
+  font-size: 11px;
+}
+
+.account-form {
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 8px;
+}
+.account-form .dialog-actions {
+  margin-top: 2px;
+}
+#account-status {
+  color: var(--green-ink);
+}
+
+.account-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 13px;
+  border-top: 1px solid var(--rule);
+}
+
+.account-section-title {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.switch-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 1px 8px;
+  align-items: center;
+  color: var(--text);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.switch-row input {
+  grid-row: span 2;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.switch-note {
+  grid-column: 2;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.account-data {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.account-confirm {
+  padding: 10px;
+  border: 1px solid var(--red-line);
+  border-radius: 8px;
+  background: var(--red-bg);
+}
+.account-confirm-text {
+  margin: 0 0 8px;
+  color: var(--red-ink);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.account-confirm-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.btn-danger {
+  border-color: var(--red-line);
+  background: var(--red-bg);
+  color: var(--red-ink);
+}
+.btn-danger:hover {
+  border-color: var(--red-ink);
+  background: var(--red-ink);
+  color: #fff;
+}
+
+/* “减少动效”偏好：关掉过渡与旋转 */
+[data-motion="off"] *,
+[data-motion="off"] *::before,
+[data-motion="off"] *::after {
+  transition-duration: 0.001ms !important;
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}
+
 /* ---------------------------------------------------------------- 页脚（免责与政策） */
 
 .sheet {
@@ -1427,56 +1605,62 @@ svg {
 .skills-page {
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  gap: 14px;
   padding-bottom: 8px;
 }
 
-.page-head {
-  max-width: 640px;
-}
-.page-head .headline {
-  font-size: 25px;
-}
-.page-head .lead {
-  margin-top: 8px;
-  max-width: 62ch;
+.skills-page > .headline {
+  font-size: 23px;
 }
 
 .skills-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
-  gap: 26px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(296px, 0.85fr);
+  gap: 16px;
   align-items: start;
 }
 
 .skills-column {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
 /* 右栏：新建表单 + 导入面板，两个卡片之间留一点距离 */
 .skills-side {
-  gap: 14px;
+  gap: 10px;
 }
 
 .panel {
-  padding: 18px;
+  padding: 12px 13px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--surface);
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.panel-meta {
+  color: var(--faint);
+  font-size: 10.5px;
+  letter-spacing: 0.01em;
 }
 
 .panel-title {
   margin: 0;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.01em;
 }
 .skills-column > .panel-title {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 .skills-column > .panel-title:first-child {
   margin-top: 0;
@@ -1485,46 +1669,103 @@ svg {
 .skill-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 7px;
 }
-.skill-form .field textarea {
-  min-height: 104px;
+.skill-form .panel-head {
+  margin-bottom: 1px;
+}
+.skill-form .field-compact {
+  gap: 3px;
+  font-size: 11.5px;
+}
+.skill-form .field-compact input {
+  height: 30px;
+  font-size: 12.5px;
+}
+.skill-form .field-compact textarea {
+  min-height: 68px;
+  padding: 6px 8px;
+  font-size: 12.5px;
+}
+.btn-compact {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+.skill-form .btn-compact {
+  width: 100%;
+  margin-top: 1px;
 }
 
-/* 列表项（页面里比弹窗时更宽松一点） */
-
+/* ------------------------------------------------------------ Skill 列表项
+   默认一行：名称 + 标签 + 使用；点名称展开审查重点与编辑入口 */
 .skill-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
+  gap: 5px;
+  margin-top: 2px;
 }
 
 .skill-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 11px 12px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--raised);
 }
-
-.skill-main {
-  flex: 1 1 auto;
-  min-width: 0;
+.skill-item.is-open {
+  background: var(--surface);
+}
+.skill-item.is-editing {
+  border-color: var(--accent);
 }
 
-.skill-name {
+.skill-head {
   display: flex;
   align-items: center;
   gap: 6px;
+  padding: 6px 8px 6px 10px;
+}
+
+.skill-toggle {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.skill-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.skill-name {
+  overflow: hidden;
+  color: var(--text);
   font-size: 12.5px;
   font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-caret {
+  flex: none;
+  color: var(--faint);
+  transition: transform 0.15s ease;
+}
+.skill-item.is-open .skill-caret {
+  transform: rotate(180deg);
 }
 
 .skill-tag {
-  height: 16px;
+  flex: none;
+  height: 15px;
   padding: 0 5px;
   border: 1px solid var(--neutral-line);
   border-radius: 999px;
@@ -1532,25 +1773,51 @@ svg {
   color: var(--neutral-ink);
   font-size: 10px;
   font-weight: 500;
-  line-height: 15px;
+  line-height: 14px;
   white-space: nowrap;
 }
 
+.skill-detail {
+  padding: 7px 10px 8px;
+  border-top: 1px solid var(--border);
+}
+
 .skill-desc {
-  margin-top: 3px;
+  margin: 0;
   color: var(--muted);
   font-size: 11.5px;
-  line-height: 1.55;
+  line-height: 1.5;
+}
+
+.skill-instruction {
+  max-height: 148px;
+  margin: 4px 0 0;
+  overflow: auto;
+  color: var(--text);
+  font-size: 11.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.skill-desc + .skill-instruction {
+  margin-top: 5px;
 }
 
 .skill-actions {
   display: flex;
-  flex: none;
   gap: 4px;
+  margin-top: 7px;
+}
+
+/* 列表里的小号操作按钮（使用 / 编辑 / 删除） */
+.chip-mini {
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
 }
 
 .skill-empty {
-  padding: 10px;
+  padding: 8px 2px;
   color: var(--faint);
   font-size: 12px;
 }
@@ -1560,17 +1827,19 @@ svg {
 .skill-import {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 .skill-import .field-note {
   margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
 }
 .skill-import code {
   padding: 0 3px;
   border-radius: 3px;
   background: var(--sunken);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
 }
 
 .dropzone {
@@ -1578,13 +1847,13 @@ svg {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 20px 12px;
+  gap: 1px;
+  padding: 11px 8px;
   border: 1px dashed var(--control);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--raised);
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 12px;
   text-align: center;
   cursor: pointer;
   transition:
@@ -1601,13 +1870,13 @@ svg {
 }
 .dropzone-hint {
   color: var(--faint);
-  font-size: 11px;
+  font-size: 10.5px;
 }
 
 .import-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 .import-actions .btn {
   flex: 1 1 auto;
@@ -1616,10 +1885,10 @@ svg {
 .import-log {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 2px;
+  gap: 3px;
+  margin-top: 1px;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: 11px;
   line-height: 1.5;
 }
 .import-log li.ok {

@@ -34,12 +34,13 @@
 | API / UI（第 6 步） | ✅ FastAPI + pending 落盘 + Streamlit 备用 | `app/api.py`、`app/ui.py`、`app/report_markdown.py`、`app/services/pending_store.py` |
 | B 端审查工作台（界面轮 2） | ✅ 四视图 + 本地字体 + 只读规则目录 | `app/web/index.html`、`app/web/styles.css`、`app/web/app.js`、`app/web/fonts/`；`GET /`、`GET /static/*`、`GET /api/rules`；`tests/test_web.py`（6 项）、`tests/test_api.py::test_rule_catalog_matches_definitions` |
 | 账号 / 记录 / Skill / BYOK（界面轮 5） | ✅ 本地 SQLite + 密文盒 + 每审查模型运行时 | `app/services/accounts.py`、`app/services/secret_box.py`、`app/services/llm_providers.py`、`app/services/skill_catalog.py`、`app/services/llm.py`（`LLMRuntime` / `review_llm_scope`）；`tests/test_accounts.py`（28 项）；`API_VERSION 1.0.0` |
+| 个人账户 + Skill 编辑 + 紧凑 + 厂商 20 + 密码自动填充（界面轮 9） | ✅ 头像/昵称/系统设置/二次确认清数据；自建 Skill 可编辑；厂商 10→20 | `app/web/index.html`（`#account-row` / `#account-dialog` / `#llm-form` autocomplete）、`app/web/app.js`（`renderAvatar` / `squareThumbnail` / `askClear` / `runClear` / `fillSkillForm`）、`app/web/styles.css`（`.avatar` / `.account-confirm` / `.skill-head` / `.skill-detail`）、`app/services/accounts.py`（`avatar` 列 + `update_profile` + `update_skill` + `_clean_skill_fields`）、`app/api.py`（`PATCH /api/auth/profile`、`PATCH /api/skills/{id}`）、`app/services/llm_providers.py`（20 家）、`tests/test_accounts.py`（+7）、`tests/test_web.py`（+3） |
 | Skill 导入 + 注册 not found 修复（界面轮 8） | ✅ Markdown / 文件夹批量导入；旧进程导致注册 404 已定位并重启 | `app/web/app.js`（`parseSkillMarkdown` / `readEntryFiles` / `filesFromDataTransfer` / `importSkillFiles`、`renderSkillsPage` 右栏导入卡片）、`app/web/styles.css`（`.dropzone` / `.import-log` / `.import-actions`）、`tests/test_web.py`（+1 项，共 19）；`README.md` 快速开始补“改后端必须重启、`openapi` 版本应为 1.0.0” |
 | Skill 仓库独立页 + 自绘下拉 + 页脚贴右 + 输入区收窄（界面轮 7） | ✅ `#/skills` 页面 + listbox 下拉 + 页脚一行贴右 | `app/web/index.html`（删 `#skills-dialog`、`href="#/skills"`）、`app/web/app.js`（`renderSkillsPage` / `renderSkillSelect` / `toggleSkillMenu`）、`app/web/styles.css`（`.skills-grid` / `.tool-skill` / `.skill-menu` / `.sheet-foot` / 720px）、`tests/test_web.py`（+2 项） |
 | 历史可运维 + Skill 归位 + 满屏（界面轮 6） | ✅ 侧栏子目录 + 改名/置顶/删除 + 定高弹窗 | `app/services/accounts.py`（`title`/`pinned` + `ALTER TABLE` 升级 + `rename/set_pinned/delete`）、`app/review_service.py`（`discard`）、`app/api.py`（`PATCH|DELETE /api/reviews/{id}`）、`app/web/*`；`tests/test_accounts.py`（+4 项）、`tests/test_web.py`（+3 项） |
 | 主区极简 + 侧栏保留（界面轮 4） | ✅ 两屏：上传 → 风险点 | `app/web/index.html`、`app/web/app.js`、`app/web/styles.css`；侧栏/顶栏导航壳保留；hash 路由只留 `#/` 与 `#/review/{id}`；待确认态渲染 `approval.findings`；`tests/test_web.py`（10 项） |
 | 文档类型闸门（界面轮 3） | ✅ 先判断是不是合同，不是就停 | `app/services/document_type.py`、`app/nodes/precheck.py`、`app/graph.py`（`ingest → precheck → segment | report`）；`status=not_contract`；`tests/test_document_type.py`（11 项）、`tests/test_api.py::test_non_contract_upload_is_not_reviewed`、`tests/test_web.py::test_runtime_internals_stay_out_of_the_ui` |
-| 测试 | ✅ 298 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
+| 测试 | ✅ 308 个通过 | `tests/`；`pytest` 全绿；Fake LLM 无需 Key |
 | 规则集 | ✅ 13 条 | `app/rules/definitions.yaml`（`version: 5`，三类措辞 + 保额邻近判定）；6 条新规则各有语料命中集合回归（ADR-010） |
 | 评测集 / 指标 | ⏳ 主集完成、四批留出完成、待复核 | `data/eval/gold_rules.json`（21 现象，silver）+ `gold_holdout{,2,3,4}.json`（7/9/7/9 现象）+ `eval/results/rules-*.json`；**silver gold 未经人工复核**，检索评测未做 |
 | Git 仓库 | ✅ 已初始化 | `cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`、`e41d235`、`c7f24a9`、`6eaff8c`、`5dc05bd`、`c540259`，以及后续每步提交 |
@@ -260,7 +261,7 @@ Agent_Alex外贸合同智审助手/
 | 报告 JSON | `.\.venv\Scripts\python.exe -m app.graph_demo --json` | ✅ 可用 |
 | 恢复人工决定 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision approve --reviewer zhangsan` | ✅ 可用（SQLite 跨进程） |
 | 超时语义 | `.\.venv\Scripts\python.exe -m app.graph_demo --review-id <id> --decision timeout` | ✅ 可用 → `unreviewed_red_risk` |
-| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 298 个通过 |
+| 测试 | `.\.venv\Scripts\python.exe -m pytest` | ✅ 308 个通过 |
 | 静态检查 | `.\.venv\Scripts\python.exe -m ruff check .` | ✅ 通过 |
 | 命令行（统一入口） | `python -m app --file data/samples/contract.txt` | ⏳ 计划（`__main__.py` 未创建） |
 | API | `.\.venv\Scripts\python.exe -m uvicorn app.api:create_app --factory --port 8000` | ✅ 可用（`/docs` 可试；默认 SQLite + 文件 pending） |
@@ -421,6 +422,8 @@ Agent_Alex外贸合同智审助手/
 | 123 | 页面底部政策链接“没贴右”的根因不是对齐，而是 `.sheet-foot` 上残留 `max-width: var(--content)`（820px）；同时 `padding-top:16px` + `line-height:1.6` 把页脚撑得很高 | 页脚属于画布宽度：`width:100%; max-width:none`，只给 `.foot-links{margin-left:auto}` 贴右；高度靠 `padding-top:8px` + `font-size:11.5px` + `line-height:1.45` 收到一行（实测 26px）；不要用 `position:fixed`（会脱离白纸压住内容） |
 | 124 | 页面点“注册”显示 **not found**，很容易误判成前端路径写错 | 先看**运行中的进程**：`GET /openapi.json` 的 `info.version` 不是 1.0.0（例如 0.9.0）就说明 8000 端口是旧代码，旧版本只有 `/api/reviews`、`/api/rules`、`/health`，没有 `/api/auth/*` → 注册必然 404。uvicorn 没加 `--reload`，改后端必须手动重启；重启后 `version=1.0.0`、`GET /api/auth/me` 应 200 |
 | 125 | 往 `.skills-grid`（2 列）里直接追加第三个子元素（导入卡片）会**掉到第二行第一列**，右栏表单下方出现一大片空白 | `grid-template-columns` 只定义列，多余子元素按行自动摆放；必须把“表单 + 导入卡片”包进同一个 `.skills-column.skills-side` 容器（再补 `.skills-side{gap:14px}`），而不是继续往 grid 里塞子节点 |
+| 126 | API 配置里点 Key 输入框，浏览器弹出“快捷填入已保存的账号密码” | 浏览器按“`<form>` 里有 `type=password`”判定为登录表单。修复：表单 `autocomplete="off"` + Key 输入 **`autocomplete="new-password"`**（关键，浏览器当作“设置新密码”就不会列凭据/提示保存）+ `name="llm_api_key"` + `data-lpignore="true"` + `data-form-type="other"`；同时给厂商/地址/模型加 `autocomplete="off"`。不要改成 `type=text`（Key 会明文露在屏幕上） |
+| 127 | 给 `users` 表加列后，老库（`.data/app.sqlite`）启动就报 `no such column: avatar` | 建表语句只对新库生效；必须写 `_ensure_user_columns()`：`PRAGMA table_info(users)` 取现有列 → 缺就 `ALTER TABLE users ADD COLUMN avatar TEXT NOT NULL DEFAULT ''`；`_user_from_row` 也按 `"avatar" in row.keys()` 容错。迁移函数要在 `commit()` 之前、`__init__` 里调用 |
 ---
 
 ## 8. 参考资料（按可信度排序）
@@ -480,6 +483,13 @@ Agent_Alex外贸合同智审助手/
      - 诊断：8000 端口是旧进程（`/openapi.json` 版本 **0.9.0**，无 `/api/auth/*`），前端点注册必然 404；停止旧 PID → `uvicorn app.api:create_app --factory --port 8000` 重启 → `version=1.0.0`、`GET /api/auth/me` 200。
      - 前端：`#/skills` 右栏新增“从 Markdown 导入”——`.dropzone`（可聚焦、Enter/空格触发）+“选择 .md 文件”（`accept` + `multiple`）+“选择文件夹”（`webkitdirectory`），拖拽文件夹用 `webkitGetAsEntry()` 递归 `readEntries()`；`parseSkillMarkdown()` 读 frontmatter（`name`/`description`/`instruction`）→ 一级标题 → 文件名 → 首段；长度 40/160/1000 与服务端对齐、超长截断；逐条 `POST /api/skills`（只发三字段，`extra="forbid"`）、同名跳过、单次 30 个 / 单文件 200 KB、未登录拦截并弹登录、结果落到 `.import-log`（ok/bad/skip）。
      - 验证：`pytest` **298 通过**（`tests/test_web.py` 19 项）；`ruff` / `node --check` 通过；CDP 10 项（拖拽高亮、2 md 建成 2 Skill 且 txt 被过滤、frontmatter 生效、侧栏计数 +1、同名跳过、未登录被拦、480 无溢出）全过。
+   - **界面轮 9（已完成，2026-10-28）**：个人账户弹窗 + Skill 查看/编辑 + 仓库紧凑化 + 厂商扩容 + 阻止密码自动填充。
+     - 仓库页删掉 `page-head` 说明段；列表项改成一行（名称 + 标签 + 折叠箭头 + 使用，`.skill-head` / `.skill-toggle` / `.skill-detail`，行高 36px），点名称展开说明、审查重点与操作；“编辑”把内容填进右栏（标题“编辑我的 Skill”、按钮“保存修改”、出现“取消”），提交 `PATCH /api/skills/{id}`；推荐 Skill 只读，点“存为我的”预填后仍 `POST`。
+     - 右栏收紧：`.panel` 12/13px、`.field-compact` 输入 30px、textarea 68px、`.btn-compact` 30px、卡片 gap 10px；实测表单 ~318px、导入 ~171px。
+     - 个人账户：侧栏 `.account-row`（退出登录 + 26px 圆形头像）→ `#account-dialog`（62px 头像 + 更换/移除、昵称、只读邮箱、减少动效 / 自动聚焦、清除本机缓存 / 清空审查记录）；两个清除动作都先展开红色确认条；“清空审查记录”先取数量、0 条直接提示不需要清除；头像在浏览器 `squareThumbnail(file, 128)` 压成 128×128 JPEG 后 `PATCH /api/auth/profile`。
+     - 后端：`users.avatar` 列 + `_ensure_user_columns()` 老库升级；`PATCH /api/auth/profile`（`display_name` ≤40、`avatar` 仅 data URL ≤400k）；`PATCH /api/skills/{id}`（`builtin:*` → 400 “另存为我的”，跨账号 404，未登录 401，`_clean_skill_fields()` 与新建共用）；厂商目录 10→20（Gemini/xAI/Groq/Mistral/Together/火山/千帆/混元/MiniMax/阶跃/LM Studio）。
+     - API 配置表单：`autocomplete="off"` + Key 输入 `autocomplete="new-password"` + `name="llm_api_key"` + `data-lpignore` + `data-form-type="other"`，解决“点 Key 输入框弹出浏览器快捷填入账号密码”。
+     - 验证：`pytest` **308 通过**（`tests/test_accounts.py` 35 项、`tests/test_web.py` 22 项）；`ruff` / `node --check` 通过；CDP 冒烟全过（头像入口位置/弹窗/改名/动效关/两处二次确认/128×128 头像/列表折叠与编辑改名/推荐“存为我的”/紧凑尺寸/厂商 ≥20/`new-password`）；截图 `skills-compact.png`、`account-dialog.png`。
    - **下一步（第四阶段）**：
      - 修 H39（`R-DIS-004` modal 与动词之间放宽为 `[^.]{0,80}?`），**另写 holdout5（8–12 份）再报数**（ISSUE-021）；
      - 人工复核 21 个 silver 现象 + 32 个留出现象，silver 升 gold（ISSUE-020）；
