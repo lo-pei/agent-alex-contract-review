@@ -942,3 +942,57 @@ def test_holdout7_hits_are_stable() -> None:
             load_rules(), state.clauses, state.raw_text, extraction_available=False
         )
         assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == [], name
+
+
+HOLDOUT8_DIR = PROJECT_ROOT / "data" / "contracts_holdout8"
+
+#: holdout8（H77–H88，5 份英文 / 7 份中文）是阶段 4 第 7 轮之后**新写**的盲测集，
+#: 专攻 `version: 8` 之后仍可能漏的写法（见 `data/eval/gold_holdout8.json` 的
+#: `annotation_protocol`）。盲测基线（规则 version 8，**改规则之前跑**）：
+#: `TP=6 FP=0 FN=5 TN=121` → P=1.00 / R=0.545 / F1=0.706，合同级 `TP=5 FP=0 FN=5`，
+#: 漏报 H77（FOB 下“The ocean freight … is on the Seller's account”的介词短语写法）、
+#: H78（裁决终局后又允许 `refer the dispute to the courts`）、H79（中文“付清全部货款”，
+#: 不含“一次性/装运前”）、H80（“仲裁庭的裁决”+“收到裁决书之日起…提起上诉”，非“仲裁裁决…后”）、
+#: H83（`inspect the Goods immediately upon discharge / on the same day`，无“小时”）。
+#: 按 ADR-011 留出纪律，本轮先把这五个漏报写成空集合（跑通即基线快照）；下一步修完
+#: 规则后本测试必须失败并点名这五份合同，**此时才翻表降级**——本批自此只作回归守卫，
+#: 对外数字仍只引基线文件 `eval/results/rules-holdout8-baseline-20261029.json`（R=0.545）。
+EXPECTED_HOLDOUT8_HITS: dict[str, set[str]] = {
+    "R-TRD-001": {"H81"},
+    "R-INC-002": {"H82"},
+    "R-INS-001": {"H84"},
+    "R-PAY-002": {"H85"},
+    "R-DIS-002": {"H85"},
+    "R-DIS-001": {"H86"},
+    # 以下五条是盲测基线漏报，留给下一次改规则时翻表（当前为空集合 = 基线快照）
+    "R-INC-001": set(),
+    "R-DIS-003": set(),
+    "R-PAY-001": set(),
+    "R-DIS-004": set(),
+    "R-INP-002": set(),
+}
+
+
+def test_holdout8_hits_are_stable() -> None:
+    if not HOLDOUT8_DIR.is_dir():
+        pytest.skip("缺少 data/contracts_holdout8 目录")
+    rules = [rule for rule in load_rules() if rule.rule_id in EXPECTED_HOLDOUT8_HITS]
+    hits = {rule_id: set() for rule_id in EXPECTED_HOLDOUT8_HITS}
+    for path in sorted(HOLDOUT8_DIR.glob("H*.md")):
+        state = _load_state(path)
+        for evaluation in evaluate_rules(
+            rules, state.clauses, state.raw_text, extraction_available=False
+        ):
+            if evaluation.risk_level != "pass":
+                hits[evaluation.rule_id].add(path.stem)
+    assert hits == EXPECTED_HOLDOUT8_HITS
+
+    # H87（CIF + 110% + ICC(C) + 荷兰法 + NAI 仲裁）/
+    # H88（FCA + 20% 预付 + SGS + 中国法 + 上海仲裁）
+    # 是全条款合规的干净对照：后续放宽写法时不得引入误报。
+    for name in ("H87", "H88"):
+        state = _load_state(HOLDOUT8_DIR / f"{name}.md")
+        evaluations = evaluate_rules(
+            load_rules(), state.clauses, state.raw_text, extraction_available=False
+        )
+        assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == [], name

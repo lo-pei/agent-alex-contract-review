@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "created_at": "2026-10-29",
+  "provenance": "holdout8：规则 version 8 状态下新写的 12 份合同（H77–H88，5 份英文 / 7 份中文），与 C01–C50 及 holdout1–7 均不重复；先写合同与 gold、再跑一次基线（ADR-011 留出纪律：基线是盲测结论，之后若按基线修规则，本批即降级为回归集）；gold 为 AI 初标，待人工复核",
+  "annotation_protocol": [
+    "按业务事实标注“该合同是否存在该风险”，标注时不参考规则能否命中（本轮 4 个漏报全部是写完合同后才由探针确认的，不是照着规则写的）",
+    "本批专攻 version 8 之后仍可能漏的写法：①运费承担的介词短语/被动语态（H77 “The ocean freight … is on the Seller's account”）；②中文“付清全部货款”这类不含“一次性/装运前”的全额预付（H79）；③仲裁后诉讼用 refer the dispute to the courts 而非 sue/commence（H78）；④裁决后上诉用“仲裁庭的裁决”“收到裁决书之日起”（H80 非“仲裁裁决”连写、非“后”字）",
+    "另有两条覆盖既有能力：H83 检验期写作 immediately upon discharge / on the same day（无“小时”）；H82 FOB 下装 FCL 整箱",
+    "刻意包含反例（应当判 pass）：H87（CIF + 110% + ICC(C) + 荷兰法 + NAI 仲裁）、H88（FCA + 20% 预付 + SGS 检验 + 中国法 + 上海仲裁），两份都不得有任何非 pass 评估",
+    "等级口径与 gold_rules.json 一致：red=可能致重大损失或权利落空；yellow=条款缺失/口径矛盾",
+    "R-PAY-002 / R-DIS-002 属“条款缺失型”，H85 是只有货物、价格与交货、保险、检验与准据法的销售确认书（无付款条款、无争议解决条款）",
+    "H79 的 CFR 下由卖方承担主运费本身不是风险（与 CFR 一致），只标“签订后七个工作日内付清全部货款”这一条；H81 的 DAP 未注明 Incoterms 版本按“口径不明”标 yellow"
+  ],
+  "scored_rules": {
+    "R-TRD-001": "yellow",
+    "R-PAY-001": "red",
+    "R-PAY-002": "yellow",
+    "R-DIS-001": "red",
+    "R-DIS-002": "red",
+    "R-DIS-003": "red",
+    "R-DIS-004": "red",
+    "R-INS-001": "yellow",
+    "R-INC-001": "yellow",
+    "R-INC-002": "yellow",
+    "R-INP-002": "yellow"
+  },
+  "unscored_rules": {
+    "R-DLV-001": "依赖 LLM 抽取字段，评测不调用 LLM",
+    "R-INP-001": "依赖 LLM 抽取字段，评测不调用 LLM"
+  },
+  "contract_ids": [
+    "H77",
+    "H78",
+    "H79",
+    "H80",
+    "H81",
+    "H82",
+    "H83",
+    "H84",
+    "H85",
+    "H86",
+    "H87",
+    "H88"
+  ],
+  "phenomena": [
+    {
+      "contract_id": "H77",
+      "phenomenon": "FOB 术语下却约定海运费记在卖方账上（用 is on the Seller's account 的介词短语写法），与本应由买方负责的主运费冲突",
+      "level": "yellow",
+      "rule_id": "R-INC-001",
+      "evidence": "第3.2条 FOB Tianjin, Incoterms® 2020；第3.3条 The ocean freight from Tianjin to Jebel Ali is on the Seller's account"
+    },
+    {
+      "contract_id": "H78",
+      "phenomenon": "争议解决条款先约定 SIAC 仲裁并写明裁决终局，随后一条又允许买方把同一争议 refer 给新加坡法院，未约定先后顺序（或裁或审）",
+      "level": "red",
+      "rule_id": "R-DIS-003",
+      "evidence": "第9.2条 shall be finally settled by arbitration administered by SIAC … and the award shall be final and binding；第9.3条 Alternatively, the Buyer may refer the dispute to the courts of Singapore"
+    },
+    {
+      "contract_id": "H79",
+      "phenomenon": "要求买方在合同签订后七个工作日内付清全部货款（卖方收款后才装运），买方承担卖方不履约的全部资金风险",
+      "level": "red",
+      "rule_id": "R-PAY-001",
+      "evidence": "第7.1条 付款方式为电汇（T/T）：买方应于本合同签订后七个工作日内付清全部货款；卖方在收到全部货款后安排装运"
+    },
+    {
+      "contract_id": "H80",
+      "phenomenon": "仲裁裁决为终局，但不满一方可在收到裁决书之日起三十日内向新加坡高等法院上诉，削弱仲裁终局性",
+      "level": "red",
+      "rule_id": "R-DIS-004",
+      "evidence": "第9.3条 仲裁庭的裁决为终局裁决，对双方均有约束力。对该裁决不服的一方，可以在收到裁决书之日起三十日内向新加坡高等法院提起上诉"
+    },
+    {
+      "contract_id": "H81",
+      "phenomenon": "使用 DAP 术语但未注明 Incoterms 版本，交货与风险划分可能歧义",
+      "level": "yellow",
+      "rule_id": "R-TRD-001",
+      "evidence": "第3.2条 贸易术语：DAP 华沙（全文无 Incoterms 年份/版本）"
+    },
+    {
+      "contract_id": "H82",
+      "phenomenon": "FOB 起草却约定整箱（FCL）集装箱货物，卖方难以控制装船节点",
+      "level": "yellow",
+      "rule_id": "R-INC-002",
+      "evidence": "第3.2条 FOB Busan, Incoterms® 2020；第3.3条 stuffed into one 40-foot FCL container"
+    },
+    {
+      "contract_id": "H83",
+      "phenomenon": "检验与索赔期限写成“卸货后立即、当日通知”，非易腐罐头食品也无合理检验窗口，买方难以取证",
+      "level": "yellow",
+      "rule_id": "R-INP-002",
+      "evidence": "第6.1条 The Buyer shall inspect the Goods immediately upon discharge；第6.2条 notified to the Seller on the same day（货物为罐头草菇，非易腐）"
+    },
+    {
+      "contract_id": "H84",
+      "phenomenon": "CIF 下约定卖方按协会条款（A）投保，但未写明保险金额或投保比例",
+      "level": "yellow",
+      "rule_id": "R-INS-001",
+      "evidence": "第3.2条 CIF Jakarta, Incoterms® 2020；第5.1条 由卖方按协会货物条款（A）投保，保险费计入货价（无金额/比例）"
+    },
+    {
+      "contract_id": "H85",
+      "phenomenon": "简式销售确认书未约定付款方式或付款节点",
+      "level": "yellow",
+      "rule_id": "R-PAY-002",
+      "evidence": "全文仅约定货物、价格与交货、保险、检验与适用法律，无付款方式/比例/节点"
+    },
+    {
+      "contract_id": "H85",
+      "phenomenon": "未约定仲裁或诉讼管辖安排，争议时可能产生管辖权争议",
+      "level": "red",
+      "rule_id": "R-DIS-002",
+      "evidence": "第6条仅约定适用中华人民共和国法律，全文无仲裁/管辖/诉讼约定"
+    },
+    {
+      "contract_id": "H86",
+      "phenomenon": "合同未约定适用法律，仅约定 CIETAC 仲裁与仲裁地",
+      "level": "red",
+      "rule_id": "R-DIS-001",
+      "evidence": "第9条仅约定 CIETAC 北京仲裁与裁决终局，全文无适用法律/准据法约定"
+    }
+  ]
+}
