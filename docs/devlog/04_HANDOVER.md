@@ -95,7 +95,9 @@
 | 可用的 3.12 | `py -3.12` → `C:\Users\lenovo\AppData\Local\Python\pythoncore-3.12-64\python.exe` |
 | uv 自带 3.12 | `C:\Users\lenovo\AppData\Roaming\uv\python\cpython-3.12.13-windows-x86_64-none\python.exe` |
 | GitHub API | 可访问（HTTP 200） |
-| `git clone github.com:443` | 连接被重置；调研用 `codeload.github.com` 快照替代 |
+| `git clone github.com:443` | 连接被重置；调研用 `codeload.github.com` 快照替代；**推送同理**（`github.com:443` 仍不通，`api.github.com` 与 `ssh.github.com:443` 可通） |
+| GitHub 远端仓库 | `origin` = `ssh://git@ssh.github.com:443/lo-pei/agent-alex-contract-review.git`（private，默认分支 `master`）；本地 `core.sshCommand` 指向仓库 Deploy Key `~/.ssh/agent_alex_deploy`（只对该仓库有写权限，勿删；删了需重新加 key 才能推送） |
+| `git push` 走法 | 直接 `git push` 即可（配好 `core.sshCommand` 后无需额外参数）；换机器时先 `ssh -i <key> -p 443 -T git@ssh.github.com` 验证 |
 | PyPI | 可访问 |
 
 ### 3.2 版本决策（重要）
