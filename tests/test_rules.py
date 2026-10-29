@@ -899,9 +899,10 @@ HOLDOUT7_DIR = PROJECT_ROOT / "data" / "contracts_holdout7"
 #: 合同级 `TP=6 FP=0 FN=4`，漏报 H65（FOB 下“the ocean freight … shall be for the Seller's account”
 #: 的迂回写法）、H66（仲裁句与法院句分属两句的“或裁或审”）、H67（中文“装运前一次性支付…全部价款”）、
 #: H69（裁决后“bring the matter before the courts”）。
-#: 按 ADR-011 留出纪律，**本表先按基线把四个漏报写成空集合**：现在跑通即基线快照；
-#: 等第 7 轮按基线修规则后，本测试必然失败并点名这四份合同，届时才翻表降级。
-#: 对外数字只引基线文件 `eval/results/rules-holdout7-baseline-20261029.json`。
+#: 按 ADR-011 留出纪律，第 7 轮第一步先把四个漏报写成空集合（跑通即基线快照）；第二步
+#: （version 8）修完四处写法后本测试果然失败并点名这四份合同，**此时才翻表降级**——
+#: 本批自此只作回归守卫，对外数字仍只引基线文件
+#: `eval/results/rules-holdout7-baseline-20261029.json`（R=0.636），修后的 11/0/0 不再引用。
 EXPECTED_HOLDOUT7_HITS: dict[str, set[str]] = {
     "R-INS-001": {"H68"},
     "R-TRD-001": {"H70"},
@@ -910,11 +911,11 @@ EXPECTED_HOLDOUT7_HITS: dict[str, set[str]] = {
     "R-PAY-002": {"H73"},
     "R-DIS-002": {"H73"},
     "R-DIS-001": {"H74"},
-    # 以下四条是盲测基线漏报，先钉空集合（修规则后本测试会失败，点名 H65/H66/H67/H69）
-    "R-INC-001": set(),
-    "R-DIS-003": set(),
-    "R-PAY-001": set(),
-    "R-DIS-004": set(),
+    # 以下四条是盲测基线漏报，version 8 修好后翻表（修前为空集合，见上）
+    "R-INC-001": {"H65"},
+    "R-DIS-003": {"H66"},
+    "R-PAY-001": {"H67"},
+    "R-DIS-004": {"H69"},
 }
 
 

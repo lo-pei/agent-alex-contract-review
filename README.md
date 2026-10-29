@@ -2,7 +2,7 @@
 
 面向**国际货物销售合同**的 AI 预审智能体：上传合同 → 条款切分 →（可选）**付款 / 交付 / 争议三个专家并行**给参考意见（不判级）→ LLM 抽取关键要素 → **Python 规则引擎判定红/黄/绿风险**（唯一等级来源）→ 红色风险经 **LangGraph `interrupt()` 真人工确认** →（可选）**只读工具 / MCP 检索补材料** → LLM 依据规则结果与原文生成解释 → 输出可追溯报告。
 
-> 当前处于**第四阶段（测试与评测）第 7 轮第一步 + 界面轮 16**：主干 `ingest → precheck → segment → extract → validate → [专家并行?] → rules → [条件边] → human_review → [research_tools?] → explain_risks → report` 已全部打通，支持 **TXT / Markdown / PDF（文本型或图片型）/ DOCX** 解析（单个文件 ≤ 30 MB；图片/扫描 PDF 用本地 OCR 补文本，**OCR 只产文本、不参与判级**）、**先判断上传对象是不是合同**（论文/法规直接拒绝，不进入判级）、标题式条款切分、LLM 17 字段要素抽取与 Python 引文校验，**13 条规则**（11 条文本 + 2 条字段，`version: 7` 已覆盖中文与主要英文写法，保额判定改为“保险语境邻近”，裁决类允许情态动词与动作之间插时间状语，并补了英文“卖方付运费”倒装、`or,` 连接词、`entire … before shipment` 三种写法），红色风险触发 **LangGraph `interrupt()` 真暂停**，经 `Command(resume=...)` 恢复后由 LLM 生成**带原文与知识引用**的解释。**界面轮 14 按 ADR-015 加了可选 Agent 层**：`AGENTS_ENABLED` 打开后三个专家并行出“值得注意的点 + 修改方向 + 原文引文”（schema 无 `risk_level`、引文定位不到即丢弃），`TOOLS_ENABLED` 打开后在规则之后跑一次只读工具规划（4 个本地工具 + MCP stdio/JSON-RPC 子集，无 Key 走确定性检索）；**两个开关默认关闭，关闭时链路与结论和原来逐字一致**。交付入口：**极简 C 端页“上传合同 → 看风险点”（FastAPI 托管）+ CLI + API；Streamlit 保留为备用界面**；Skill 仓库内置 **11 个**（含 4 个外部包 `builtin:*`），支持 Markdown / 文件夹 / **zip 包**导入（只读、不执行），结果页可切左栏“原文全文”看完整原文、右栏看到“参考 · 专家”与折叠的“Agent 轨迹”，并有两处“**这份报告怎么读**”导读（七节静态说明 + 后端 `limitations` 补第八节）。评测：50 份模拟合同 + 21 个 silver gold 现象 + **七批留出集 76 份**；**当前对外数字只引 holdout7（中英混合）在改规则之前跑出的盲测基线**：规则级 **P=1.00 / R=0.636 / F1=0.778**（12 份 / 11 个现象，漏报 H65/H66/H67/H69 **尚未修**，下一步才按基线修；silver gold 待人工复核）；holdout6 的基线 `P=1.00 / R=0.727 / F1=0.842` 与 holdout5 的 `P=1.00 / R=0.90 / F1=0.947` 作为历史记录保留；**检索评测按 ADR-016 落地**：100 题 → **95 题可评测**（5 题语料未覆盖，不进分母），ranking `lenient` R@3 **0.958** / `strict` R@3 **0.758**（点名条号/来源加权后）。详见 [`docs/devlog/00_PROJECT_STATE.md`](docs/devlog/00_PROJECT_STATE.md)。
+> 当前处于**第四阶段（测试与评测）第 7 轮第二步 + 界面轮 16**：主干 `ingest → precheck → segment → extract → validate → [专家并行?] → rules → [条件边] → human_review → [research_tools?] → explain_risks → report` 已全部打通，支持 **TXT / Markdown / PDF（文本型或图片型）/ DOCX** 解析（单个文件 ≤ 30 MB；图片/扫描 PDF 用本地 OCR 补文本，**OCR 只产文本、不参与判级**）、**先判断上传对象是不是合同**（论文/法规直接拒绝，不进入判级）、标题式条款切分、LLM 17 字段要素抽取与 Python 引文校验，**13 条规则**（11 条文本 + 2 条字段，`version: 8` 已覆盖中文与主要英文写法，保额判定改为“保险语境邻近”，裁决类允许情态动词与动作之间插时间状语，并补了英文“卖方付运费”倒装、`or,` 连接词、`entire … before shipment`、卖方账上运费迂回语态、跨句或裁或审、中文“全部价款”、`bring the matter before the courts`），红色风险触发 **LangGraph `interrupt()` 真暂停**，经 `Command(resume=...)` 恢复后由 LLM 生成**带原文与知识引用**的解释。**界面轮 14 按 ADR-015 加了可选 Agent 层**：`AGENTS_ENABLED` 打开后三个专家并行出“值得注意的点 + 修改方向 + 原文引文”（schema 无 `risk_level`、引文定位不到即丢弃），`TOOLS_ENABLED` 打开后在规则之后跑一次只读工具规划（4 个本地工具 + MCP stdio/JSON-RPC 子集，无 Key 走确定性检索）；**两个开关默认关闭，关闭时链路与结论和原来逐字一致**。交付入口：**极简 C 端页“上传合同 → 看风险点”（FastAPI 托管）+ CLI + API；Streamlit 保留为备用界面**；Skill 仓库内置 **11 个**（含 4 个外部包 `builtin:*`），支持 Markdown / 文件夹 / **zip 包**导入（只读、不执行），结果页可切左栏“原文全文”看完整原文、右栏看到“参考 · 专家”与折叠的“Agent 轨迹”，并有两处“**这份报告怎么读**”导读（七节静态说明 + 后端 `limitations` 补第八节）。评测：50 份模拟合同 + 21 个 silver gold 现象 + **七批留出集 76 份（全部已消耗）**；**当前对外数字只引 holdout7（中英混合）在改规则之前跑出的盲测基线**：规则级 **P=1.00 / R=0.636 / F1=0.778**（12 份 / 11 个现象，漏报 H65/H66/H67/H69 已在 `version: 8` 修好，**修后的 1.0 只作回归**；silver gold 待人工复核）；holdout6 的基线 `P=1.00 / R=0.727 / F1=0.842` 与 holdout5 的 `P=1.00 / R=0.90 / F1=0.947` 作为历史记录保留；下一批对外数字须先写 holdout8；**检索评测按 ADR-016 落地**：100 题 → **95 题可评测**（5 题语料未覆盖，不进分母），ranking `lenient` R@3 **0.958** / `strict` R@3 **0.758**（点名条号/来源加权后）。详见 [`docs/devlog/00_PROJECT_STATE.md`](docs/devlog/00_PROJECT_STATE.md)。
 
 > 上传先过“文档类型闸门”（ADR-012）：抬头 / 合同编号 / 买卖双方 / 条款结构 / 交易要素打分，叠加论文与法规的反向信号；判否时状态为 `not_contract`，只出“未执行审查”的报告，**不切条款、不抽取、不判级、不触发人工确认**。
 
@@ -12,8 +12,8 @@
 |---|---|---|
 | 1. GitHub 调研 | ✅ | 8 个开源项目源码级分析，产出借鉴/不借鉴清单 |
 | 2. 架构设计 | ✅ | ADR-001 ~ ADR-016 全部已接受 |
-| 3. 代码实现 | ✅ 第 6 步 + 界面轮 16 | 环境、13 节点图（含文档类型闸门、3 个并行专家、`research_tools`）、规则引擎（13 条规则，`version: 7`）、PDF（文本型 + 图片型 OCR）/DOCX/TXT 解析（≤30 MB）、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭；本机 `.env` 已开启，真实语料 14 篇：模型不可用时解释回退规则理由，但仍列出检索到的 `source_id#section`；**点名条号/来源只改排序、不改判级**）、**多智能体专家并行 + 只读工具层（本地 4 个工具 + MCP stdio，默认关闭）**、FastAPI + 两屏 Web 前端（同一行标签 + 左栏“条款目录 / 原文全文” + 右栏意见，三块各自滚动；规则意见下有“参考 · 专家”中性色区块 + 折叠的 Agent 轨迹；结果页两处“这份报告怎么读”导读）+ 账号/审查历史（改名/置顶/删除，**一次请求清空**）/Skill 仓库独立页（内置 11 个、Markdown/文件夹/zip 导入、查看与编辑、可声明工具 + 只读附件）/账户设置（B 端分区：个人信息 / 通用（白天·黑夜·跟随系统 + 字号三档）/ 数据管理 / 关于）/BYOK（20 个厂商）+ Streamlit、**403 个测试** |
-| 4. 测试与评测 | ⏳ 第 7 轮第一步完成 + 检索评测 | 50 份模拟合同 + 21 个 silver gold 现象 + **七批留出集 76 份**；三组指标（rule/contract/coverage）；**holdout7（中英混合）盲测基线（改规则之前，规则仍 `version: 7`）P=1.00 / R=0.636 / F1=0.778**，漏报 H65/H66/H67/H69（**尚未修**，等第二步），holdout1–6 已全部降级为回归集；holdout6 基线 P=1.00 / R=0.727 / F1=0.842、holdout5 基线 P=1.00 / R=0.90 / F1=0.947 留作历史记录；silver gold 待人工复核；**检索评测已落地（ADR-016）**：95 题可评测、ranking/production × lenient/strict，lenient R@3 0.958 / strict R@3 0.758；剩 4 题语义指代（ISSUE-033） |
+| 3. 代码实现 | ✅ 第 6 步 + 界面轮 16 | 环境、13 节点图（含文档类型闸门、3 个并行专家、`research_tools`）、规则引擎（13 条规则，`version: 8`）、PDF（文本型 + 图片型 OCR）/DOCX/TXT 解析（≤30 MB）、标题切分、LLM 抽取 + 引文校验、HITL 真中断/恢复、LLM 解释 + Python 质量门、本地 BM25 RAG（默认关闭；本机 `.env` 已开启，真实语料 14 篇：模型不可用时解释回退规则理由，但仍列出检索到的 `source_id#section`；**点名条号/来源只改排序、不改判级**）、**多智能体专家并行 + 只读工具层（本地 4 个工具 + MCP stdio，默认关闭）**、FastAPI + 两屏 Web 前端（同一行标签 + 左栏“条款目录 / 原文全文” + 右栏意见，三块各自滚动；规则意见下有“参考 · 专家”中性色区块 + 折叠的 Agent 轨迹；结果页两处“这份报告怎么读”导读）+ 账号/审查历史（改名/置顶/删除，**一次请求清空**）/Skill 仓库独立页（内置 11 个、Markdown/文件夹/zip 导入、查看与编辑、可声明工具 + 只读附件）/账户设置（B 端分区：个人信息 / 通用（白天·黑夜·跟随系统 + 字号三档）/ 数据管理 / 关于）/BYOK（20 个厂商）+ Streamlit、**403 个测试** |
+| 4. 测试与评测 | ⏳ 第 7 轮两步完成 + 检索评测 | 50 份模拟合同 + 21 个 silver gold 现象 + **七批留出集 76 份（全部已消耗）**；三组指标（rule/contract/coverage）；**holdout7（中英混合）盲测基线（改规则之前，规则 `version: 7`）P=1.00 / R=0.636 / F1=0.778**，漏报 H65/H66/H67/H69 已在 `version: 8` 修好（修后 11/0/0 只作回归），holdout1–7 已全部降级为回归集；holdout6 基线 P=1.00 / R=0.727 / F1=0.842、holdout5 基线 P=1.00 / R=0.90 / F1=0.947 留作历史记录；下一批对外数字须先写 holdout8；silver gold 待人工复核；**检索评测已落地（ADR-016）**：95 题可评测、ranking/production × lenient/strict，lenient R@3 0.958 / strict R@3 0.758；剩 4 题语义指代（ISSUE-033） |
 | 5. 文档与交付 | ⏳ 进行中 | 开发日志、ADR、交接文档、评测结果与 RAG 资料清单已建立 |
 
 ## 技术栈
@@ -93,10 +93,10 @@ py -3.12 -m venv .venv
 # ① holdout7（H65–H76，12 份中英混合 / 11 个现象）：**当前唯一对外数字，只引基线文件**
 .\.venv\Scripts\python.exe eval\run_eval.py --contracts data\contracts_holdout7 `
   --gold data\eval\gold_holdout7.json --gold-rules data\eval\gold_holdout7.json --tag holdout7-baseline
-# 规则 version 7 下跑出（尚未修）：TP=7 FP=0 FN=4 → P=1.00 R=0.636 F1=0.778
+# 规则 version 7 下跑出（改规则之前，唯一可对外引用）：TP=7 FP=0 FN=4 → P=1.00 R=0.636 F1=0.778
 # 漏报 H65（“the ocean freight … shall be for the Seller's account”）、H66（仲裁句与法院句分属两句）、
 # H67（中文“装运前一次性支付合同项下全部价款”）、H69（“bring the matter before the courts”）
-# ⚠️ 下一步按基线修完后再跑会得到 1.0，那一份只作回归，不再对外引用
+# 四处已在 version 8 修好（--tag holdout7-v8 得 11/0/0，只作回归守卫，不再对外引用）
 
 # ② holdout6（H53–H64，12 份纯英文 / 11 个现象）——历史基线，第 6 轮已消耗
 .\.venv\Scripts\python.exe eval\run_eval.py --contracts data\contracts_holdout6 `
@@ -304,7 +304,7 @@ app/
     rag.py               # 本地 BM25 + 中文二元组 + MD/DOCX 切分 + manifest 校验 + 缓存
     tools.py             # 只读工具注册表（白名单 / 审计轨迹）+ MCP stdio JSON-RPC 子集客户端（ADR-015）
   rules/
-    definitions.yaml     # 13 条规则（11 文本 + 2 字段，version 6）
+    definitions.yaml     # 13 条规则（11 文本 + 2 字段，version 8）
     dsl.py               # 白名单条件 DSL（无 eval/exec）
     engine.py            # 规则加载 + 求值 + fail-closed + 字段规则 skipped
 eval/
@@ -323,7 +323,7 @@ data/contracts_holdout3/ # 8 份留出合同（H21–H28）→ 第 4 轮已消�
 data/contracts_holdout4/ # 12 份留出合同（H29–H40）→ 第 5 轮已消耗（H39 已修），回归守卫
 data/contracts_holdout5/ # 12 份留出合同（H41–H52）→ 第 5 轮已消耗，回归守卫
 data/contracts_holdout6/ # 12 份留出合同（H53–H64，纯英文）→ 第 6 轮已消耗，回归守卫
-data/contracts_holdout7/ # 12 份留出合同（H65–H76，中英混合）→ 第 7 轮盲测，**只引改规则前的基线文件**
+data/contracts_holdout7/ # 12 份留出合同（H65–H76，中英混合）→ 第 7 轮盲测后按基线修完即消耗（回归守卫），**对外只引改规则前的基线文件**
 data/eval/               # gold_contracts.json（105 条检索期望）/ gold_rules.json（21 个 silver 现象）/ gold_holdout{,2,3,4,5,6,7}.json / gold_rag.json（100 题检索 gold）+ rag_label_map.yaml（27 个手判标签）
 data/knowledge/          # 真实语料 14 篇 + manifest（RAG 默认关闭）；模拟合同1..6.md 为评测来源，不进 manifest
 tests/                   # 403 个测试（账号/记录/Skill/BYOK/zip 40 / API 17 / 前端 25 / 文档类型 11 / OCR 5 / 多智能体 12 / 工具与 MCP 23 / 报告导出 3 / pending 11 / 检索评测 12 / RAG 22 + 解释 15 / HITL 17 / 指标 11 / 规则 56 含七批留出回归，无需 Key）
@@ -352,8 +352,9 @@ docs/devlog/             # 项目状态、调研、ADR、开发日志、交接�
 - PDF 表格/多栏可能打乱列顺序，只在 `warnings` 提示人工核对；DOCX 无真实页码，统一 `p1`。
 - 条款切分依赖标题格式（`第X条` / `ARTICLE N` / `1.` 等）；界面轮 12 补了同行标题（`13. 争议解决：正文`）、字段标签黑名单（`装运港：` / `Port of Shipment:`）、特别提示块、中英对照合并与短标题，但仍属启发式——无标题合同走段落 fallback，可能切得不理想。
 - 13 条规则（11 文本 + 2 字段），50 份模拟合同中 39 份未命中任何规则；**未覆盖**责任上限、质保期、所有权保留、合规条款等，覆盖率仅 52.4%（21 个 gold 现象中 10 个无规则）。
-- 规则只做确定性文本/字段判定；**同一风险的不同写法仍会漏检**：holdout4 的 H39、holdout5 的 H41 同属“情态动词与动作动词之间插时间状语”（`either party may, within 45 days …, bring an action`），`version: 6` 已放宽为 `\s*[^.]{0,80}?`；`version: 7` 又补了三种英文写法（`The Seller shall arrange and pay for the ocean freight`、`or, at the Buyer's option, by proceedings …`、`pay the entire contract price before shipment`）。但**被动语态**（`freight is to be paid by the Seller`）、**跨句**写法（`… SIAC Rules. The Buyer may nevertheless sue …`）、从句嵌套仍可能漏检。`R-INC-001` 允许跨句 260 字符，长条款可能跨条匹配，需人工核对证据；保额邻近窗口是启发式（±60/40 字符），跨句写法仍可能失效。**holdout7 基线又暴露 4 处**（H65 `for the Seller's account`、H66 仲裁句与法院句分属两句、H67 中文“装运前一次性支付…全部价款”、H69 `bring the matter before the courts`），本轮只记录基线、**尚未修**。
-- 13 条规则中 6 条是阶段 4 新增，**在同一批 50 份模拟合同上设计并验证**（同分布）；泛化能力只由**未参与设计**的留出集衡量。七批留出集（76 份）中 holdout1–6 已消耗、只能作回归守卫，**当前对外数字仅来自 holdout7（中英混合）在改规则之前跑出的基线（12 份 / 11 个现象，P=1.00 / R=0.636 / F1=0.778，漏报 H65/H66/H67/H69 尚未修）**，recall 分辨率只有 1/11，样本量小，不能外推（ISSUE-020/021）。
+- 规则只做确定性文本/字段判定；**同一风险的不同写法仍会漏检**：holdout4 的 H39、holdout5 的 H41 同属“情态动词与动作动词之间插时间状语”（`either party may, within 45 days …, bring an action`），`version: 6` 已放宽为 `\s*[^.]{0,80}?`；`version: 7` 又补了三种英文写法（`The Seller shall arrange and pay for the ocean freight`、`or, at the Buyer's option, by proceedings …`、`pay the entire contract price before shipment`）；`version: 8` 再补四处（H65 卖方账上运费 `for the Seller's account`、H66 仲裁句与法院句分属两句、H67 中文“装运前一次性支付…全部价款”、H69 `bring the matter before the courts`）。但**被动语态**（`freight is to be paid by the Seller`）、**更远的跨句**写法、从句嵌套仍可能漏检。`R-INC-001` 允许跨句 260 字符；`R-DIS-003` 的跨句分支是**启发式 200 字符窗口**，中间用 `award` 与新条标题守卫（把“裁决后起诉”留给 `R-DIS-004`），长条款仍可能跨条匹配，需人工核对证据；保额邻近窗口是启发式（±60/40 字符），跨句写法仍可能失效。
+- 13 条规则中 6 条是阶段 4 新增，**在同一批 50 份模拟合同上设计并验证**（同分布）；泛化能力只由**未参与设计**的留出集衡量。七批留出集（76 份）**至此全部消耗**、只能作回归守卫，**当前对外数字仅来自 holdout7（中英混合）在改规则之前跑出的基线（12 份 / 11 个现象，P=1.00 / R=0.636 / F1=0.778，漏报 H65/H66/H67/H69 已在 `version: 8` 修好，修后的 11/0/0 只作回归）**，recall 分辨率只有 1/11，样本量小，不能外推；再报新数字须先写 holdout8（ISSUE-020/021）。
+- **已知漏报**：当前没有（holdout4 的 H39、holdout5 的 H41 在 `version: 6` 修好；holdout6 的 H53/H55/H61 在 `version: 7` 修好；holdout7 的 H65/H66/H67/H69 在 `version: 8` 修好）；但 12 份样本只有 11 个现象，recall 分辨率 1/11，下一批应新写 holdout8（建议真实脱敏业务件或中英混排新句式）先跑基线再报数，而不是直接调权重或放宽正则（ISSUE-021）。
 - 未配置 `LLM_API_KEY` 时抽取降级：文本规则照常跑，字段规则跳过；解释也回退为规则理由（报告有 limitation）。
 - 条款数超过 `MAX_EXTRACT_CLAUSES`（默认 40）时只抽取部分条款，字段规则跳过；长合同精度有限。
 - **中文 PDF / 复杂版式未验证**；真实模型抽取与解释效果**无数据**。
@@ -368,9 +369,8 @@ docs/devlog/             # 项目状态、调研、ADR、开发日志、交接�
 - HITL 超时是惰性检查（`GET` 时判定），不是后台定时任务；pending 时间戳已落盘，进程重启后仍可判定。
 - **多智能体与工具层默认关闭，且只增解释材料**：`AGENTS_ENABLED=true` 每次审查多 3 次专家调用，`TOOLS_ENABLED=true` 多 1 次规划 + ≤3 次执行；专家只给“值得注意的点 / 修改方向 / 引文”，不改 `rule_id` 与等级，也不参与人工审批载荷；专家之间**不互相协商**（各自看条款，汇合节点只做排序与状态汇总）。真实外部数据（制裁名单 / 汇率 / HS 编码 / 征信）**未接**，需密钥与授权（ISSUE-032）。
 - **MCP 是外部子进程信任边界**：只跑 `.env` 里配置的 stdio 命令（`shell=False`、只读约定、超时杀进程、单行 ≤1 MB），但子进程自身能力不受本项目控制；服务器不可达只会注册 `<server>/unavailable` 占位工具，不阻塞审查。对外部署前需再评估（ISSUE-032）。
-- **指标口径**：对外只引用 holdout6 的**盲测基线**（`eval/results/rules-holdout6-baseline-20261028.json`，12 份纯英文 / 11 个现象，`P=1.00 / R=0.727 / F1=0.842`），并注明“silver gold 待人工复核、样本 12 份、规则 version 7、漏报 H53/H55/H61（已修，修后数字只作回归）”。主集（50 份）`P/R=1.0` 是**同分布**产物（规则就是在该批合同上设计的）；holdout、holdout2、holdout3、holdout4、holdout5、holdout6（修后）六批都已被用于定位缺陷，修复后即使全对也只是回归结果——两者都不能当准确率。
-- **留出集“消耗”规则**：一批留出集一旦被用来定位缺陷，就降级为回归守卫，下轮必须**另写新样本**才能对外报数（ADR-011 第 5/6 轮补充）；流程固定为“写新集 → 写 gold → 跑基线 → 才改规则”；`test_holdout5_hits_are_stable` 用 10 个现象 + H43/H52 干净对照钉住修改，`test_holdout6_hits_are_stable` 更进一步：**先按基线把三个漏报写成空集合**（跑通即基线快照），修完再跑必然失败并点名 H53/H55/H61，此时才翻表降级。
-- **已知漏报**：当前没有（holdout4 的 H39、holdout5 的 H41 在 `version: 6` 修好；holdout6 的 H53/H55/H61 在 `version: 7` 修好）；但 12 份样本只有 11 个现象，recall 分辨率 1/11，下一轮应新写 holdout7（建议中英混合，专攻被动语态与跨句写法）再报数，而不是直接调权重或放宽正则（ISSUE-021）。
+- **指标口径**：对外只引用 holdout7 的**盲测基线**（`eval/results/rules-holdout7-baseline-20261029.json`，12 份中英混合 / 11 个现象，`P=1.00 / R=0.636 / F1=0.778`），并注明“silver gold 待人工复核、样本 12 份、规则 `version: 7`（改规则之前跑）、漏报 H65/H66/H67/H69 已在 `version: 8` 修好（修后数字只作回归）”；holdout6 基线（`rules-holdout6-baseline-20261028.json`，`P=1.00 / R=0.727 / F1=0.842`）与 holdout5 基线留作历史记录。主集（50 份）`P/R=1.0` 是**同分布**产物（规则就是在该批合同上设计的）；holdout1–7 **七批全部已消耗**，修复后即使全对也只是回归结果——都不能当准确率。
+- **留出集“消耗”规则**：一批留出集一旦被用来定位缺陷，就降级为回归守卫，下轮必须**另写新样本**才能对外报数（ADR-011 第 5/6/7 轮补充）；流程固定为“写新集 → 写 gold → 跑基线 → 才改规则”；`test_holdout5_hits_are_stable`（10 个现象 + H43/H52 干净对照）、`test_holdout6_hits_are_stable`、`test_holdout7_hits_are_stable` 更进一步：**先按基线把漏报写成空集合**（跑通即基线快照），修完再跑必然失败并点名，此时才翻表降级。
 - 任何对外指标必须来自 `eval/results/*.json`，并注明样本、规则版本、日期、命令（ADR-011）。
 
 ## 第三方代码与许可

@@ -1,4 +1,4 @@
-# 规则集（阶段 3：5 条文本规则 + 2 条依赖抽取字段的规则；阶段 4 扩充 6 条文本规则）
+﻿# 规则集（阶段 3：5 条文本规则 + 2 条依赖抽取字段的规则；阶段 4 扩充 6 条文本规则）
 # 契约：app/rules/engine.py 的 RuleDefinition（rule_id/title/category/risk_level/reason/
 #       suggestion/requires_fields/requires_extraction/condition/source）
 # 说明：
@@ -28,8 +28,14 @@
 #   “pay the entire contract price before shipment”未写“in advance”。
 #   盲测基线（改规则之前）= P=1.00 / R=0.727 / F1=0.842；修后本批降级为回归集，
 #   另写 holdout7 才能再对外报数（ADR-011 第 5/6 轮补充）。
+# - version 8（阶段 4 第 7 轮第二步，ISSUE-021 第 5 步）：修 holdout7（H65–H76，中英混合）暴露的
+#   4 个写法缺口——H65 “the ocean freight … shall be for the Seller's account”（迂回语态，R-INC-001）、
+#   H66 仲裁句与法院句分属两句（跨句“或裁或审”，R-DIS-003）、H67 中文“装运前一次性支付合同项下全部价款”
+#   （R-PAY-001）、H69 “bring the matter before the courts”（R-DIS-004）。
+#   盲测基线（改规则之前）= P=1.00 / R=0.636 / F1=0.778；修后 holdout7 降级为回归集，
+#   下一批对外数字须来自新写的 holdout8。
 
-version: 7
+version: 8
 
 rules:
   - rule_id: R-TRD-001
@@ -78,8 +84,13 @@ rules:
           # 只收 entire/full/whole/100% of the 这种“全部”限定，避免把
           # “the balance shall be paid before shipment”（分期付款的正常约定）误判为全额预付。
           pattern: "(?:entire|full|whole|100\\s*%\\s*of\\s*the)\\s+(?:contract\\s+)?(?:price|value|amount|payment)[^.]{0,80}?(?:in\\s+advance|before\\s+(?:shipment|delivery|dispatch)|prior\\s+to\\s+(?:shipment|delivery)|upon\\s+signing)"
+        - type: regex_match
+          # 中文同义写法（holdout7 H67）：“买方应于装运前一次性支付合同项下全部价款”。
+          # 两个条件都要：①装运/发货/交货/出运前；②“一次性/一次支付”+“全部/全额价款”。
+          # 末尾负向断言排除“装运前一次性支付全部价款的 30%”这类分期写法（后面紧跟百分比即不算全额）。
+          pattern: "(?:(?:装运|发货|交货|出运|交付)前[^。]{0,24}?(?:一次性|一次|全额)?\\s*支付[^。]{0,24}?(?:全部|全额)(?:价款|货款|款项|合同价)(?![^。]{0,6}\\d{1,3}\\s*%)|(?:一次性|一次)\\s*支付[^。]{0,24}?(?:全部|全额)(?:价款|货款|款项)(?![^。]{0,6}\\d{1,3}\\s*%)[^。]{0,24}?(?:装运|发货|交货|出运)前)"
     source: 国际贸易付款风险控制惯例（业务规则）
-    version: "1.0"
+    version: "1.1"
 
   - rule_id: R-PAY-002
     title: 未约定付款方式或付款节点
@@ -191,8 +202,15 @@ rules:
           # 连接词后允许逗号（holdout6 H55：“the SIAC Rules or, at the Buyer's option,
           # by proceedings in the courts of Singapore”）。
           pattern: "arbitrat[a-z]*[^.]{0,120}?\\s+or[,\\s]\\s*[^.]{0,80}?(?:court|litigat[a-z]*)"
+        - type: regex_match
+          # 跨句写法（holdout7 H66）：仲裁句先结束（“… under the HKIAC Administered Arbitration Rules.”），
+          # 下一句才写“If the dispute has not been resolved …, either party may commence proceedings in the courts …”。
+          # 两个限制防止误报：
+          # ① 中间不许出现 “award”——出现即属“裁决后起诉”，该由 R-DIS-004 判（holdout4 H39 / holdout5 H41 实测）；
+          # ② 中间不许出现新的条/条号标题（第N条 / Article N / Clause N），把跨句限制在同一争议解决条款内。
+          pattern: "arbitrat[a-z]*[^.]{0,140}?\\.(?:(?!(?:award|第[一二三四五六七八九十百\\d]+条|Article\\s+\\d+|Clause\\s+\\d+))[\\s\\S]){0,200}?(?:either\\s+party|a\\s+party|the\\s+(?:buyer|seller|claimant|respondent|parties))[^.]{0,100}?(?:commence|bring\\s+(?:an\\s+)?(?:action|suit|proceedings?)|file|initiate|sue\\b|litigat[a-z]*|submit)[^.]{0,100}?(?:court|litigat[a-z]*)"
     source: 国际货物销售合同常见争议点：“或裁或审”条款效力（业务规则）
-    version: "1.1"
+    version: "1.2"
 
   - rule_id: R-DIS-004
     title: 约定仲裁裁决后仍可向法院起诉（“先裁后审”）
@@ -217,9 +235,11 @@ rules:
           # 情态动词后可插时间状语（“may, within forty-five (45) days after the award is issued,
           # bring an action”）：holdout4 H39 与 holdout5 H41 都是这一写法，故允许 80 字符以内的间隔
           # （用 \\s* 而非 \\s+，因为状语前通常是逗号而不是空白）。
-          pattern: "award[^.]{0,140}?\\s+(?:may|shall|can|could)\\s*[^.]{0,80}?(?:bring\\s+(?:an\\s+)?(?:action|suit|proceedings?)|file\\s+(?:a\\s+)?(?:lawsuit|suit|claim)|commence\\s+(?:an\\s+)?(?:action|proceedings?|litigation)|appeal[a-z]*|sue\\b|litigat[a-z]*|submit[a-z]*[^.]{0,40}?\\s+to\\s+(?:the\\s+)?(?:competent\\s+)?court)"
+          # “bring the matter/dispute/case before the court”也是同一语义的写法（holdout7 H69）；
+          # 仍不收 “enforced in any court” 与 “set aside” 两类法定救济。
+          pattern: "award[^.]{0,140}?\\s+(?:may|shall|can|could)\\s*[^.]{0,80}?(?:bring\\s+(?:an\\s+)?(?:action|suit|proceedings?)|bring\\s+(?:the\\s+)?(?:matter|dispute|case)\\s+(?:before|to)\\s+(?:the\\s+)?courts?|file\\s+(?:a\\s+)?(?:lawsuit|suit|claim)|commence\\s+(?:an\\s+)?(?:action|proceedings?|litigation)|appeal[a-z]*|sue\\b|litigat[a-z]*|submit[a-z]*[^.]{0,40}?\\s+to\\s+(?:the\\s+)?(?:competent\\s+)?court)"
     source: 国际货物销售合同常见争议点：仲裁终局性与后续诉讼（业务规则）
-    version: "1.2"
+    version: "1.3"
 
   - rule_id: R-INS-001
     title: CIF/CIP 约定投保但未写明保险金额或比例
@@ -285,8 +305,13 @@ rules:
           # 不收裸 “pay”，避免把“Seller shall arrange shipment and the Buyer shall pay the freight”
           # 误读成卖方付运费（买方付运费的 FOB 是正常约定）。
           pattern: "(?<![A-Za-z])(?:FOB|EXW|FCA)(?![A-Za-z])[\\s\\S]{0,260}(?:seller|卖方)[^.]{0,40}?(?:arrange\\s+and\\s+pay\\s+for|pay\\s+for|prepay|bear|defray)[^.]{0,24}?(?:ocean\\s+freight|sea\\s+freight|freight|carriage)"
+        - type: regex_match
+          # 迂回语态（holdout7 H65）：“The ocean freight … shall be for the Seller's account”。
+          # 只认“运费 + 记在卖方账上/由卖方承担费用”这一组合，不认 “for the Buyer's account”
+          # （FOB 下买方付运费是正常约定）；“at the Seller's risk” 也不收，风险不等于运费承担。
+          pattern: "(?<![A-Za-z])(?:FOB|EXW|FCA)(?![A-Za-z])[\\s\\S]{0,260}(?:freight|carriage)[^.]{0,40}?(?:shall\\s+be|is|are|will\\s+be|to\\s+be)\\s+(?:for\\s+(?:the\\s+)?seller'?s?\\s+account|at\\s+(?:the\\s+)?seller'?s?\\s+(?:expense|cost))"
     source: Incoterms® 2020 术语与费用条款一致性（业务规则）
-    version: "1.2"
+    version: "1.3"
 
   - rule_id: R-INC-002
     title: FOB/EXW 用于整箱集装箱货物

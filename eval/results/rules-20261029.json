@@ -1,0 +1,1154 @@
+{
+  "generated_at": "2026-10-29T02:45:17.246126+00:00",
+  "rule_engine_version": "0.1.0",
+  "rule_count": 13,
+  "contract_count": 50,
+  "contracts_with_hits": 11,
+  "contracts_without_hits": [
+    "C01",
+    "C02",
+    "C03",
+    "C05",
+    "C06",
+    "C07",
+    "C08",
+    "C10",
+    "C12",
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C17",
+    "C18",
+    "C19",
+    "C20",
+    "C21",
+    "C22",
+    "C24",
+    "C25",
+    "C26",
+    "C27",
+    "C28",
+    "C29",
+    "C30",
+    "C31",
+    "C32",
+    "C33",
+    "C34",
+    "C35",
+    "C36",
+    "C37",
+    "C38",
+    "C44",
+    "C45",
+    "C46",
+    "C49",
+    "C50"
+  ],
+  "level_counts": {
+    "pass": 39,
+    "yellow": 9,
+    "red": 2
+  },
+  "hit_counts": {
+    "R-INS-001": 1,
+    "R-INP-002": 1,
+    "R-INC-001": 1,
+    "R-INC-002": 1,
+    "R-PAY-002": 5,
+    "R-DIS-003": 1,
+    "R-DIS-004": 1
+  },
+  "note": "规则级评测只反映确定性规则的触发情况；“未命中”不等于无风险，gold 的 expected_recall 是检索期望，不是规则判级标签。",
+  "contracts": [
+    {
+      "contract_id": "C01",
+      "scenario": "FOB Shanghai（固定14天通知期限）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 10,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C02",
+      "scenario": "FOB Ningbo（无检验条款 + 买方单方委托SGS）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 6,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C03",
+      "scenario": "CFR Hamburg（合同保证期24个月 + 第39(2)条两年期限）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 7,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C04",
+      "scenario": "CIF Rotterdam（仅写“一切险”，未约定保额）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "yellow",
+      "extraction_status": "degraded",
+      "clause_count": 8,
+      "rule_hits": [
+        {
+          "rule_id": "R-INS-001",
+          "risk_level": "yellow",
+          "clause_ids": [
+            "C002"
+          ]
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C05",
+      "scenario": "CIF Genoa（明示ICC(C)，保额110%）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 9,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C06",
+      "scenario": "FOB Qingdao（再发运第三国 + 检验推迟）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 8,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C07",
+      "scenario": "CFR Los Angeles（特定目的通知）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 8,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C08",
+      "scenario": "FOB Tianjin（买方缔约前已检验样品 + 第35(3)条）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 8,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C09",
+      "scenario": "CIF Singapore（易腐品 + 极短检验期）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "yellow",
+      "extraction_status": "degraded",
+      "clause_count": 8,
+      "rule_hits": [
+        {
+          "rule_id": "R-INP-002",
+          "risk_level": "yellow",
+          "clause_ids": [
+            "C004"
+          ]
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C10",
+      "scenario": "FOB Shanghai（FOB stowed and trimmed）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 9,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C11",
+      "scenario": "CFR Antwerp（合同标题写FOB，运费安排指向CFR）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "yellow",
+      "extraction_status": "degraded",
+      "clause_count": 8,
+      "rule_hits": [
+        {
+          "rule_id": "R-INC-001",
+          "risk_level": "yellow",
+          "clause_ids": [
+            "C000"
+          ]
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C12",
+      "scenario": "CIF Hamburg（ICC(C) + 偷窃损失）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 8,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C13",
+      "scenario": "FOB Shenzhen（超过两年通知 + 第39(2)条失权）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 6,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C14",
+      "scenario": "CFR New York（第40条：卖方知道或不可能不知道且未披露）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 6,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C15",
+      "scenario": "CIF Shanghai（进口方为中国公司 + 未排除CISG）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 6,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C16",
+      "scenario": "FCA Shanghai（卖方场所交货，装货义务归卖方）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 12,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C17",
+      "scenario": "FCA Ningbo Port（码头交货，装货义务归买方/承运人）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 12,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C18",
+      "scenario": "CPT Hamburg（多式联运，风险交第一承运人时转移）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 11,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C19",
+      "scenario": "CIP Rotterdam（ICC(A)，保额110%）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 12,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C20",
+      "scenario": "CIP Genoa（ICC(C)，合同标题误写CIF Insurance）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 7,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C21",
+      "scenario": "FCA Shanghai（FCA + 已装船提单附加义务）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 10,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C22",
+      "scenario": "CPT Chicago（合同误写CFR，实际为集装箱多式联运）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 8,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C23",
+      "scenario": "FCA Shenzhen（合同误写FOB，集装箱场景）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "yellow",
+      "extraction_status": "degraded",
+      "clause_count": 8,
+      "rule_hits": [
+        {
+          "rule_id": "R-INC-002",
+          "risk_level": "yellow",
+          "clause_ids": [
+            "C000"
+          ]
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C24",
+      "scenario": "CIP Singapore（多式联运，风险转移早于目的地）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 9,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C25",
+      "scenario": "CPT Los Angeles（未约定具体交货点，第31(a)条补充）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 8,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C26",
+      "scenario": "DAP Shanghai（卸货归买方，进口清关归买方）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 10,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C27",
+      "scenario": "DPU Hamburg（卸货归卖方，进口清关归买方）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 11,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C28",
+      "scenario": "DDP New York（进口清关归卖方，卸货仍归买方）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 10,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C29",
+      "scenario": "DDP São Paulo（卖方无进口记录人资格）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 15,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C30",
+      "scenario": "DAP Rotterdam（目的地无卸货设备，DAP vs DPU选择错误）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 15,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C31",
+      "scenario": "DDP Mumbai（代理清关 + 海关事后稽查责任回溯缺失）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 14,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C32",
+      "scenario": "DPU Los Angeles（卖方卸货过程中造成货损）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 13,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C33",
+      "scenario": "DAP Johannesburg（进口清关归买方，但买方无清关能力）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 12,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C34",
+      "scenario": "EXW Shanghai（卖方不装货，出口清关归买方）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 12,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C35",
+      "scenario": "EXW Ningbo（买方无法在出口国清关）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 11,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C36",
+      "scenario": "FAS Shanghai（船边交货，装船义务归买方）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 11,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C37",
+      "scenario": "FAS Qingdao（风险在“置于船边”时转移，叠加船舶迟延）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 8,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C38",
+      "scenario": "EXW Shenzhen（卖方仅备货，买方安排全程运输）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 10,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C39",
+      "scenario": "FOB Shanghai（货物+安装服务，服务价值占比40%）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "yellow",
+      "extraction_status": "degraded",
+      "clause_count": 9,
+      "rule_hits": [
+        {
+          "rule_id": "R-PAY-002",
+          "risk_level": "yellow",
+          "clause_ids": []
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C40",
+      "scenario": "CIF Hamburg（货物+技术培训，服务为主）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "yellow",
+      "extraction_status": "degraded",
+      "clause_count": 8,
+      "rule_hits": [
+        {
+          "rule_id": "R-PAY-002",
+          "risk_level": "yellow",
+          "clause_ids": []
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C41",
+      "scenario": "CPT Rotterdam（买方供应核心部件，第3(1)条）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "yellow",
+      "extraction_status": "degraded",
+      "clause_count": 8,
+      "rule_hits": [
+        {
+          "rule_id": "R-PAY-002",
+          "risk_level": "yellow",
+          "clause_ids": []
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C42",
+      "scenario": "FCA Shenzhen（软件许可+硬件销售，服务为主）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "yellow",
+      "extraction_status": "degraded",
+      "clause_count": 7,
+      "rule_hits": [
+        {
+          "rule_id": "R-PAY-002",
+          "risk_level": "yellow",
+          "clause_ids": []
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C43",
+      "scenario": "DAP New York（设备销售+调试服务）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "yellow",
+      "extraction_status": "degraded",
+      "clause_count": 9,
+      "rule_hits": [
+        {
+          "rule_id": "R-PAY-002",
+          "risk_level": "yellow",
+          "clause_ids": []
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C44",
+      "scenario": "FOB Shanghai（选中国法，未排除CISG）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 28,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C45",
+      "scenario": "FOB Shanghai（选中国法，明示排除CISG）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 24,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C46",
+      "scenario": "CIF Hamburg（选德国法，未排除CISG）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 16,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C47",
+      "scenario": "CFR New York（仲裁条款“或裁或审”）",
+      "status": "running",
+      "awaiting_human": true,
+      "overall_level": "red",
+      "extraction_status": "degraded",
+      "clause_count": 9,
+      "rule_hits": [
+        {
+          "rule_id": "R-DIS-003",
+          "risk_level": "red",
+          "clause_ids": [
+            "C008"
+          ]
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C48",
+      "scenario": "CPT London（仲裁条款“先裁后审”）",
+      "status": "running",
+      "awaiting_human": true,
+      "overall_level": "red",
+      "extraction_status": "degraded",
+      "clause_count": 9,
+      "rule_hits": [
+        {
+          "rule_id": "R-DIS-004",
+          "risk_level": "red",
+          "clause_ids": [
+            "C008"
+          ]
+        }
+      ],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C49",
+      "scenario": "FCA Shanghai（约定中国法院但未写“非排他”）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 11,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    },
+    {
+      "contract_id": "C50",
+      "scenario": "DDP Dubai（制裁条款缺失 + 不可抗力未列举制裁）",
+      "status": "completed",
+      "awaiting_human": false,
+      "overall_level": "pass",
+      "extraction_status": "degraded",
+      "clause_count": 17,
+      "rule_hits": [],
+      "skipped": [
+        "R-DLV-001",
+        "R-INP-001"
+      ]
+    }
+  ],
+  "metrics": {
+    "gold_provenance": "silver：AI 初标（Trae AI 阅读 data/contracts/ 全文后标注），待人工复核；不是独立人工标注 gold",
+    "gold_version": 1,
+    "scored_rules": {
+      "R-TRD-001": "yellow",
+      "R-PAY-001": "red",
+      "R-PAY-002": "yellow",
+      "R-DIS-001": "red",
+      "R-DIS-002": "red",
+      "R-DIS-003": "red",
+      "R-DIS-004": "red",
+      "R-INS-001": "yellow",
+      "R-INC-001": "yellow",
+      "R-INC-002": "yellow",
+      "R-INP-002": "yellow"
+    },
+    "unscored_rules": {
+      "R-DLV-001": "依赖 LLM 抽取字段 delivery_date；评测不调用 LLM，运行时为 skipped，不参与判级指标",
+      "R-INP-001": "依赖 LLM 抽取字段 inspection_standard；同上"
+    },
+    "rule_level": {
+      "scored_rule_count": 11,
+      "micro": {
+        "tp": 11,
+        "fp": 0,
+        "fn": 0,
+        "tn": 539,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "level_agreement": 1.0
+      },
+      "per_rule": {
+        "R-TRD-001": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 50,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "level_agreement": null
+        },
+        "R-PAY-001": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 50,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "level_agreement": null
+        },
+        "R-PAY-002": {
+          "tp": 5,
+          "fp": 0,
+          "fn": 0,
+          "tn": 45,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-DIS-001": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 50,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "level_agreement": null
+        },
+        "R-DIS-002": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "tn": 50,
+          "precision": null,
+          "recall": null,
+          "f1": null,
+          "level_agreement": null
+        },
+        "R-DIS-003": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 49,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-DIS-004": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 49,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-INS-001": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 49,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-INC-001": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 49,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-INC-002": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 49,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        },
+        "R-INP-002": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "tn": 49,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "level_agreement": 1.0
+        }
+      },
+      "false_positives": [],
+      "false_negatives": [],
+      "true_positives": [
+        {
+          "contract_id": "C39",
+          "rule_id": "R-PAY-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C40",
+          "rule_id": "R-PAY-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C41",
+          "rule_id": "R-PAY-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C42",
+          "rule_id": "R-PAY-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C43",
+          "rule_id": "R-PAY-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C47",
+          "rule_id": "R-DIS-003",
+          "gold_level": "red",
+          "predicted_level": "red"
+        },
+        {
+          "contract_id": "C48",
+          "rule_id": "R-DIS-004",
+          "gold_level": "red",
+          "predicted_level": "red"
+        },
+        {
+          "contract_id": "C04",
+          "rule_id": "R-INS-001",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C11",
+          "rule_id": "R-INC-001",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C23",
+          "rule_id": "R-INC-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        },
+        {
+          "contract_id": "C09",
+          "rule_id": "R-INP-002",
+          "gold_level": "yellow",
+          "predicted_level": "yellow"
+        }
+      ]
+    },
+    "contract_level": {
+      "tp": 11,
+      "fp": 0,
+      "fn": 3,
+      "tn": 36,
+      "precision": 1.0,
+      "recall": 0.7857,
+      "f1": 0.88,
+      "level_agreement": 1.0,
+      "false_positive_contracts": [],
+      "false_negative_contracts": [
+        "C03",
+        "C13",
+        "C14"
+      ]
+    },
+    "coverage": {
+      "phenomena_total": 21,
+      "phenomena_covered": 11,
+      "phenomena_uncovered": 10,
+      "coverage_rate": 0.5238,
+      "covered_by_rule": {
+        "R-DIS-003": 1,
+        "R-DIS-004": 1,
+        "R-INC-001": 1,
+        "R-INC-002": 1,
+        "R-INP-002": 1,
+        "R-INS-001": 1,
+        "R-PAY-002": 5
+      },
+      "note": "覆盖率=有对应规则的现象数/现象总数；识别能力看 rule_level.recall，两者不能混读。",
+      "uncovered": [
+        {
+          "contract_id": "C39",
+          "phenomenon": "合同未约定不可抗力条款",
+          "level": "yellow",
+          "evidence": "全文无『不可抗力』或 force majeure 表述"
+        },
+        {
+          "contract_id": "C40",
+          "phenomenon": "合同未约定不可抗力条款",
+          "level": "yellow",
+          "evidence": "全文无『不可抗力』或 force majeure 表述"
+        },
+        {
+          "contract_id": "C41",
+          "phenomenon": "合同未约定不可抗力条款",
+          "level": "yellow",
+          "evidence": "全文无『不可抗力』或 force majeure 表述"
+        },
+        {
+          "contract_id": "C41",
+          "phenomenon": "纯货物交付合同中未约定检验/验收条款，质量争议缺少约定依据",
+          "level": "yellow",
+          "evidence": "全文无『检验』『验收』表述"
+        },
+        {
+          "contract_id": "C42",
+          "phenomenon": "合同未约定不可抗力条款",
+          "level": "yellow",
+          "evidence": "全文无『不可抗力』或 force majeure 表述"
+        },
+        {
+          "contract_id": "C42",
+          "phenomenon": "硬件交付部分未约定检验/验收条款",
+          "level": "yellow",
+          "evidence": "全文无『检验』『验收』表述"
+        },
+        {
+          "contract_id": "C43",
+          "phenomenon": "合同未约定不可抗力条款",
+          "level": "yellow",
+          "evidence": "全文无『不可抗力』或 force majeure 表述（仅有调试合格标准）"
+        },
+        {
+          "contract_id": "C03",
+          "phenomenon": "纯货物合同中未约定检验/验收条款，买方质量主张缺少约定依据",
+          "level": "yellow",
+          "evidence": "仅有第5条质量保证期与第6条通知，无检验/验收安排"
+        },
+        {
+          "contract_id": "C13",
+          "phenomenon": "纯货物合同中未约定检验/验收条款（仅陈述通知事实）",
+          "level": "yellow",
+          "evidence": "第5条为『通知事实』，全文无检验/验收安排"
+        },
+        {
+          "contract_id": "C14",
+          "phenomenon": "纯货物合同中未约定检验/验收条款（仅陈述卖方知情事实）",
+          "level": "yellow",
+          "evidence": "第5条为『卖方知情与未披露』，全文无检验/验收安排"
+        }
+      ]
+    },
+    "note": "silver gold（AI 初标、待人工复核），规则与 gold 同源阅读，rule_level 指标主要用于回归守卫，不代表独立准确率；contract_level 与 coverage 用于暴露规则覆盖缺口。"
+  }
+}
