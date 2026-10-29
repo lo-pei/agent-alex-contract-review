@@ -34,8 +34,16 @@
 #   （R-PAY-001）、H69 “bring the matter before the courts”（R-DIS-004）。
 #   盲测基线（改规则之前）= P=1.00 / R=0.636 / F1=0.778；修后 holdout7 降级为回归集，
 #   下一批对外数字须来自新写的 holdout8。
+# - version 9（阶段 4 第 9 轮，ISSUE-021 第 7 步）：修 holdout8（H77–H88，中英混合）盲测基线暴露的
+#   5 个写法缺口——H77 “The ocean freight … is on the Seller's account”（介词短语，R-INC-001）、
+#   H78 “refer the dispute to the courts”（跨句，动词是 refer，R-DIS-003）、
+#   H79 中文“付清全部货款；卖方在收到全部货款后安排装运”（R-PAY-001）、
+#   H80 “对裁决不服的一方…向…法院提起上诉”（R-DIS-004）、
+#   H83 “inspect … immediately upon discharge / notify … on the same day”（R-INP-002）。
+#   基线（改规则之前）= P=1.00 / R=0.545 / F1=0.706；修后 holdout8 降级为回归集，
+#   再报新数字须先写 holdout9。
 
-version: 8
+version: 9
 
 rules:
   - rule_id: R-TRD-001
@@ -89,8 +97,13 @@ rules:
           # 两个条件都要：①装运/发货/交货/出运前；②“一次性/一次支付”+“全部/全额价款”。
           # 末尾负向断言排除“装运前一次性支付全部价款的 30%”这类分期写法（后面紧跟百分比即不算全额）。
           pattern: "(?:(?:装运|发货|交货|出运|交付)前[^。]{0,24}?(?:一次性|一次|全额)?\\s*支付[^。]{0,24}?(?:全部|全额)(?:价款|货款|款项|合同价)(?![^。]{0,6}\\d{1,3}\\s*%)|(?:一次性|一次)\\s*支付[^。]{0,24}?(?:全部|全额)(?:价款|货款|款项)(?![^。]{0,6}\\d{1,3}\\s*%)[^。]{0,24}?(?:装运|发货|交货|出运)前)"
+        - type: regex_match
+          # 中文“先收全款再发货”（holdout8 H79）：“买方应于本合同签订后七个工作日内付清全部货款；
+          # 卖方在收到全部货款后安排装运”。不依赖“一次性/装运前”这类措辞，直接认
+          # “收到/收讫 + 全部货款 + 后/再 + 装运/发货”，语义上就是全额预付。
+          pattern: "(?:收到|收讫)[^。]{0,12}?(?:全部|全额)(?:价款|货款|款项)[^。]{0,20}?(?:后|再)[^。]{0,24}?(?:装运|发货|出运|交货)"
     source: 国际贸易付款风险控制惯例（业务规则）
-    version: "1.1"
+    version: "1.2"
 
   - rule_id: R-PAY-002
     title: 未约定付款方式或付款节点
@@ -208,9 +221,11 @@ rules:
           # 两个限制防止误报：
           # ① 中间不许出现 “award”——出现即属“裁决后起诉”，该由 R-DIS-004 判（holdout4 H39 / holdout5 H41 实测）；
           # ② 中间不许出现新的条/条号标题（第N条 / Article N / Clause N），把跨句限制在同一争议解决条款内。
-          pattern: "arbitrat[a-z]*[^.]{0,140}?\\.(?:(?!(?:award|第[一二三四五六七八九十百\\d]+条|Article\\s+\\d+|Clause\\s+\\d+))[\\s\\S]){0,200}?(?:either\\s+party|a\\s+party|the\\s+(?:buyer|seller|claimant|respondent|parties))[^.]{0,100}?(?:commence|bring\\s+(?:an\\s+)?(?:action|suit|proceedings?)|file|initiate|sue\\b|litigat[a-z]*|submit)[^.]{0,100}?(?:court|litigat[a-z]*)"
+          # ③ 动词集合补 refer（holdout8 H78：“Alternatively, the Buyer may refer the dispute to the courts of Singapore.”）；
+          #    用 \\brefer 而不是裸 refer，避免把 prefer 当成 refer。
+          pattern: "arbitrat[a-z]*[^.]{0,140}?\\.(?:(?!(?:award|第[一二三四五六七八九十百\\d]+条|Article\\s+\\d+|Clause\\s+\\d+))[\\s\\S]){0,200}?(?:either\\s+party|a\\s+party|the\\s+(?:buyer|seller|claimant|respondent|parties))[^.]{0,100}?(?:commence|bring\\s+(?:an\\s+)?(?:action|suit|proceedings?)|\\brefer[a-z]*|file|initiate|sue\\b|litigat[a-z]*|submit)[^.]{0,100}?(?:court|litigat[a-z]*)"
     source: 国际货物销售合同常见争议点：“或裁或审”条款效力（业务规则）
-    version: "1.2"
+    version: "1.3"
 
   - rule_id: R-DIS-004
     title: 约定仲裁裁决后仍可向法院起诉（“先裁后审”）
@@ -229,6 +244,11 @@ rules:
         - type: regex_match
           pattern: "仲裁裁决[^。]{0,30}后[^。]{0,60}(?:人民法院|法院|诉讼)"
         - type: regex_match
+          # 中文“对裁决不服 + 向法院上诉/起诉”（holdout8 H80）：“仲裁庭的裁决为终局裁决…
+          # 对该裁决不服的一方，可以在收到裁决书之日起三十日内向新加坡高等法院提起上诉。”
+          # 只认“向…法院…上诉/起诉/诉讼”；“申请撤销裁决”属于法定救济（holdout4 H32 / holdout5 H52），不收。
+          pattern: "不服[^。]{0,80}?向[^。]{0,20}?法院[^。]{0,12}?(?:上诉|起诉|诉讼)"
+        - type: regex_match
           # 英文：裁决之后仍可 bring/file/commence/appeal/litigate/submit … court。
           # 刻意不收 “may be enforced in any court”（裁决的法定执行，属正常条款），
           # 也不收 “may be set aside / apply to set aside”（撤销裁决的法定救济）。
@@ -239,7 +259,7 @@ rules:
           # 仍不收 “enforced in any court” 与 “set aside” 两类法定救济。
           pattern: "award[^.]{0,140}?\\s+(?:may|shall|can|could)\\s*[^.]{0,80}?(?:bring\\s+(?:an\\s+)?(?:action|suit|proceedings?)|bring\\s+(?:the\\s+)?(?:matter|dispute|case)\\s+(?:before|to)\\s+(?:the\\s+)?courts?|file\\s+(?:a\\s+)?(?:lawsuit|suit|claim)|commence\\s+(?:an\\s+)?(?:action|proceedings?|litigation)|appeal[a-z]*|sue\\b|litigat[a-z]*|submit[a-z]*[^.]{0,40}?\\s+to\\s+(?:the\\s+)?(?:competent\\s+)?court)"
     source: 国际货物销售合同常见争议点：仲裁终局性与后续诉讼（业务规则）
-    version: "1.3"
+    version: "1.4"
 
   - rule_id: R-INS-001
     title: CIF/CIP 约定投保但未写明保险金额或比例
@@ -309,9 +329,11 @@ rules:
           # 迂回语态（holdout7 H65）：“The ocean freight … shall be for the Seller's account”。
           # 只认“运费 + 记在卖方账上/由卖方承担费用”这一组合，不认 “for the Buyer's account”
           # （FOB 下买方付运费是正常约定）；“at the Seller's risk” 也不收，风险不等于运费承担。
-          pattern: "(?<![A-Za-z])(?:FOB|EXW|FCA)(?![A-Za-z])[\\s\\S]{0,260}(?:freight|carriage)[^.]{0,40}?(?:shall\\s+be|is|are|will\\s+be|to\\s+be)\\s+(?:for\\s+(?:the\\s+)?seller'?s?\\s+account|at\\s+(?:the\\s+)?seller'?s?\\s+(?:expense|cost))"
+          # 介词短语（holdout8 H77）：“The ocean freight … is on the Seller's account”，故 (?:for|on)；
+          # 同时保留 “at the Seller's expense / cost” 这一分支（语料里暂无，但属于常见写法，不能悄悄丢能力）。
+          pattern: "(?<![A-Za-z])(?:FOB|EXW|FCA)(?![A-Za-z])[\\s\\S]{0,260}(?:freight|carriage)[^.]{0,40}?(?:shall\\s+be|is|are|will\\s+be|to\\s+be)\\s+(?:(?:for|on)\\s+(?:the\\s+)?seller'?s?\\s+account|at\\s+(?:the\\s+)?seller'?s?\\s+(?:expense|cost))"
     source: Incoterms® 2020 术语与费用条款一致性（业务规则）
-    version: "1.3"
+    version: "1.4"
 
   - rule_id: R-INC-002
     title: FOB/EXW 用于整箱集装箱货物
@@ -353,5 +375,13 @@ rules:
         - type: regex_match
           # 反向语序：“inspect/examine … within 36 hours”（动词在前、期限在后），H24 即此结构
           pattern: "(?:inspect[a-z]*|examin[a-z]*|notif[a-z]*|notice|claim[a-z]*)[^.]{0,30}?(?:(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)-(?:one|two|three|four|five|six|seven|eight|nine)|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|\\d{1,2})\\s*(?:\\(\\s*\\d{1,2}\\s*\\)\\s*)?hours?"
+        - type: regex_match
+          # “立即检验”（holdout8 H83）：“The Buyer shall inspect the Goods immediately upon discharge …”。
+          # “卸货/到货即检验”没有给取证留出时间，与“小时计”同属极短期限；
+          # 只认 inspect/examine + immediately/forthwith/promptly + upon discharge/arrival/…
+          pattern: "inspect[a-z]*[^.]{0,40}?(?:immediately|forthwith|promptly)[^.]{0,12}?(?:up)?on\\s+(?:discharge|unloading|arrival|delivery|receipt)"
+        - type: regex_match
+          # “当日通知”（holdout8 H83 6.2）：“Any defect … shall be notified to the Seller on the same day.”
+          pattern: "notif[a-z]*[^.]{0,50}?\\bon\\s+the\\s+same\\s+day\\b"
     source: CISG 第 38/39 条检验与通知期限的可执行性（业务规则）
-    version: "1.2"
+    version: "1.3"

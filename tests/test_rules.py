@@ -964,12 +964,13 @@ EXPECTED_HOLDOUT8_HITS: dict[str, set[str]] = {
     "R-PAY-002": {"H85"},
     "R-DIS-002": {"H85"},
     "R-DIS-001": {"H86"},
-    # 以下五条是盲测基线漏报，留给下一次改规则时翻表（当前为空集合 = 基线快照）
-    "R-INC-001": set(),
-    "R-DIS-003": set(),
-    "R-PAY-001": set(),
-    "R-DIS-004": set(),
-    "R-INP-002": set(),
+    # 以下五条是盲测基线漏报，已在 `version: 9`（阶段 4 第 9 轮）按基线修好并翻表：
+    # 改规则后本测试先失败并把 H77/H78/H79/H80/H83 逐个点名，确认无误后才改成“必须命中”。
+    "R-INC-001": {"H77"},
+    "R-DIS-003": {"H78"},
+    "R-PAY-001": {"H79"},
+    "R-DIS-004": {"H80"},
+    "R-INP-002": {"H83"},
 }
 
 
@@ -992,6 +993,60 @@ def test_holdout8_hits_are_stable() -> None:
     # 是全条款合规的干净对照：后续放宽写法时不得引入误报。
     for name in ("H87", "H88"):
         state = _load_state(HOLDOUT8_DIR / f"{name}.md")
+        evaluations = evaluate_rules(
+            load_rules(), state.clauses, state.raw_text, extraction_available=False
+        )
+        assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == [], name
+
+
+HOLDOUT9_DIR = PROJECT_ROOT / "data" / "contracts_holdout9"
+
+#: holdout9（H89–H100，5 份英文 / 7 份中文）是阶段 4 第 9 轮修完 `version: 9` 之后**新写**的
+#: 盲测集（见 `data/eval/gold_holdout9.json` 的 `annotation_protocol`）。
+#: 盲测基线（规则 version 9，**改规则之前跑**）：`TP=6 FP=0 FN=5 TN=121`
+#: → P=1.00 / R=0.545 / F1=0.706，合同级 `TP=5 FP=0 FN=5`，漏报 H89（FOB 下
+#: “The price is inclusive of all freight charges up to Jebel Ali”）、H90（“Either party may
+#: instead elect to have any dispute decided by the courts …”）、H91（中文“全部合同价款一次性
+#: 汇入…确认收款后方可发运”，用“收款”而非“收到/收讫…全部货款”）、H92（“向有管辖权的人民法院
+#: 请求重新审理”，动词不是上诉/起诉）、H93（检验期限写成中文数字“二十四小时”，规则只认阿拉伯数字）。
+#: 按 ADR-011 留出纪律，本批的五个漏报先写成空集合（跑通即基线快照）；下一轮修完规则后
+#: 本测试必须失败并点名这五份合同，**此时才翻表降级**——本批自此只作回归守卫，
+#: 对外数字仍只引基线文件 `eval/results/rules-holdout9-baseline-20261029.json`。
+EXPECTED_HOLDOUT9_HITS: dict[str, set[str]] = {
+    "R-TRD-001": {"H96"},
+    "R-INC-002": {"H95"},
+    "R-INS-001": {"H94"},
+    "R-PAY-002": {"H97"},
+    "R-DIS-002": {"H97"},
+    "R-DIS-001": {"H98"},
+    # 以下五条是盲测基线漏报，留给下一轮改规则时翻表（当前为空集合 = 基线快照）
+    "R-INC-001": set(),
+    "R-DIS-003": set(),
+    "R-PAY-001": set(),
+    "R-DIS-004": set(),
+    "R-INP-002": set(),
+}
+
+
+def test_holdout9_hits_are_stable() -> None:
+    if not HOLDOUT9_DIR.is_dir():
+        pytest.skip("缺少 data/contracts_holdout9 目录")
+    rules = [rule for rule in load_rules() if rule.rule_id in EXPECTED_HOLDOUT9_HITS]
+    hits = {rule_id: set() for rule_id in EXPECTED_HOLDOUT9_HITS}
+    for path in sorted(HOLDOUT9_DIR.glob("H*.md")):
+        state = _load_state(path)
+        for evaluation in evaluate_rules(
+            rules, state.clauses, state.raw_text, extraction_available=False
+        ):
+            if evaluation.risk_level != "pass":
+                hits[evaluation.rule_id].add(path.stem)
+    assert hits == EXPECTED_HOLDOUT9_HITS
+
+    # H99（CFR + 买方投保 110% ICC(A) + 荷兰法 + NAI 仲裁）/
+    # H100（CIP + 110% ICC(A) + 中国法 + 上海仲裁）
+    # 是全条款合规的干净对照：后续放宽写法时不得引入误报。
+    for name in ("H99", "H100"):
+        state = _load_state(HOLDOUT9_DIR / f"{name}.md")
         evaluations = evaluate_rules(
             load_rules(), state.clauses, state.raw_text, extraction_available=False
         )
