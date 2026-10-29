@@ -890,3 +890,54 @@ def test_holdout6_hits_are_stable() -> None:
             load_rules(), state.clauses, state.raw_text, extraction_available=False
         )
         assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == [], name
+
+
+HOLDOUT7_DIR = PROJECT_ROOT / "data" / "contracts_holdout7"
+
+#: holdout7（H65–H76，12 份**中英混合**）是阶段 4 第 7 轮**改规则之前**写下的盲测集。
+#: 盲测基线（规则 version 7）：`TP=7 FP=0 FN=4 TN=121` → P=1.00 / R=0.636 / F1=0.778，
+#: 合同级 `TP=6 FP=0 FN=4`，漏报 H65（FOB 下“the ocean freight … shall be for the Seller's account”
+#: 的迂回写法）、H66（仲裁句与法院句分属两句的“或裁或审”）、H67（中文“装运前一次性支付…全部价款”）、
+#: H69（裁决后“bring the matter before the courts”）。
+#: 按 ADR-011 留出纪律，**本表先按基线把四个漏报写成空集合**：现在跑通即基线快照；
+#: 等第 7 轮按基线修规则后，本测试必然失败并点名这四份合同，届时才翻表降级。
+#: 对外数字只引基线文件 `eval/results/rules-holdout7-baseline-20261029.json`。
+EXPECTED_HOLDOUT7_HITS: dict[str, set[str]] = {
+    "R-INS-001": {"H68"},
+    "R-TRD-001": {"H70"},
+    "R-INC-002": {"H71"},
+    "R-INP-002": {"H72"},
+    "R-PAY-002": {"H73"},
+    "R-DIS-002": {"H73"},
+    "R-DIS-001": {"H74"},
+    # 以下四条是盲测基线漏报，先钉空集合（修规则后本测试会失败，点名 H65/H66/H67/H69）
+    "R-INC-001": set(),
+    "R-DIS-003": set(),
+    "R-PAY-001": set(),
+    "R-DIS-004": set(),
+}
+
+
+def test_holdout7_hits_are_stable() -> None:
+    if not HOLDOUT7_DIR.is_dir():
+        pytest.skip("缺少 data/contracts_holdout7 目录")
+    rules = [rule for rule in load_rules() if rule.rule_id in EXPECTED_HOLDOUT7_HITS]
+    hits = {rule_id: set() for rule_id in EXPECTED_HOLDOUT7_HITS}
+    for path in sorted(HOLDOUT7_DIR.glob("H*.md")):
+        state = _load_state(path)
+        for evaluation in evaluate_rules(
+            rules, state.clauses, state.raw_text, extraction_available=False
+        ):
+            if evaluation.risk_level != "pass":
+                hits[evaluation.rule_id].add(path.stem)
+    assert hits == EXPECTED_HOLDOUT7_HITS
+
+    # H75（CIF + 110% + ICC(C) + 荷兰法 + NAI 仲裁）/
+    # H76（FCA + 20% 预付 + SGS + 中国法 + 新加坡仲裁）
+    # 是全条款合规的干净对照：后续放宽写法时不得引入误报。
+    for name in ("H75", "H76"):
+        state = _load_state(HOLDOUT7_DIR / f"{name}.md")
+        evaluations = evaluate_rules(
+            load_rules(), state.clauses, state.raw_text, extraction_available=False
+        )
+        assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == [], name
