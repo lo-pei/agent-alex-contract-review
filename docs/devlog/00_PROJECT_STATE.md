@@ -1,7 +1,7 @@
 ﻿# 项目状态快照
 
-> 更新时间：2026-10-29（阶段 4 第 9 轮：**先按 holdout8 基线只修那五处（`version: 8`→9），再新写中英混合留出集 holdout9（H89–H100，12 份：5 英 / 7 中）+ gold（11 个现象 / 11 条规则，H99/H100 干净对照），只跑基线、不改规则** → `TP=6 FP=0 FN=5 TN=121`，**P=1.00 / R=0.545 / F1=0.706**，合同级 `TP=5 FP=0 FN=5 TN=2`；五个漏报全是刻意构造的 `version: 9` 未覆盖写法：H89（FOB 下“The price is inclusive of all freight charges up to Jebel Ali”）、H90（“Either party may instead elect to have any dispute decided by the courts of Singapore”）、H91（中文“全部合同价款一次性汇入…卖方确认收款后方可发运”）、H92（“向有管辖权的人民法院请求重新审理”）、H93（“二十四小时”中文数字期限）；H99/H100 零触发；五处漏报按基线钉成空集合 + `test_holdout9_hits_are_stable`；holdout8 修后 `11/0/0`（H87/H88 仍零触发）、holdout1–7 全 FP=0、主集 `hit_counts` 与 v8 逐条相同（无新误报）；**九批 100 份里只有 holdout9 未消耗，对外数字改引 holdout9 基线**；全量 **405 测试**（+1）；阶段 4 第 8 轮：**新写中英混合留出集 holdout8（H77–H88，12 份：5 英 / 7 中）+ gold（11 个现象 / 11 条规则，H87/H88 干净对照）**，在 `version: 8` 规则上**只跑盲测基线、不改规则** → `TP=6 FP=0 FN=5 TN=121`，**P=1.00 / R=0.545 / F1=0.706**，合同级 `5/0/5`；五个漏报全部是刻意构造的 `version: 8` 未覆盖写法：H77（`The ocean freight … is on the Seller's account` 介词短语）/H78（裁决终局后又允许 `refer the dispute to the courts`）/H79（中文“七个工作日内付清全部货款”，无“一次性/装运前”）/H80（“仲裁庭的裁决…收到裁决书之日起…提起上诉”，非“仲裁裁决…后”）/H83（`inspect the Goods immediately upon discharge`，无“小时”）；H87/H88 干净对照零触发；五个漏报按基线钉成空集合 + `test_holdout8_hits_are_stable`（跑通 = 基线快照）；**八批样本中只有 holdout8 未消耗，对外数字改引这一份基线**；全量 **404 测试**（+1）；阶段 4 第 7 轮第二步：**按 holdout7 基线修四处写法**，规则 `version: 7`→**8** —— `R-INC-001` 加 `for the Seller's account` 迂回语态、`R-DIS-003` 加跨句或裁或审（带 `award` 与新条标题守卫）、`R-PAY-001` 加中文“装运前一次性付全部价款”（排除“全部价款的 30%”）、`R-DIS-004` 加 `bring the matter before the courts`；四处先在 7 批留出集 + 主集 50 份 + 样例上跑探针，确认只命中目标合同才写进 YAML；修后 holdout7 `11/0/0`（H75/H76 仍零触发）、holdout1–6 全 FP=0、主集命中分布与 v7 逐条相同；`test_holdout7_hits_are_stable` 按纪律先失败点名 H65/H66/H67/H69 再翻表降级；全量 **403 测试**；阶段 4 第 7 轮第一步：新写**中英混合**留出集 holdout7（H65–H76，12 份）+ gold（11 个现象 / 11 条规则，H75/H76 干净对照），**只跑盲测基线、暂不改规则** → `TP=7 FP=0 FN=4 TN=121`，**P=1.00 / R=0.636 / F1=0.778**，漏报 H65（`for the Seller's account`）/H66（跨句或裁或审）/H67（中文“全部价款”）/H69（`bring the matter before the courts`）；四个漏报当时按基线钉成空集合，第二步修规则后翻表；全量 **403 测试**；阶段 4 第 6 轮：再写一批**纯英文**留出集 holdout6（H53–H64，12 份）+ gold（11 个现象 / 11 条规则，H62/H63 干净对照），**改规则之前**跑基线 → `TP=8 FP=0 FN=3`，**P=1.00 / R=0.727 / F1=0.842**（漏报 H53/H55/H61）；随后修三处英文写法（`R-INC-001` 卖方付运费倒装、`R-DIS-003` 连接词后逗号、`R-PAY-001` entire/full … before shipment），规则 `version: 6`→**7**，修后 holdout6 `11/0/0`、holdout1–5 全 1.0、主集 50 份命中分布逐条不变（无新误报），holdout6 降级为回归集；测试改为“**先按基线钉表 → 修规则后必然失败 → 再翻表降级**”；全量 **402 测试**；阶段 4 第 5 轮 + 界面轮 16：修 H39（英文情态动词与动词之间插时间状语）并先写 holdout5（H41–H52）做盲测基线（P=1.00 / R=0.90 / F1=0.947）再改规则（`version: 6`），holdout4/5 降级为回归集；结果页新增“这份报告怎么读”（关闭 ISSUE-024）；新增 `DELETE /api/reviews` 批量清空；界面轮 15：检索评测落地——100 题 gold 两层映射（95 题可评测 / 5 题语料未覆盖）+ ranking / production 双口径 + 点名条号与来源排序加权，lenient R@3 0.800→0.958、strict R@3 0.390→0.758，ADR-016，关闭 ISSUE-018、新增 ISSUE-033；界面轮 14：多智能体专家并行（付款 / 交付 / 争议，确定性白名单路由）+ 只读工具层（4 个本地工具 + MCP stdio/JSON-RPC 子集）+ 专家意见与 Agent 轨迹上屏 + `AGENTS_ENABLED`/`TOOLS_ENABLED` 默认关闭；界面轮 13：上传上限 15→30 MB + 图片 PDF 本地 OCR + 4 个外部 Skill 包内置到仓库 + 条款目录去重/状态并到标签行 + 左栏新增“原文全文”完整视图 + Skill 支持 zip 包导入；界面轮 12：主题色下线改白天/黑夜/跟随系统 + Skill 支持“调用工具 + 文本附件”+ 头像上传后裁剪 + 合同/Skill/审查重点改成标签行 + 删掉对话式长叙述 + 审查历史即时刷新 + 未命中规则改人话 + 条款切分精度（同行标题/字段黑名单/说明块/中英合并/短标题/前言标注）+ 逐条审查左目录与原文、右意见与采纳/保留、三块各自滚动；界面轮 10：账户设置改成 B 端分区弹窗（个人信息 / 通用 / 数据管理 / 关于）+ 主题色 5 套 + 界面字号三档 + 侧栏不再显示昵称与邮箱；界面轮 9：个人账户弹窗（头像/昵称/系统设置/二次确认清数据）+ Skill 查看与编辑 + 仓库紧凑化 + 厂商 20 个 + 阻止密码自动填充；界面轮 8：注册 not found 根因（旧进程 0.9.0）+ Skill 支持 Markdown/文件夹批量导入；界面轮 7：Skill 仓库独立页面 + 自绘 Skill 下拉 + 页脚贴右/降高 + 输入区收窄；界面轮 6：审查历史子目录 + 记录改名/置顶/删除 + 侧栏 Skill 仓库 + 满屏布局 + 登录弹窗定高与同意勾选；界面轮 5：账号/审查记录/Skill 仓库/BYOK + 右侧对话式首屏；界面轮 4：极简 C 端页“上传合同 → 看风险点”；界面轮 3：非合同闸门 + 收掉内部信息；界面轮 2：B 端工作台；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
-> 当前阶段：**交付形态补齐：对话式 Web 前端（`app/web/` 原生 HTML/CSS/JS，右侧对话式首屏 + 结果页；侧栏 = 导航壳 + API 配置 + 接口文档 + 账号区；无框架/无 CDN/无构建/本地字体）；账号体系按 **ADR-013** 落地（本地 SQLite：口令 PBKDF2、会话只存哈希、审查记录按账号隔离、Skill 仓库、BYOK 密文盒 + 每审查模型运行时）；Agent 能力按 **ADR-015** 落地为**可选层**（`AGENTS_ENABLED` / `TOOLS_ENABLED` 默认关闭，关闭时与确定性主干逐字一致；`API_VERSION 1.1.0`）；上传先做**文档类型闸门**（论文/法规不进入判级）；第四阶段（测试与评测）进行中：规则 13 条（`version: 9`）；silver gold 21 个现象；九批留出集 100 份 / 86 个现象（**八批 88 份已消耗，只有 holdout9 未消耗**）；当前可对外报的数改为 **holdout9 的盲测基线**（12 份中英混合 / 11 个现象，规则 `version: 9`）：**P=1.00 / R=0.545 / F1=0.706**（漏报 H89/H90/H91/H92/H93 **尚未修**，下一步按基线修时 `version: 9`→10，holdout9 随即降级）；holdout8 的 P=1.00 / R=0.545 / F1=0.706（H77/H78/H79/H80/H83 已在 `version: 9` 修好，修后 11/0/0 只作回归）、holdout7 的 P=1.00 / R=0.636 / F1=0.778、holdout6 的 P=1.00 / R=0.727 / F1=0.842、holdout5 的 P=1.00 / R=0.90 / F1=0.947 作为历史记录保留；**再下一批对外数字须先写 holdout10**；**检索评测已按 ADR-016 落地**：100 题 → 95 题可评测（5 题语料未覆盖），ranking lenient R@3 **0.958** / strict R@3 **0.758**，点名条号与来源加权（加重前 0.800 / 0.390）**
+> 更新时间：2026-10-31（阶段 4 第 10 轮：**两步：①按 holdout9 基线只修那五处（`version: 9`→10），②新写中英混合 holdout10（H101–H112，12 份：5 英 / 7 中）+ gold（11 个现象 / 11 条规则，H111/H112 干净对照），在 `version: 10` 上只跑一次盲测基线** → `TP=6 FP=0 FN=5 TN=121`，**P=1.00 / R=0.545 / F1=0.706**，合同级 `TP=5 FP=0 FN=5 TN=2`；五处刻意构造的 `version: 10` 未覆盖写法：H101（FOB 下 `all costs of carriage … shall be defrayed by the Seller`）/H102（`In lieu of arbitration … seek a ruling … from the High Court`）/H103（中文“合同价款的百分之百 … 款项全额到账后方安排装运”）/H104（“向仲裁地法院申请对裁决的实体问题进行复审”）/H105（“两个工作日”）；H111/H112 零触发；五处漏报按基线钉成空集合 + `test_holdout10_hits_are_stable`；修后 holdout9 `11/0/0`（H99/H100 仍零触发）、holdout1–8 全 FP=0、主集 `hit_counts` 与 v9 逐条相同（无新误报）；**十批 112 份里只有 holdout10 未消耗，对外数字改引 holdout10 基线**；全量 **406 测试**（+1）；阶段 4 第 9 轮：**先按 holdout8 基线只修那五处（`version: 8`→9），再新写中英混合留出集 holdout9（H89–H100，12 份：5 英 / 7 中）+ gold（11 个现象 / 11 条规则，H99/H100 干净对照），只跑基线、不改规则** → `TP=6 FP=0 FN=5 TN=121`，**P=1.00 / R=0.545 / F1=0.706**，合同级 `TP=5 FP=0 FN=5 TN=2`；五个漏报全是刻意构造的 `version: 9` 未覆盖写法：H89（FOB 下“The price is inclusive of all freight charges up to Jebel Ali”）、H90（“Either party may instead elect to have any dispute decided by the courts of Singapore”）、H91（中文“全部合同价款一次性汇入…卖方确认收款后方可发运”）、H92（“向有管辖权的人民法院请求重新审理”）、H93（“二十四小时”中文数字期限）；H99/H100 零触发；五处漏报按基线钉成空集合 + `test_holdout9_hits_are_stable`；holdout8 修后 `11/0/0`（H87/H88 仍零触发）、holdout1–7 全 FP=0、主集 `hit_counts` 与 v8 逐条相同（无新误报）；**九批 100 份里只有 holdout9 未消耗，对外数字改引 holdout9 基线**；全量 **405 测试**（+1）；阶段 4 第 8 轮：**新写中英混合留出集 holdout8（H77–H88，12 份：5 英 / 7 中）+ gold（11 个现象 / 11 条规则，H87/H88 干净对照）**，在 `version: 8` 规则上**只跑盲测基线、不改规则** → `TP=6 FP=0 FN=5 TN=121`，**P=1.00 / R=0.545 / F1=0.706**，合同级 `5/0/5`；五个漏报全部是刻意构造的 `version: 8` 未覆盖写法：H77（`The ocean freight … is on the Seller's account` 介词短语）/H78（裁决终局后又允许 `refer the dispute to the courts`）/H79（中文“七个工作日内付清全部货款”，无“一次性/装运前”）/H80（“仲裁庭的裁决…收到裁决书之日起…提起上诉”，非“仲裁裁决…后”）/H83（`inspect the Goods immediately upon discharge`，无“小时”）；H87/H88 干净对照零触发；五个漏报按基线钉成空集合 + `test_holdout8_hits_are_stable`（跑通 = 基线快照）；**八批样本中只有 holdout8 未消耗，对外数字改引这一份基线**；全量 **404 测试**（+1）；阶段 4 第 7 轮第二步：**按 holdout7 基线修四处写法**，规则 `version: 7`→**8** —— `R-INC-001` 加 `for the Seller's account` 迂回语态、`R-DIS-003` 加跨句或裁或审（带 `award` 与新条标题守卫）、`R-PAY-001` 加中文“装运前一次性付全部价款”（排除“全部价款的 30%”）、`R-DIS-004` 加 `bring the matter before the courts`；四处先在 7 批留出集 + 主集 50 份 + 样例上跑探针，确认只命中目标合同才写进 YAML；修后 holdout7 `11/0/0`（H75/H76 仍零触发）、holdout1–6 全 FP=0、主集命中分布与 v7 逐条相同；`test_holdout7_hits_are_stable` 按纪律先失败点名 H65/H66/H67/H69 再翻表降级；全量 **403 测试**；阶段 4 第 7 轮第一步：新写**中英混合**留出集 holdout7（H65–H76，12 份）+ gold（11 个现象 / 11 条规则，H75/H76 干净对照），**只跑盲测基线、暂不改规则** → `TP=7 FP=0 FN=4 TN=121`，**P=1.00 / R=0.636 / F1=0.778**，漏报 H65（`for the Seller's account`）/H66（跨句或裁或审）/H67（中文“全部价款”）/H69（`bring the matter before the courts`）；四个漏报当时按基线钉成空集合，第二步修规则后翻表；全量 **403 测试**；阶段 4 第 6 轮：再写一批**纯英文**留出集 holdout6（H53–H64，12 份）+ gold（11 个现象 / 11 条规则，H62/H63 干净对照），**改规则之前**跑基线 → `TP=8 FP=0 FN=3`，**P=1.00 / R=0.727 / F1=0.842**（漏报 H53/H55/H61）；随后修三处英文写法（`R-INC-001` 卖方付运费倒装、`R-DIS-003` 连接词后逗号、`R-PAY-001` entire/full … before shipment），规则 `version: 6`→**7**，修后 holdout6 `11/0/0`、holdout1–5 全 1.0、主集 50 份命中分布逐条不变（无新误报），holdout6 降级为回归集；测试改为“**先按基线钉表 → 修规则后必然失败 → 再翻表降级**”；全量 **402 测试**；阶段 4 第 5 轮 + 界面轮 16：修 H39（英文情态动词与动词之间插时间状语）并先写 holdout5（H41–H52）做盲测基线（P=1.00 / R=0.90 / F1=0.947）再改规则（`version: 6`），holdout4/5 降级为回归集；结果页新增“这份报告怎么读”（关闭 ISSUE-024）；新增 `DELETE /api/reviews` 批量清空；界面轮 15：检索评测落地——100 题 gold 两层映射（95 题可评测 / 5 题语料未覆盖）+ ranking / production 双口径 + 点名条号与来源排序加权，lenient R@3 0.800→0.958、strict R@3 0.390→0.758，ADR-016，关闭 ISSUE-018、新增 ISSUE-033；界面轮 14：多智能体专家并行（付款 / 交付 / 争议，确定性白名单路由）+ 只读工具层（4 个本地工具 + MCP stdio/JSON-RPC 子集）+ 专家意见与 Agent 轨迹上屏 + `AGENTS_ENABLED`/`TOOLS_ENABLED` 默认关闭；界面轮 13：上传上限 15→30 MB + 图片 PDF 本地 OCR + 4 个外部 Skill 包内置到仓库 + 条款目录去重/状态并到标签行 + 左栏新增“原文全文”完整视图 + Skill 支持 zip 包导入；界面轮 12：主题色下线改白天/黑夜/跟随系统 + Skill 支持“调用工具 + 文本附件”+ 头像上传后裁剪 + 合同/Skill/审查重点改成标签行 + 删掉对话式长叙述 + 审查历史即时刷新 + 未命中规则改人话 + 条款切分精度（同行标题/字段黑名单/说明块/中英合并/短标题/前言标注）+ 逐条审查左目录与原文、右意见与采纳/保留、三块各自滚动；界面轮 10：账户设置改成 B 端分区弹窗（个人信息 / 通用 / 数据管理 / 关于）+ 主题色 5 套 + 界面字号三档 + 侧栏不再显示昵称与邮箱；界面轮 9：个人账户弹窗（头像/昵称/系统设置/二次确认清数据）+ Skill 查看与编辑 + 仓库紧凑化 + 厂商 20 个 + 阻止密码自动填充；界面轮 8：注册 not found 根因（旧进程 0.9.0）+ Skill 支持 Markdown/文件夹批量导入；界面轮 7：Skill 仓库独立页面 + 自绘 Skill 下拉 + 页脚贴右/降高 + 输入区收窄；界面轮 6：审查历史子目录 + 记录改名/置顶/删除 + 侧栏 Skill 仓库 + 满屏布局 + 登录弹窗定高与同意勾选；界面轮 5：账号/审查记录/Skill 仓库/BYOK + 右侧对话式首屏；界面轮 4：极简 C 端页“上传合同 → 看风险点”；界面轮 3：非合同闸门 + 收掉内部信息；界面轮 2：B 端工作台；第四阶段第 4 轮：规则 version 5 + 保额邻近判定 + 第四批留出集）
+> 当前阶段：**交付形态补齐：对话式 Web 前端（`app/web/` 原生 HTML/CSS/JS，右侧对话式首屏 + 结果页；侧栏 = 导航壳 + API 配置 + 接口文档 + 账号区；无框架/无 CDN/无构建/本地字体）；账号体系按 **ADR-013** 落地（本地 SQLite：口令 PBKDF2、会话只存哈希、审查记录按账号隔离、Skill 仓库、BYOK 密文盒 + 每审查模型运行时）；Agent 能力按 **ADR-015** 落地为**可选层**（`AGENTS_ENABLED` / `TOOLS_ENABLED` 默认关闭，关闭时与确定性主干逐字一致；`API_VERSION 1.1.0`）；上传先做**文档类型闸门**（论文/法规不进入判级）；第四阶段（测试与评测）进行中：规则 13 条（`version: 10`）；silver gold 21 个现象；十批留出集 112 份 / 97 个现象（**九批 100 份已消耗，只有 holdout10 未消耗**）；当前可对外报的数改为 **holdout10 的盲测基线**（12 份中英混合 / 11 个现象，规则 `version: 10`）：**P=1.00 / R=0.545 / F1=0.706**（漏报 H101/H102/H103/H104/H105 **尚未修**，下一步若按基线修则升 11，holdout10 随即降级）；holdout9 的基线 P=1.00 / R=0.545 / F1=0.706（H89/H90/H91/H92/H93 已在 `version: 10` 修好，修后 11/0/0 只作回归）、holdout8 的 P=1.00 / R=0.545 / F1=0.706、holdout7 的 P=1.00 / R=0.636 / F1=0.778、holdout6 的 P=1.00 / R=0.727 / F1=0.842、holdout5 的 P=1.00 / R=0.90 / F1=0.947 作为历史记录保留；**再下一批对外数字须先写 holdout11**；**检索评测已按 ADR-016 落地**：100 题 → 95 题可评测（5 题语料未覆盖），ranking lenient R@3 **0.958** / strict R@3 **0.758**，点名条号与来源加权（加重前 0.800 / 0.390）**
 > 项目目录：`d:\A项目\Agent_Alex外贸合同智审助手`
 > Git：`cf0fd63`、`71e8a9d`、`750cca3`、`625e9bd`（第 3 步）、`e41d235`（第 4 步）、`c7f24a9`（第 6 步）、`6eaff8c`（第 4 阶段第 1 轮）、`5dc05bd`（第 2 轮）、`c540259`（第 3 轮）、`eba67c0`（界面轮 1）、`892ddf2`（界面轮 2）、`302630a`（界面轮 14）、`84820f7`（报告/导出补专家与工具）、`f9771e7`（界面轮 15 检索评测）、`4f45ab1`（阶段 4 第 5 轮 + 界面轮 16）、`c57c53d`（阶段 4 第 6 轮：纯英文 holdout6 盲测 + 三处英文写法修复，`version: 7`）、`6052400`（第 6 轮版本残留修正）、`675db4a`（阶段 4 第 7 轮第一步：中英混合 holdout7 盲测基线，规则未改）、`afc094f`（阶段 4 第 7 轮第二步：按 holdout7 基线修四处写法，`version: 8`）、`d4a3783`（第 7 轮提交号记录）、`6206272`（阶段 4 第 8 轮：新写 holdout8 盲测基线，规则未改）、`ba413c6`（阶段 4 第 9 轮：按 holdout8 基线修五处（`version: 9`）+ 新写 holdout9 盲测基线）；后者为当前 HEAD
 > 范围变更：2026-10-27 用户明确「可以做 rag 和多 agent」→ **ADR-007**；第 5 步按 **ADR-008** 落地 RAG MVP；第 6 步按 **ADR-009** 落地 API/UI 与 pending 持久化（第 2 轮：原生 Web 前端；第 3 轮：B 端工作台 + `/api/rules` + 本地字体；第 4 轮：移除运行环境块 + 非合同页；第 5 轮：侧栏保留、主区对话式）；界面轮 3 按 **ADR-012** 增加“是不是合同”的类型闸门；界面轮 5 按 **ADR-013** 增加账号、审查记录、Skill 仓库与 BYOK；界面轮 13 按 **ADR-014** 增加图片 PDF 本地 OCR 与外部 Skill / zip 导入；界面轮 14 按 **ADR-015** 把 ADR-007 放开的多智能体真正落地（专家并行 + 只读工具层 + MCP），但**判级、HITL、证据边界一律不变**，且两个开关默认关闭；界面轮 15 按 **ADR-016** 落地检索评测（gold 两层映射 + ranking/production 双口径 + 点名条号/来源排序加权），**只改排序、不碰判级**
@@ -22,6 +22,8 @@
 | 第三阶段第 4 步：HITL 真中断 | ✅ 100% | 条件边/`interrupt()`/审批载荷/checkpointer/幂等/惰性超时；15 个 HITL 测试 |
 | 第三阶段第 5 步：解释 + 质量门 + RAG MVP | ✅ 100% | `explain_risks` 节点/越权拦截/引用定位/BM25 检索/引用白名单；28 个新测试 |
 | 第三阶段第 6 步：FastAPI + Streamlit | ✅ 100% | 上传/审查/人工决定/下载 JSON+Markdown；pending 落盘；37 个新测试 |
+| 阶段 4 第 10 轮第二步：新写 holdout10 盲测基线（`version: 10`，规则一条不动） | ✅ 100% | **只写集、只跑一次基线**：新建 `data/contracts_holdout10/`（H101–H112，12 份：5 英 / 7 中，版式混入销售确认书/采购订单/长条款）+ `data/eval/gold_holdout10.json`（11 个现象覆盖 11 条文本规则 + H111/H112 干净对照）；刻意构造五处 `version: 10` 未覆盖写法——H101 FOB 下 `all costs of carriage … shall be defrayed by the Seller`（动词在主语之前）、H102 `In lieu of arbitration … seek a ruling … from the High Court`（动词是 seek）、H103 中文“合同价款的百分之百 … 款项全额到账后方安排装运”（用“到账”而非“收到/收讫 + 全部货款”）、H104“向仲裁地法院申请对裁决的实体问题进行复审”（动词是“复审”）、H105 检验期限“两个工作日”（规则只认小时/立即/当日）；基线 → `TP=6 FP=0 FN=5 TN=121`，**P=1.00 / R=0.545 / F1=0.706**，合同级 `TP=5 FP=0 FN=5 TN=2`，漏报 H101/H102/H103/H104/H105，H111/H112 零触发；结果 `eval/results/rules-holdout10-baseline-20261030.json`（**当前唯一可对外引用**）；`test_holdout10_hits_are_stable` 把五个漏报写成**空集合**（跑通 = 基线快照）；全量 **406 测试** |
+| 阶段 4 第 10 轮第一步：按 holdout9 基线修五处写法（`version: 10`） | ✅ 100% | **只修基线暴露的五处，不多改一条**：`R-INC-001`（1.4→1.5）加“价格已含运费”分支（H89 `The price is inclusive of all freight charges up to …`），不收与主运费无关的 packing/taxes；`R-DIS-003`（1.3→1.4）加“instead 式选择权”分支（H90 `Either party may instead elect … decided by the courts`；该条仲裁句含 `award`，原跨句分支的守卫会拦住，故单列）；`R-PAY-001`（1.2→1.3）加“全部/全额价款 + 确认收款后 + 发运”分支（H91 中文“确认收款后方可发运”）；`R-DIS-004`（1.4→1.5）加中文“均可/可以/任何一方 + 向…法院 + 请求/申请/提起 + 重新审理/再审/重新仲裁”（H92），不收“申请撤销裁决/强制执行”；`R-INP-002`（1.3→1.4）补中文数词期限（H93“二十四小时”），只限制在“小时 + 检验/通知/异议”语境；每处先跑临时探针（九批 100 份 + 主集 50 份 + 2 份样例，`re.IGNORECASE` 与引擎一致）确认只命中目标合同；`test_holdout9_hits_are_stable` 先失败并点名 H89/H90/H91/H92/H93 后才翻表；修后 holdout9 `11/0/0`（H99/H100 仍零触发）、holdout1–8 全 FP=0、主集 `hit_counts` 与 v9 **逐条相同**；**修后的 11/0/0 只作回归，对外数字只引 holdout10 基线** |
 | 阶段 4 第 9 轮第二步：新写 holdout9 盲测基线 | ✅ 100% | **只写集、只跑基线，`version: 9` 规则一条不动**：新建 `data/contracts_holdout9/`（H89–H100，12 份：5 英 / 7 中）+ `data/eval/gold_holdout9.json`（11 个现象覆盖 11 条文本规则 + H99/H100 干净对照）；刻意构造五处 `version: 9` 仍漏的写法——H89 FOB 下“The price is inclusive of all freight charges up to Jebel Ali”、H90 “Either party may instead elect to have any dispute decided by the courts of Singapore”、H91 中文“全部合同价款一次性汇入…卖方确认收款后方可发运”（用“收款”而非“收到…全部货款”）、H92“向有管辖权的人民法院请求重新审理”、H93 检验期限写成中文数字“二十四小时”；基线 → `TP=6 FP=0 FN=5 TN=121`，**P=1.00 / R=0.545 / F1=0.706**，合同级 `TP=5 FP=0 FN=5 TN=2`，漏报 H89/H90/H91/H92/H93，H99/H100 零触发；结果 `eval/results/rules-holdout9-baseline-20261029.json`（**当前唯一可对外引用**）；`test_holdout9_hits_are_stable` 把五个漏报写成**空集合**（跑通 = 基线快照），下一轮修规则后必然失败并点名；全量 **405 测试** |
 | 阶段 4 第 9 轮第一步：按 holdout8 基线修五处写法（`version: 9`） | ✅ 100% | **只修基线暴露的五处，不多改一条**：`R-INC-001`（1.3→1.4）把迂回语态扩成 `(?:for|on) the Seller's account`（H77 的 `is on the Seller's account`），并**保留** `at the Seller's expense/cost` 分支（不悄悄丢能力）；`R-DIS-003`（1.2→1.3）跨句分支的动词集合补 `\brefer`（H78 `refer the dispute to the courts`，`\b` 防 `prefer`）；`R-PAY-001`（1.1→1.2）加“收到/收讫 + 全部价款/货款 + 后/再 + 装运”分支（H79 先收全款再发货）；`R-DIS-004`（1.3→1.4）加中文“不服 + 向…法院 + 上诉/起诉/诉讼”（H80），不收“申请撤销裁决”这类法定救济；`R-INP-002`（1.2→1.3）加 `inspect … immediately/forthwith/promptly … upon discharge/arrival/…` 与 `notify … on the same day`（H83）；每处先跑临时探针（9 批留出集 100 份 + 主集 50 份）确认只命中目标合同；修后 holdout8 `11/0/0`（H87/H88 仍零触发）、holdout1–7 依次 `7/0/0`、`9/0/0`、`7/0/0`、`9/0/0`、`10/0/0`、`11/0/0`、`11/0/0`（**全 FP=0**）、主集 `hit_counts` 与 v8 **逐条相同**（无新误报）；`test_holdout8_hits_are_stable` 先按纪律失败并点名 H77/H78/H79/H80/H83，再翻表降级为回归守卫；`tests/test_api.py` 断言 `ruleset_version == 9`；**修后的 11/0/0 只作回归，对外仍只引基线文件**；全量 **405 测试** |
 | 阶段 4 第 8 轮：新写 holdout8 + 新泛化基线 | ✅ 100% | **只写集、只跑基线，`version: 8` 规则一条不动**（用户指令“先写 holdout8 再报新泛化数字”）：新建 `data/contracts_holdout8/`（H77–H88，12 份：5 英 / 7 中）+ `data/eval/gold_holdout8.json`（11 个现象覆盖 11 条文本规则 + H87/H88 干净对照）；刻意构造五处 `version: 8` 未覆盖的写法——H77 `The ocean freight … is on the Seller's account`（介词短语）、H78 裁决终局后又 `refer the dispute to the courts`、H79 中文“七个工作日内付清全部货款”、H80 “仲裁庭的裁决…收到裁决书之日起…提起上诉”、H83 `inspect immediately upon discharge`；基线 → `TP=6 FP=0 FN=5 TN=121`，**P=1.00 / R=0.545 / F1=0.706**，合同级 `TP=5 FP=0 FN=5 TN=2`，漏报 H77/H78/H79/H80/H83，H87/H88 零触发；结果文件 `eval/results/rules-holdout8-baseline-20261029.json`（**当前唯一可对外引用**）；`test_holdout8_hits_are_stable` 把五个漏报写成**空集合**（跑通 = 基线快照），下一步修规则后必然失败并点名，届时才翻表；全量 **404 测试** |
@@ -43,10 +45,37 @@
 | 界面轮 4：侧栏保留 + 主区极简 | ✅ 100% | `app/web/` 主区收成两屏（上传 → 风险点），侧栏/顶栏导航壳保留；待确认态直接列出审批载荷中的红色风险；下载改指 `/report`；`tests/test_web.py` 10 项；全量 261 测试 |
 | 界面轮 3：非合同闸门 + 收掉内部信息 | ✅ 100% | 新增 `precheck_document`（`app/services/document_type.py`，纯规则）；`status=not_contract` 直接出“未执行审查”报告，不切条款/不抽取/不判级/不触发 HITL；`ReviewSummary.document_check`；前端新增“不是合同”页并移除侧栏“运行环境”；API 0.9.0；11 个闸门测试 + 1 个 API 测试 + 1 个前端测试 |
 | 界面轮 2：B 端审查工作台 | ✅ 100% | `app/web/` 重写为工作台（侧栏 + 面包屑 + sheet 画布 + hash 路由四视图）；本地 IBM Plex 字体（无 CDN）；新增只读 `GET /api/rules`；6 个前端测试 + 1 个规则目录测试 |
-| 第四阶段：测试与评测 | ⏳ 99% | 规则 13 条（`version: 9`：三类措辞 + 保额邻近判定 + 情态动词后插时间状语 + 英文卖方付运费倒装 / 连接词后逗号 / entire … before shipment + 卖方账上运费迂回语态（`for/on the Seller's account`、`at the Seller's expense`）/ 跨句或裁或审（含 `refer the dispute`）/ 中文“全部价款、收全款再发货” / `bring the matter` / “不服裁决向法院上诉” / 立即检验与当日通知）；50 份合同 + 21 个 silver gold 现象 + **九批留出集 100 份 / 86 个现象（八批 88 份已消耗，仅 holdout9 未消耗）**；**当前可对外报的数来自 holdout9 盲测基线（中英混合，规则 `version: 9`）：P=1.00 / R=0.545 / F1=0.706**（12 份 / 11 现象，漏报 H89/H90/H91/H92/H93 **尚未修**，下一步按基线修时升 10，holdout9 随即降级）；holdout8 基线 P=1.00 / R=0.545 / F1=0.706（已在 v9 修好，修后 11/0/0 只作回归）、holdout6 基线 P=1.00 / R=0.727 / F1=0.842 与 holdout5 基线 P=1.00 / R=0.90 / F1=0.947 保留为历史记录；**检索评测已按 ADR-016 落地**（95 题：lenient R@3 0.958 / strict R@3 0.758；剩 4 题语义指代见 ISSUE-033）；人工复核 gold 仍未做（ISSUE-020） |
+| 第四阶段：测试与评测 | ⏳ 99% | 规则 13 条（`version: 10`：三类措辞 + 保额邻近判定 + 情态动词后插时间状语 + 英文卖方付运费倒装 / 连接词后逗号 / entire … before shipment + 卖方账上运费迂回语态（`for/on the Seller's account`、`at the Seller's expense`）/ 跨句或裁或审（含 `refer the dispute`）/ 中文“全部价款、收全款再发货” / `bring the matter` / “不服裁决向法院上诉” / 立即检验与当日通知 + “价格已含运费” / instead 式选择权 / “确认收款后发运” / 中文“请求重新审理” / 中文数词期限）；50 份合同 + 21 个 silver gold 现象 + **十批留出集 112 份 / 97 个现象（九批 100 份已消耗，仅 holdout10 未消耗）**；**当前可对外报的数来自 holdout10 盲测基线（中英混合，规则 `version: 10`）：P=1.00 / R=0.545 / F1=0.706**（12 份 / 11 现象，漏报 H101/H102/H103/H104/H105 **尚未修**，下一步按基线修时升 11，holdout10 随即降级）；holdout9 基线 P=1.00 / R=0.545 / F1=0.706（已在 v10 修好，修后 11/0/0 只作回归）、holdout8 / holdout7 / holdout6 / holdout5 基线保留为历史记录；**再下一批对外数字须先写 holdout11**；**检索评测已按 ADR-016 落地**（95 题：lenient R@3 0.958 / strict R@3 0.758；剩 4 题语义指代见 ISSUE-033）；人工复核 gold 仍未做（ISSUE-020） |
 | 第五阶段：文档与交付 | ⏳ 45% | README/状态/交接/ADR/资料清单/开发日志已同步；答辩材料未做 |
 
-## 最新产出（2026-10-29 阶段 4 第 9 轮：先按基线修五处，再新写 holdout9 报新数字）
+## 最新产出（2026-10-31 阶段 4 第 10 轮：按 holdout9 基线修五处，新写 holdout10 报新数字）
+
+- **顺序**：先把 holdout9 基线暴露的五处修掉（`version: 9`→10），修完 holdout9 立刻降级为回归集；再新写 holdout10 并**只跑一次基线、不改规则**——新数字与“修完的规则”各自对应一个可复现的代码状态。
+- **修五处**（每处先跑临时探针，在 9 批留出集 100 份 + 主集 50 份 + 2 份样例上确认只命中目标合同；`re.IGNORECASE` 与引擎一致）：
+  | 规则 | 版本 | 补的写法 | 对应合同 |
+  |---|---|---|---|
+  | `R-INC-001` | 1.4→1.5 | “价格已含运费”分支（`price … inclusive of … freight`），不收 packing/taxes | H89 |
+  | `R-DIS-003` | 1.3→1.4 | “instead 式选择权”分支（`may … instead … elect … decided by the courts`）；因该仲裁句含 `award`，原跨句守卫会拦住，故单列 | H90 |
+  | `R-PAY-001` | 1.2→1.3 | “全部/全额价款 + 确认收款后 + 发运”分支 | H91 |
+  | `R-DIS-004` | 1.4→1.5 | 中文“均可/可以/任何一方 + 向…法院 + 请求/申请/提起 + 重新审理/再审/重新仲裁”，不收“申请撤销裁决/强制执行” | H92 |
+  | `R-INP-002` | 1.3→1.4 | 中文数词期限（“二十四小时”），只限“小时 + 检验/通知/异议”语境 | H93 |
+- **修后回归**：holdout9 `11/0/0`（H99/H100 仍零触发）、holdout1–8 全 `FP=0`、主集 `hit_counts` 与 v9 **逐条相同**（`R-INS-001:1, R-INP-002:1, R-INC-001:1, R-INC-002:1, R-PAY-002:5, R-DIS-003:1, R-DIS-004:1`，无新误报）；`test_holdout9_hits_are_stable` 先失败并点名 H89/H90/H91/H92/H93，确认后才翻表降级。
+- **写集**：`data/contracts_holdout10/`（H101–H112，12 份：5 英 / 7 中，版式混入销售确认书 / 采购订单 / 长条款）+ `data/eval/gold_holdout10.json`（11 个现象覆盖 11 条文本规则 + H111/H112 干净对照）。五处刻意构造的 `version: 10` 仍漏写法：
+  | 合同 | 构造的写法 | 目标规则 |
+  |---|---|---|
+  | H101 | FOB 下 `all costs of carriage … including ocean freight, shall be defrayed by the Seller`（动词在主语之前） | `R-INC-001` |
+  | H102 | `In lieu of arbitration, the Buyer may … seek a ruling … from the High Court`（动词是 seek） | `R-DIS-003` |
+  | H103 | 中文“合同价款的百分之百 … 款项全额到账后方安排装运”（用“到账”而非“收到/收讫 + 全部货款”） | `R-PAY-001` |
+  | H104 | “向仲裁地法院申请对裁决的实体问题进行复审”（动词是“复审”） | `R-DIS-004` |
+  | H105 | 检验期限写成“两个工作日”（规则只认小时/立即/当日） | `R-INP-002` |
+  其余覆盖既有能力：H106（DDP 无版本）、H107（FOB + FCL）、H108（CIF 无保额）、H109（简式确认书，无付款 + 无争议解决，双现象）、H110（无适用法律）；**干净对照 H111（CIF + 110% ICC(A) + 新加坡法 + SIAC）/ H112（FCA + 20% 预付 + SGS + 中国法 + 上海仲裁）**。
+- **盲测基线（规则 `version: 10`，改规则之前，只跑一次）**：`TP=6 FP=0 FN=5 TN=121` → **P=1.00 / R=0.545 / F1=0.706**（等级一致率 1.00）；合同级 `TP=5 FP=0 FN=5 TN=2`（P=1.00 / R=0.50 / F1=0.667）；漏报 H101/H102/H103/H104/H105，**H111/H112 零触发**；结果文件 `eval/results/rules-holdout10-baseline-20261030.json` ← **当前唯一可对外引用**（脚本按 UTC 命名，本地生成于 2026-10-31）。
+- **为什么仍是 0.545**：每类只放一处“`version: 10` 没覆盖的同义写法”，宁可数字难看也不挑软柿子；分母只有 11，一处漏报就掉约 9 个百分点——这正是“样本量小、不能外推”的提醒，而不是规则退步。
+- **钉基线**：`tests/test_rules.py` 新增 `HOLDOUT10_DIR` + `EXPECTED_HOLDOUT10_HITS`（五个漏报写成**空集合** = 基线快照）+ `test_holdout10_hits_are_stable`（含 H111/H112 干净对照断言）；规则测试 58 → 59，全量 **406 测试**。
+- **验证**：`pytest -q --override-ini addopts=` → **406 passed**；`ruff check app tests eval` → All checks passed；`node --check app/web/app.js` → OK。
+- **没做的事（有意为之）**：holdout10 的五处漏报**本轮不修**（修完就消耗，数字须另起 holdout11）；silver gold 复核（ISSUE-020）、规则覆盖缺口（ISSUE-009）、检索侧 4 道语义指代（ISSUE-033）仍未动。
+
+## 上一轮产出（2026-10-29 阶段 4 第 9 轮：先按基线修五处，再新写 holdout9 报新数字）
 
 - **顺序**：先把 holdout8 基线暴露的五处修掉（`version: 8`→9），再新写 holdout9 并**只跑基线、不改规则**——这样“新数字”与“修完的规则”各自对应一个可复现的代码状态。
 - **修五处**（每处先跑临时探针，在 9 批留出集 100 份 + 主集 50 份上确认只命中目标合同）：
@@ -67,13 +96,13 @@
   | H92 | “向有管辖权的人民法院请求重新审理”（不是上诉/起诉/诉讼） | `R-DIS-004` |
   | H93 | 检验期限写成中文数字“二十四小时”（规则只认阿拉伯数字） | `R-INP-002` |
   其余覆盖既有能力：H94（CIF 无保额）、H95（FOB + FCL）、H96（DDP 无版本）、H97（简式确认书，无付款 + 无争议解决，双现象）、H98（无适用法律）；**干净对照 H99（CFR + 买方投保 110% ICC(A) + 荷兰法 + NAI）/ H100（CIP + 110% ICC(A) + 中国法 + 上海仲裁）**。
-- **盲测基线（规则 `version: 9`，改规则之前）**：`TP=6 FP=0 FN=5 TN=121` → **P=1.00 / R=0.545 / F1=0.706**（等级一致率 1.00）；合同级 `TP=5 FP=0 FN=5 TN=2`（P=1.00 / R=0.50 / F1=0.667）；漏报 H89/H90/H91/H92/H93，**H99/H100 零触发**；结果文件 `eval/results/rules-holdout9-baseline-20261029.json` ← **当前唯一可对外引用**。
+- **盲测基线（规则 `version: 9`，改规则之前）**：`TP=6 FP=0 FN=5 TN=121` → **P=1.00 / R=0.545 / F1=0.706**（等级一致率 1.00）；合同级 `TP=5 FP=0 FN=5 TN=2`（P=1.00 / R=0.50 / F1=0.667）；漏报 H89/H90/H91/H92/H93，**H99/H100 零触发**；结果文件 `eval/results/rules-holdout9-baseline-20261029.json` ←（当年唯一可对外引用；**第 10 轮已修完并消耗，对外数字改引 holdout10**）。
 - **为什么又回到 0.545**：本批仍是每类只放一处“`version: 9` 没覆盖的同义写法”，宁可数字难看也不挑软柿子；分母只有 11，任何一处漏报都掉 ~9 个百分点——这正是“样本量小、不能外推”的提醒，而不是规则退步。
 - **钉基线**：`tests/test_rules.py` 新增 `HOLDOUT9_DIR` + `EXPECTED_HOLDOUT9_HITS`（五个漏报写成**空集合** = 基线快照）+ `test_holdout9_hits_are_stable`（含 H99/H100 干净对照断言）；规则测试 57 → 58，全量 **405 测试**。
 - **验证**：`pytest -q --override-ini addopts=` → **405 passed**（154.90s）；`ruff check app tests eval` → All checks passed；`node --check app/web/app.js` → OK。
 - **没做的事（有意为之）**：holdout9 的五处漏报**本轮不修**（修完就消耗，数字须另起 holdout10）；silver gold 复核（ISSUE-020）、规则覆盖缺口（ISSUE-009）、检索侧 4 道语义指代（ISSUE-033）仍未动。
 
-## 上一轮产出（2026-10-29 阶段 4 第 8 轮：新写 holdout8，重新拿到可对外引用的泛化数字）
+## 更早产出（2026-10-29 阶段 4 第 8 轮：新写 holdout8，重新拿到可对外引用的泛化数字）
 
 - **起因**：第 7 轮按 holdout7 基线修完四处后，**七批 76 份样本全部消耗**，手里没有任何一批还能对外报数。用户选择“先写 holdout8 再报新泛化数字”，所以本轮**只写集 + 只跑基线**，`version: 8` 的规则一条不动——这样新基线文件唯一对应一个代码状态。
 - **写集**：`data/contracts_holdout8/`（H77–H88，12 份：5 英 / 7 中）+ `data/eval/gold_holdout8.json`（11 个现象覆盖 11 条文本规则 + H87/H88 干净对照）。刻意构造**五处 `version: 8` 未覆盖的写法**，每类只放一处：
@@ -666,9 +695,9 @@ START → ingest → precheck(是不是合同?) ─否→ report(not_contract)
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
-# 323 个用例：247 基础 + 前端（test_web.py 26）+ 规则目录 + 文档类型闸门 11
-#   + 账号/记录/Skill/BYOK（test_accounts.py 35）+ RAG 兜底
-#   + 逐条审查与修订导出（test_clause_review.py 11）
+# 406 个用例：247 基础 + 前端（test_web.py 25）+ 规则目录 + 文档类型闸门 11
+#   + 账号/记录/Skill/BYOK（test_accounts.py 40）+ RAG / 检索评测
+#   + 逐条审查与修订导出（test_clause_review.py 11）+ 规则 59（含十批留出回归）
 
 .\.venv\Scripts\python.exe -m ruff check .
 # All checks passed!
@@ -683,14 +712,22 @@ START → ingest → precheck(是不是合同?) ─否→ report(not_contract)
 # 覆盖率 21 个 gold 现象中 11 个有规则（0.5238）
 # 结果：eval/results/rules-YYYYMMDD.json
 
-# 留出集（对外数字只引“改规则之前”的盲测基线；见 ADR-011 第 5/6/7/8/9 轮补充）
-# ⑨ holdout9（H89–H100，12 份中英混合 / 11 个现象）——**当前唯一对外数字**，只引基线文件
+# 留出集（对外数字只引“改规则之前”的盲测基线；见 ADR-011 第 5/6/7/8/9/10 轮补充）
+# ⑩ holdout10（H101–H112，12 份中英混合 / 11 个现象）——**当前唯一对外数字**，只引基线文件
+.\.venv\Scripts\python.exe eval\run_eval.py --contracts data\contracts_holdout10 `
+  --gold data\eval\gold_holdout10.json --gold-rules data\eval\gold_holdout10.json --tag holdout10-baseline
+# 规则 version 10、改规则之前（只跑一次）：TP=6 FP=0 FN=5 TN=121 → P=1.00 R=0.545 F1=0.706
+# 漏报 H101/H102/H103/H104/H105；合同级 5/0/5；H111/H112 干净对照零触发
+# 结果：eval/results/rules-holdout10-baseline-20261030.json ← 对外只引这一份（UTC 命名，本地生成于 2026-10-31）
+# ⚠️ 按这五处修完规则后复跑会得 11/0/0，那一份只作回归，不再对外引用（届时须写 holdout11）
+
+# ⑨ holdout9（H89–H100，12 份中英混合 / 11 个现象）——第 10 轮已修完并消耗，只作回归守卫
 .\.venv\Scripts\python.exe eval\run_eval.py --contracts data\contracts_holdout9 `
   --gold data\eval\gold_holdout9.json --gold-rules data\eval\gold_holdout9.json --tag holdout9-baseline
-# 规则 version 9、改规则之前：TP=6 FP=0 FN=5 TN=121 → P=1.00 R=0.545 F1=0.706
-# 漏报 H89/H90/H91/H92/H93；合同级 5/0/5；H99/H100 干净对照零触发
-# 结果：eval/results/rules-holdout9-baseline-20261029.json ← 对外只引这一份
-# ⚠️ 按这五处修完规则后复跑会得 11/0/0，那一份只作回归，不再对外引用（届时须写 holdout10）
+# 历史基线（规则 version 9、改规则之前）：TP=6 FP=0 FN=5 TN=121 → P=1.00 R=0.545 F1=0.706
+# 漏报 H89/H90/H91/H92/H93；H99/H100 干净对照零触发
+# 结果：eval/results/rules-holdout9-baseline-20261029.json（历史引用）
+# 第 10 轮修完（version 10）复跑：TP=11 FP=0 FN=0 → 只作回归守卫（--tag holdout9-v10），不再对外引用
 
 # ⑧ holdout8（H77–H88，12 份中英混合 / 11 个现象）——已消耗，只作回归守卫
 .\.venv\Scripts\python.exe eval\run_eval.py --contracts data\contracts_holdout8 `
@@ -812,7 +849,9 @@ API/UI（`tests/test_api.py` 16 个 + `tests/test_web.py` 6 个 + `tests/test_pe
    - ~~第 8 轮：新写中英混合 holdout8(12)，只跑基线、不改规则~~ ✅ **在 `version: 8` 规则上**跑盲测基线：`TP=6 FP=0 FN=5 TN=121` → **P=1.00 / R=0.545 / F1=0.706**（合同级 `5/0/5`），漏报 H77（`is on the Seller's account`）/H78（`refer the dispute to the courts`）/H79（中文“付清全部货款”）/H80（“仲裁庭的裁决…提起上诉”）/H83（`immediately upon discharge`）；H87/H88 干净对照零触发；五个漏报按基线钉成空集合 + `test_holdout8_hits_are_stable`；
    - ~~第 9 轮第一步：按 holdout8 基线修五处写法~~ ✅ 规则 `version: 8`→**9**：`R-INC-001`（`for/on the Seller's account`，保留 `at the Seller's expense`）、`R-DIS-003`（跨句动词表补 `\brefer`）、`R-PAY-001`（“收到/收讫 + 全部价款 + 后 + 装运”）、`R-DIS-004`（中文“不服 + 向法院 + 上诉/起诉/诉讼”）、`R-INP-002`（`immediately upon discharge` 与 `on the same day`）；先探针后改 YAML；修后 holdout8 `11/0/0`（H87/H88 仍零触发）、holdout1–7 全 FP=0、主集 `hit_counts` 与 v8 逐条相同；`test_holdout8_hits_are_stable` 先失败点名 H77/H78/H79/H80/H83 再翻表降级；**holdout8 至此消耗，只作回归**；
    - ~~第 9 轮第二步：新写中英混合 holdout9(12)，只跑基线、不改规则~~ ✅ **在 `version: 9` 规则上**跑盲测基线：`TP=6 FP=0 FN=5 TN=121` → **P=1.00 / R=0.545 / F1=0.706**（合同级 `5/0/5`），漏报 H89（FOB 下“价格已含至目的港运费”）/H90（`may instead elect … decided by the courts`）/H91（中文“确认收款后方可发运”）/H92（“请求重新审理”）/H93（中文数字“二十四小时”）；H99/H100 干净对照零触发；五个漏报按基线钉成空集合 + `test_holdout9_hits_are_stable`；**holdout9 是九批中唯一未消耗的一批，对外数字改引这一份基线**；
-   - 下一步：① **按 holdout9 基线修这五处写法**（`version: 9`→10，修后 holdout9 降级），再写 holdout10 才能报新数字；② 人工复核 silver gold 现象（ISSUE-020，现 21 + 86 个留出现象）；③ 补规则缺口：检验/不可抗力缺失等（ISSUE-009，覆盖率仍 0.5238）；④ 检索侧剩 4 道语义指代题 → 查询改写（ISSUE-033）；⑤ 真实 LLM 联调（ISSUE-013，需 Key）。
+   - ~~第 10 轮第一步：按 holdout9 基线修五处写法~~ ✅ 规则 `version: 9`→**10**：`R-INC-001`（“价格已含运费”）、`R-DIS-003`（instead 式选择权，单列分支绕开 `award` 守卫）、`R-PAY-001`（“全部/全额价款 + 确认收款后 + 发运”）、`R-DIS-004`（中文“请求重新审理/再审/重新仲裁”）、`R-INP-002`（中文数词期限，限“小时 + 检验/通知/异议”）；先探针（9 批 100 份 + 主集 50 份 + 2 样例）后改 YAML；修后 holdout9 `11/0/0`（H99/H100 仍零触发）、holdout1–8 全 FP=0、主集 `hit_counts` 与 v9 逐条相同；`test_holdout9_hits_are_stable` 先失败点名 H89/H90/H91/H92/H93 再翻表降级；**holdout9 至此消耗，只作回归**；
+   - ~~第 10 轮第二步：新写中英混合 holdout10(12)，只跑一次基线、不改规则~~ ✅ **在 `version: 10` 规则上**跑盲测基线：`TP=6 FP=0 FN=5 TN=121` → **P=1.00 / R=0.545 / F1=0.706**（合同级 `5/0/5`），漏报 H101（FOB 下 `all costs of carriage … shall be defrayed by the Seller`）/H102（`In lieu of arbitration … seek a ruling … from the High Court`）/H103（中文“款项全额到账后方安排装运”）/H104（“申请对裁决的实体问题进行复审”）/H105（“两个工作日”）；H111/H112 干净对照零触发；五个漏报按基线钉成空集合 + `test_holdout10_hits_are_stable`；**holdout10 是十批中唯一未消耗的一批，对外数字改引这一份基线**；
+   - 下一步：① 按 holdout10 基线修这五处写法（`version: 10`→11，修后 holdout10 降级），**再报数须先写 holdout11**；② 人工复核 silver gold 现象（ISSUE-020，现 21 + 97 个留出现象）；③ 补规则缺口：检验/不可抗力缺失等（ISSUE-009，覆盖率仍 0.5238）；④ 检索侧剩 4 道语义指代题 → 查询改写（ISSUE-033）；⑤ 真实 LLM 联调（ISSUE-013，需 Key）。
 
 ## 当前阻塞 / 需要你拍板
 
@@ -823,8 +862,8 @@ API/UI（`tests/test_api.py` 16 个 + `tests/test_web.py` 6 个 + `tests/test_pe
 | RAG 检索评测（ISSUE-015/018） | 已完成（界面轮 15） | 只剩“对外引用授权”待确认（见上一行） | 95 题可评测：lenient R@3 0.958 / strict R@3 0.758；5 题语料未覆盖单独报 |
 | 多智能体角色与编排（ISSUE-016） | 已完成（界面轮 14，ADR-015） | 是否在演示中打开 `AGENTS_ENABLED` / `TOOLS_ENABLED`（本机 `.env` 已开、无 Key 时专家记 `not_configured`、工具走确定性计划） | 默认关闭；演示前一句话即可切回 |
 | 规则集范围（ISSUE-009） | 第 1 轮已扩 | 确认 13 条是否够用，或指定下一批主题（不可抗力/责任上限/质保/合规） | 13 条已落地；39/50 合同仍无命中 |
-| 评测 gold（ISSUE-020） | silver 已完成，待复核 | 是否需要你/业务专家人工复核 21 个银标现象 + 九批留出的 86 个现象 | 已按 silver 跑出指标；复核前对外标注“待复核” |
-| 英文写法漏报（ISSUE-021） | 第 7 轮四处（`version: 8`）与第 8 轮五处（`version: 9`）已修；第 9 轮又暴露五处（H89/H90/H91/H92/H93），**尚未修** | 是否按这五处继续修（每处成本：探针 + 回归 100 份 + 改测试），修完 holdout9 即消耗、须再写 holdout10 | 建议按基线修五处（`version: 9`→10）；不修就只引用 holdout9 基线并注明 P=1.00 / R=0.545 / F1=0.706、5 个已知漏报 |
+| 评测 gold（ISSUE-020） | silver 已完成，待复核 | 是否需要你/业务专家人工复核 21 个银标现象 + 十批留出的 97 个现象 | 已按 silver 跑出指标；复核前对外标注“待复核” |
+| 英文写法漏报（ISSUE-021） | 第 7 轮四处（`version: 8`）、第 8 轮五处（`version: 9`）、第 9 轮五处（`version: 10`）已修；第 10 轮又暴露五处（H101/H102/H103/H104/H105），**尚未修** | 是否按这五处继续修（每处成本：探针 + 回归 112 份 + 改测试），修完 holdout10 即消耗、须再写 holdout11 | 建议按基线修五处（`version: 10`→11）；不修就只引用 holdout10 基线并注明 P=1.00 / R=0.545 / F1=0.706、5 个已知漏报 |
 | 首批真实 PDF/DOCX 样例 | 待提供 | 有真实脱敏合同时优先用真实件 | 已有程序化 PDF/DOCX fixture，不阻塞 |
 | 长合同抽取覆盖 | 已知限制 | 是否接受 > 40 条条款时字段规则跳过 | 先保持保守（宁可跳过不误报） |
 | 多进程部署 | 已知限制 | 是否需要多 worker（当前锁仅进程内） | 单机单 worker 演示（ISSUE-019） |
@@ -848,7 +887,7 @@ pyproject.toml                         # ruff / pytest 配置
 app/
   config.py                            # 环境变量与上限（MAX_* / CHECKPOINT_* / HITL_TIMEOUT_MINUTES / PENDING_DIR / UPLOAD_DIR / RAG_* / USER_* / SESSION_TTL_DAYS）
   schemas.py                           # Pydantic 契约（抽取 schema / RuleEvaluation / Report / ApprovalPayload / Explanation / focus+skill）
-  graph.py                             # LangGraph 组装（13 节点 + 三条条件边 + 强制 checkpointer）
+  graph.py                             # LangGraph 组装（14 节点 + 四条条件边 + 强制 checkpointer）
   review_service.py                    # start/get/resume（幂等 + 惰性超时 + pending 持久化 + review_id 锁 + 模型运行时作用域）
   graph_demo.py                        # CLI 演示（SQLite 跨进程；--decision 恢复）
   api.py                               # FastAPI（账号/记录/Skill/BYOK + 审查/决定/报告 + `DELETE /api/reviews` 批量清空；错误码 400/401/404/409/413/422；托管 `/` 与 `/static`；API_VERSION 1.1.0）
@@ -876,7 +915,7 @@ app/
   services/checkpointer.py             # memory/sqlite 工厂 + JsonPlusSerializer 类型登记
   services/pending_store.py            # pending 时间戳落盘（原子写 + review_id 白名单）
   services/rag.py                      # 本地 BM25 + 中文二元组 + MD/DOCX 切分 + manifest 校验 + 缓存
-  rules/definitions.yaml               # 13 条规则（11 文本 + 2 字段，version 8）
+  rules/definitions.yaml               # 13 条规则（11 文本 + 2 字段，version 10）
   rules/dsl.py                         # 条件 DSL
   rules/engine.py                      # 规则加载/求值/证据/fail-closed/skipped
   nodes/experts.py                     # 可选：付款/交付/争议三个专家并行（无 risk_level，引文定位不到即丢弃）
@@ -888,7 +927,7 @@ app/
   rag_gold.py                          # 100问题.md → data/eval/gold_rag.json（两层映射 / --write 落盘）
   rag_eval.py                          # 检索指标纯计算（recall@k / MRR / 分组 / 未命中明细）
   run_rag_eval.py                      # 检索评测（ranking + production × lenient/strict）→ eval/results/rag-YYYYMMDD.json
-  results/                             # 评测结果（JSON，可版本化；主集 + 六批留出集 + 检索各一份）
+  results/                             # 评测结果（JSON，可版本化；主集 + 十批留出集 + 检索各一份）
 data/samples/                          # 2 份自拟脱敏样例
 data/contracts/                        # 50 份模拟合同（由 eval/prepare_contracts.py 生成，可重建）
 data/contracts_holdout/                # 8 份留出合同（H01–H08）→ 已消耗，回归守卫
@@ -899,7 +938,8 @@ data/contracts_holdout5/               # 12 份留出合同（H41–H52）→ �
 data/contracts_holdout6/               # 12 份留出合同（H53–H64，纯英文）→ 第 6 轮已消耗，回归守卫
 data/contracts_holdout7/               # 12 份留出合同（H65–H76，中英混合）→ 第 7 轮已消耗，回归守卫（对外只引当时基线）
 data/contracts_holdout8/               # 12 份留出合同（H77–H88，中英混合）→ 第 9 轮已修完并消耗，只作回归守卫
-data/contracts_holdout9/               # 12 份留出合同（H89–H100，5 英 / 7 中）→ 第 9 轮新写并行盲测，**当前唯一可报数集**；对外只引基线结果文件
+data/contracts_holdout9/               # 12 份留出合同（H89–H100，5 英 / 7 中）→ 第 10 轮已修完并消耗，只作回归守卫
+data/contracts_holdout10/              # 12 份留出合同（H101–H112，5 英 / 7 中）→ 第 10 轮新写并行盲测，**当前唯一可报数集**；对外只引基线结果文件
 data/eval/gold_contracts.json          # 50 份 / 105 条“条款 → Q 编号 → 期望召回 → 干扰项”（检索期望）
 data/eval/gold_rules.json              # silver gold：21 个风险现象（11 有规则 / 10 为规则缺口），待人工复核
 data/eval/gold_holdout.json            # 留出 gold：7 个现象（H04 为干净对照）
@@ -910,10 +950,11 @@ data/eval/gold_holdout5.json           # 留出 gold：10 个现象（H43/H52 �
 data/eval/gold_holdout6.json           # 留出 gold：11 个现象 / 11 条文本规则（H62/H63 为干净对照），第 6 轮已消耗
 data/eval/gold_holdout7.json           # 留出 gold：11 个现象 / 11 条文本规则（H75/H76 为干净对照），第 7 轮已消耗
 data/eval/gold_holdout8.json           # 留出 gold：11 个现象 / 11 条文本规则（H87/H88 为干净对照），第 9 轮已消耗
-data/eval/gold_holdout9.json           # 留出 gold：11 个现象 / 11 条文本规则（H99/H100 为干净对照），**当前对外数字来源**，待人工复核
+data/eval/gold_holdout9.json           # 留出 gold：11 个现象 / 11 条文本规则（H99/H100 为干净对照），第 10 轮已消耗
+data/eval/gold_holdout10.json          # 留出 gold：11 个现象 / 11 条文本规则（H111/H112 为干净对照），**当前对外数字来源**，待人工复核
 data/eval/gold_rag.json                # 检索 gold：100 题（95 可评测 / 5 语料未覆盖）+ rag_label_map.yaml 的映射结果
 data/knowledge/                        # 真实语料 14 篇 + manifest；模拟合同1..6.md 为评测来源，不进 manifest
-tests/                                 # 405 个测试（账号/记录/Skill/BYOK/zip 40 / API 17 / 前端 25 / 文档类型 11 / OCR 5 / 多智能体 12 / 工具与 MCP 23 / 报告导出 3 / pending 11 / 检索评测 12 / RAG 22 + 解释 15 / HITL 17 / 指标 11 / 规则 58 含九批留出回归，无需 Key）
+tests/                                 # 406 个测试（账号/记录/Skill/BYOK/zip 40 / API 17 / 前端 25 / 文档类型 11 / OCR 5 / 多智能体 12 / 工具与 MCP 23 / 报告导出 3 / pending 11 / 检索评测 12 / RAG 22 + 解释 15 / HITL 17 / 指标 11 / 规则 59 含十批留出回归，无需 Key）
 tests/fakes.py                         # Fake LLM（无需 Key）
 tests/fixtures/pdf_builder.py          # 纯标准库构造最小 PDF（测试用）
 docs/devlog/
@@ -923,6 +964,8 @@ docs/devlog/
   03_DEV_LOGS/2026-10-26.md            # 调研 + ADR + 第 1/2/3/4/5/6 步日志
   03_DEV_LOGS/2026-10-27.md            # 第四阶段第 1/2/3/4 轮 + 界面轮 1/2/3
   03_DEV_LOGS/2026-10-28.md            # 界面轮 4–16 与第四阶段第 5 轮（含检索评测、holdout5、H39 修复）
+  03_DEV_LOGS/2026-10-29.md            # 第四阶段第 9 轮（两步走）与第 6–8 轮补记
+  03_DEV_LOGS/2026-10-31.md            # 第四阶段第 10 轮（修五处 + holdout10 盲测基线）
   04_HANDOVER.md                       # 交接说明
   05_OPEN_ISSUES.md                    # 待决事项
   06_RAG与多智能体资料清单.md          # RAG/多智能体需要准备的资料与目录格式

@@ -42,8 +42,17 @@
 #   H83 “inspect … immediately upon discharge / notify … on the same day”（R-INP-002）。
 #   基线（改规则之前）= P=1.00 / R=0.545 / F1=0.706；修后 holdout8 降级为回归集，
 #   再报新数字须先写 holdout9。
+# - version 10（阶段 4 第 10 轮，ISSUE-021 第 8 步）：修 holdout9（H89–H100，中英混合）盲测基线
+#   暴露的 5 个写法缺口——H89 “The price is inclusive of all freight charges up to …”
+#   （价格已含运费，R-INC-001）、H90 “Either party may instead elect to have any dispute decided
+#   by the courts”（“instead” 式选择权，R-DIS-003；该条仲裁句含 “the award shall be final”，
+#   原跨句分支的 award 守卫会拦住，故单列一条）、H91 中文“将全部合同价款…汇入…卖方确认收款后
+#   方可发运”（R-PAY-001）、H92 中文“向…人民法院请求重新审理”（R-DIS-004）、
+#   H93 检验期限写成中文数字“二十四小时”（R-INP-002）。
+#   基线（改规则之前，version 9）= P=1.00 / R=0.545 / F1=0.706；修后 holdout9 降级为回归集，
+#   再报新数字须先写 holdout10。
 
-version: 9
+version: 10
 
 rules:
   - rule_id: R-TRD-001
@@ -102,8 +111,14 @@ rules:
           # 卖方在收到全部货款后安排装运”。不依赖“一次性/装运前”这类措辞，直接认
           # “收到/收讫 + 全部货款 + 后/再 + 装运/发货”，语义上就是全额预付。
           pattern: "(?:收到|收讫)[^。]{0,12}?(?:全部|全额)(?:价款|货款|款项)[^。]{0,20}?(?:后|再)[^。]{0,24}?(?:装运|发货|出运|交货)"
+        - type: regex_match
+          # “全部价款已收妥才发运”的另一写法（holdout9 H91）：“将全部合同价款一次性汇入卖方指定账户；
+          # 卖方确认收款后方可发运”。与前一条不同，这里没有“收到/收讫 + 全部货款”，而是
+          # “确认收款后 + 发运”，所以要求同一句里既有“全部/全额价款”，又有“确认收款后发运”。
+          # 只写“确认收款后发货”而没写“全部/全额”的不收（可能只是 30% 定金后的发货）。
+          pattern: "(?:全部|全额)[^。]{0,30}?(?:价款|货款|款项)[^。]{0,60}?(?:确认|收到|收讫)[^。]{0,10}?收款[^。]{0,12}?(?:后|再)[^。]{0,20}?(?:发运|装运|发货|出运|交货)"
     source: 国际贸易付款风险控制惯例（业务规则）
-    version: "1.2"
+    version: "1.3"
 
   - rule_id: R-PAY-002
     title: 未约定付款方式或付款节点
@@ -224,8 +239,15 @@ rules:
           # ③ 动词集合补 refer（holdout8 H78：“Alternatively, the Buyer may refer the dispute to the courts of Singapore.”）；
           #    用 \\brefer 而不是裸 refer，避免把 prefer 当成 refer。
           pattern: "arbitrat[a-z]*[^.]{0,140}?\\.(?:(?!(?:award|第[一二三四五六七八九十百\\d]+条|Article\\s+\\d+|Clause\\s+\\d+))[\\s\\S]){0,200}?(?:either\\s+party|a\\s+party|the\\s+(?:buyer|seller|claimant|respondent|parties))[^.]{0,100}?(?:commence|bring\\s+(?:an\\s+)?(?:action|suit|proceedings?)|\\brefer[a-z]*|file|initiate|sue\\b|litigat[a-z]*|submit)[^.]{0,100}?(?:court|litigat[a-z]*)"
+        - type: regex_match
+          # “instead” 式选择权（holdout9 H90）：“Either party may instead elect to have any dispute
+          # decided by the courts of Singapore.” 前面那句仲裁条款已写 “the award shall be final and
+          # binding”，上一条跨句分支的 award 守卫会故意拦住它，所以单列一条。
+          # 只认 “may/shall… instead/alternatively … elect/choose/opt/have … decided by … court”，
+          # 不收 “instead of enforcing the award …”（对裁决的执行/救济，属正常条款）。
+          pattern: "arbitrat[a-z]*[^.]{0,140}?\\.(?:(?!(?:第[一二三四五六七八九十百\\d]+条|Article\\s+\\d+|Clause\\s+\\d+))[\\s\\S]){0,220}?(?:either\\s+party|a\\s+party)[^.]{0,60}?\\b(?:may|shall|can|could)\\b[^.]{0,40}?(?:instead|alternatively)[^.]{0,50}?(?:elect|choose|opt|have)[^.]{0,80}?(?:decided\\s+by[^.]{0,20}?(?:court|tribunal)|court|litigat[a-z]*)"
     source: 国际货物销售合同常见争议点：“或裁或审”条款效力（业务规则）
-    version: "1.3"
+    version: "1.4"
 
   - rule_id: R-DIS-004
     title: 约定仲裁裁决后仍可向法院起诉（“先裁后审”）
@@ -249,6 +271,11 @@ rules:
           # 只认“向…法院…上诉/起诉/诉讼”；“申请撤销裁决”属于法定救济（holdout4 H32 / holdout5 H52），不收。
           pattern: "不服[^。]{0,80}?向[^。]{0,20}?法院[^。]{0,12}?(?:上诉|起诉|诉讼)"
         - type: regex_match
+          # 中文“请求重新审理”（holdout9 H92）：“任何一方均可向有管辖权的人民法院请求重新审理。”
+          # 裁决（含“终局裁决”）之后又给当事人一次“请求重新审理”的机会，实质削弱终局性。
+          # 只认 请求/申请/提起 + 重新审理/再审/重新仲裁；不收“申请强制执行 / 申请撤销裁决”等法定救济。
+          pattern: "(?:均可|可以|有权|任何一方)[^。]{0,16}?向[^。]{0,20}?法院[^。]{0,12}?(?:请求|申请|提起)[^。]{0,8}?(?:重新审理|再审|重新仲裁)"
+        - type: regex_match
           # 英文：裁决之后仍可 bring/file/commence/appeal/litigate/submit … court。
           # 刻意不收 “may be enforced in any court”（裁决的法定执行，属正常条款），
           # 也不收 “may be set aside / apply to set aside”（撤销裁决的法定救济）。
@@ -259,7 +286,7 @@ rules:
           # 仍不收 “enforced in any court” 与 “set aside” 两类法定救济。
           pattern: "award[^.]{0,140}?\\s+(?:may|shall|can|could)\\s*[^.]{0,80}?(?:bring\\s+(?:an\\s+)?(?:action|suit|proceedings?)|bring\\s+(?:the\\s+)?(?:matter|dispute|case)\\s+(?:before|to)\\s+(?:the\\s+)?courts?|file\\s+(?:a\\s+)?(?:lawsuit|suit|claim)|commence\\s+(?:an\\s+)?(?:action|proceedings?|litigation)|appeal[a-z]*|sue\\b|litigat[a-z]*|submit[a-z]*[^.]{0,40}?\\s+to\\s+(?:the\\s+)?(?:competent\\s+)?court)"
     source: 国际货物销售合同常见争议点：仲裁终局性与后续诉讼（业务规则）
-    version: "1.4"
+    version: "1.5"
 
   - rule_id: R-INS-001
     title: CIF/CIP 约定投保但未写明保险金额或比例
@@ -332,8 +359,14 @@ rules:
           # 介词短语（holdout8 H77）：“The ocean freight … is on the Seller's account”，故 (?:for|on)；
           # 同时保留 “at the Seller's expense / cost” 这一分支（语料里暂无，但属于常见写法，不能悄悄丢能力）。
           pattern: "(?<![A-Za-z])(?:FOB|EXW|FCA)(?![A-Za-z])[\\s\\S]{0,260}(?:freight|carriage)[^.]{0,40}?(?:shall\\s+be|is|are|will\\s+be|to\\s+be)\\s+(?:(?:for|on)\\s+(?:the\\s+)?seller'?s?\\s+account|at\\s+(?:the\\s+)?seller'?s?\\s+(?:expense|cost))"
+        - type: regex_match
+          # “价格已含运费”（holdout9 H89）：“The price is inclusive of all freight charges up to
+          # Jebel Ali.” 在 FOB/EXW/FCA 合同里写“价格包含运费”，等于卖方实际承担主运费，与术语矛盾。
+          # 只认 price/amount/quotation + inclusive of + freight/carriage，
+          # 不收 “price inclusive of packing / taxes” 这类与主运费无关的费用。
+          pattern: "(?<![A-Za-z])(?:FOB|EXW|FCA)(?![A-Za-z])[\\s\\S]{0,260}(?:price|amount|quotation)[^.]{0,40}?(?:is|are|shall\\s+be)?\\s*inclusive\\s+of[^.]{0,40}?(?:freight|carriage|transportation|shipping)"
     source: Incoterms® 2020 术语与费用条款一致性（业务规则）
-    version: "1.4"
+    version: "1.5"
 
   - rule_id: R-INC-002
     title: FOB/EXW 用于整箱集装箱货物
@@ -383,5 +416,10 @@ rules:
         - type: regex_match
           # “当日通知”（holdout8 H83 6.2）：“Any defect … shall be notified to the Seller on the same day.”
           pattern: "notif[a-z]*[^.]{0,50}?\\bon\\s+the\\s+same\\s+day\\b"
+        - type: regex_match
+          # 中文数字期限（holdout9 H93）：“到达雅加达港后二十四小时内完成检验”。
+          # 前两条只认阿拉伯数字或英文数词；这里补中文数词（十二 / 二十四 / 四十八 …）。
+          # 只认“小时”+ 检验/通知/异议，不碰“二十四个月保质期”这类非检验期限。
+          pattern: "[一二三四五六七八九十百]{1,4}\\s*个?\\s*小时[^。]{0,30}?(?:检验|通知|异议)|(?:检验|通知|异议)[^。]{0,30}?[一二三四五六七八九十百]{1,4}\\s*个?\\s*小时"
     source: CISG 第 38/39 条检验与通知期限的可执行性（业务规则）
-    version: "1.3"
+    version: "1.4"

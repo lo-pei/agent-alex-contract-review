@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "created_at": "2026-10-31",
+  "provenance": "holdout10：规则 version 10 状态下新写的 12 份合同（H101–H112，5 份英文 / 7 份中文），与 C01–C50 及 holdout1–9 均不重复；先写合同与 gold、再在 version 10 上跑一次基线（ADR-011 留出纪律：基线是盲测结论，之后若按基线修规则，本批即降级为回归集）；gold 为 AI 初标，待人工复核",
+  "annotation_protocol": [
+    "按业务事实标注“该合同是否存在该风险”，标注时不参考规则能否命中",
+    "本批刻意换用 version 10 仍未覆盖的同义写法，各只放一处，避免互相掩盖：①FOB 下用“all costs of carriage … shall be defrayed by the Seller”（H101，动词在主语之前，避开 arrange and pay for / for the Seller's account / inclusive of）；②“或裁或审”写成“In lieu of arbitration, the Buyer may … seek a ruling … from the High Court”（H102，动词是 seek，而非 commence / refer / elect）；③中文 100% 预付写成“合同价款的百分之百 … 款项全额到账后方安排装运”（H103，用“百分之百”“到账”而非“全部/全额 + 收到”）；④仲裁终局后又写“向仲裁地法院申请对裁决的实体问题进行复审”（H104，动词是“复审”，而非上诉 / 重新审理）；⑤检验期限写成“两个工作日”（H105，规则只认小时、立即检验与当日通知）",
+    "另有六条覆盖既有能力：H106 DDP 未注明 Incoterms 版本（R-TRD-001）；H107 FOB + FCL 整箱（R-INC-002）；H108 CIF + 协会条款（A）但未写保额（R-INS-001）；H109 简式销售确认书（无付款、无争议解决）；H110 仅约定 SIAC 仲裁、无适用法律（R-DIS-001）",
+    "刻意包含反例（应当判 pass）：H111（CIF + 110% ICC(A) + 新加坡法 + SIAC）、H112（FCA + 20% 预付 + SGS + 中国法 + 上海仲裁），两份都不得有任何非 pass 评估",
+    "等级口径与 gold_rules.json 一致：red=可能致重大损失或权利落空；yellow=条款缺失/口径矛盾",
+    "R-PAY-002 / R-DIS-002 属“条款缺失型”，H109 是只有当事人、货物、价格与装运、保险、检验与准据法的销售确认书",
+    "H103 的 CFR 下由卖方承担主运费本身不是风险（与 CFR 一致），只标“生效后五个银行工作日内付清 100%、全额到账后才装运”这一条；H108 的 CIF 下由卖方按 ICC(A) 投保本身合规，只标未写保险金额/比例",
+    "五处刻意漏报只作为 version 10 的基线事实记录，不在本轮据此修规则；本批在同一版本上只跑一次基线，之后一旦按基线修规则，本批即降级为回归集"
+  ],
+  "scored_rules": {
+    "R-TRD-001": "yellow",
+    "R-PAY-001": "red",
+    "R-PAY-002": "yellow",
+    "R-DIS-001": "red",
+    "R-DIS-002": "red",
+    "R-DIS-003": "red",
+    "R-DIS-004": "red",
+    "R-INS-001": "yellow",
+    "R-INC-001": "yellow",
+    "R-INC-002": "yellow",
+    "R-INP-002": "yellow"
+  },
+  "unscored_rules": {
+    "R-DLV-001": "依赖 LLM 抽取字段，评测不调用 LLM",
+    "R-INP-001": "依赖 LLM 抽取字段，评测不调用 LLM"
+  },
+  "contract_ids": [
+    "H101",
+    "H102",
+    "H103",
+    "H104",
+    "H105",
+    "H106",
+    "H107",
+    "H108",
+    "H109",
+    "H110",
+    "H111",
+    "H112"
+  ],
+  "phenomena": [
+    {
+      "contract_id": "H101",
+      "phenomenon": "FOB 术语下却约定包括海运费在内的全部运输费用由卖方承担，与 FOB 由买方负责主运费冲突",
+      "level": "yellow",
+      "rule_id": "R-INC-001",
+      "evidence": "第3.2条 Trade term: FOB Xiamen, Incoterms® 2020；第3.3条 Notwithstanding the FOB term, all costs of carriage from Xiamen to Djibouti, including ocean freight, shall be defrayed by the Seller"
+    },
+    {
+      "contract_id": "H102",
+      "phenomenon": "约定 SIAC 仲裁后，又允许买方改选由新加坡高等法院审理，未约定选择权归属与先后顺序（或裁或审）",
+      "level": "red",
+      "rule_id": "R-DIS-003",
+      "evidence": "第9.2条 Any dispute … shall be finally settled by arbitration administered by SIAC under the SIAC Rules；第9.3条 In lieu of arbitration, the Buyer may at its sole discretion seek a ruling on the dispute from the High Court of Singapore"
+    },
+    {
+      "contract_id": "H103",
+      "phenomenon": "要求买方在合同生效后五个银行工作日内支付合同价款的百分之百，卖方在款项全额到账后才安排装运，买方承担卖方不履约时的全部资金风险",
+      "level": "red",
+      "rule_id": "R-PAY-001",
+      "evidence": "第7.1条 付款方式：电汇（T/T）。买方应于本合同生效后五个银行工作日内将合同价款的百分之百汇入卖方指定账户；卖方在款项全额到账后方安排装运"
+    },
+    {
+      "contract_id": "H104",
+      "phenomenon": "约定仲裁庭裁决为终局后，又允许任何一方在三十日内向仲裁地法院申请对裁决的实体问题进行复审，实质削弱仲裁终局性",
+      "level": "red",
+      "rule_id": "R-DIS-004",
+      "evidence": "第9.2条 仲裁庭作出的裁决为终局裁决，对双方均有约束力；第9.3条 任何一方可以在收到裁决书之日起三十日内向仲裁地法院申请对裁决的实体问题进行复审"
+    },
+    {
+      "contract_id": "H105",
+      "phenomenon": "把检验与异议期限压缩到到港后两个工作日，电子天平并非易腐品，买方难以完成检验与取证",
+      "level": "yellow",
+      "rule_id": "R-INP-002",
+      "evidence": "第6.1条 买方应在货物到达雅加达港后两个工作日内完成检验，并在同一期限内将任何质量或数量异议书面通知卖方"
+    },
+    {
+      "contract_id": "H106",
+      "phenomenon": "使用 DDP 术语但未注明 Incoterms 版本，交货与费用划分可能歧义",
+      "level": "yellow",
+      "rule_id": "R-TRD-001",
+      "evidence": "第3.2条 贸易术语：DDP 上海（全文无 Incoterms 年份/版本）"
+    },
+    {
+      "contract_id": "H107",
+      "phenomenon": "FOB 起草却约定整箱（FCL）集装箱货物交至堆场，卖方难以控制装船节点",
+      "level": "yellow",
+      "rule_id": "R-INC-002",
+      "evidence": "第2.2条 Trade term: FOB Qingdao, Incoterms® 2020；第2.3条 The Goods shall be shipped as one FCL container (40-foot HQ) and delivered to the container yard at Qingdao Port"
+    },
+    {
+      "contract_id": "H108",
+      "phenomenon": "CIF 下约定卖方按协会条款（A）投保，但未写明保险金额或投保比例",
+      "level": "yellow",
+      "rule_id": "R-INS-001",
+      "evidence": "第3.2条 CIF 汉堡，Incoterms® 2020；第5.1条 卖方应按协会货物条款（A）为货物投保，保险单随提单交付买方（无金额/比例）"
+    },
+    {
+      "contract_id": "H109",
+      "phenomenon": "简式销售确认书未约定付款方式或付款节点",
+      "level": "yellow",
+      "rule_id": "R-PAY-002",
+      "evidence": "全文仅约定当事人、货物、价格与贸易术语、装运、保险、检验与法律适用，无付款方式/比例/节点"
+    },
+    {
+      "contract_id": "H109",
+      "phenomenon": "未约定仲裁或诉讼管辖安排，争议时可能产生管辖权争议",
+      "level": "red",
+      "rule_id": "R-DIS-002",
+      "evidence": "第8条仅约定法律适用为中华人民共和国法律，全文无仲裁/管辖/诉讼约定"
+    },
+    {
+      "contract_id": "H110",
+      "phenomenon": "合同未约定适用法律，仅约定 SIAC 仲裁、仲裁地与仲裁语言",
+      "level": "red",
+      "rule_id": "R-DIS-001",
+      "evidence": "第9条仅约定 SIAC 仲裁、仲裁地为新加坡、仲裁语言为英语，全文无适用法律/准据法约定"
+    }
+  ]
+}
