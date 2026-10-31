@@ -51,8 +51,18 @@
 #   H93 检验期限写成中文数字“二十四小时”（R-INP-002）。
 #   基线（改规则之前，version 9）= P=1.00 / R=0.545 / F1=0.706；修后 holdout9 降级为回归集，
 #   再报新数字须先写 holdout10。
+# - version 11（阶段 4 第 11 轮，ISSUE-021 第 9 步）：修 holdout10（H101–H112，中英混合）盲测基线
+#   暴露的 5 个写法缺口——H101 “all costs of carriage … shall be defrayed by the Seller”
+#   （动词在主语之前，R-INC-001）、H102 “In lieu of arbitration, the Buyer may … seek a ruling …
+#   from the High Court”（或裁或审，R-DIS-003；仲裁只出现在前置短语里）、H103 中文“合同价款的
+#   百分之百 … 款项全额到账后方安排装运”（R-PAY-001；用“百分之百/到账”而非“全部/收到”）、
+#   H104 中文“向仲裁地法院申请对裁决的实体问题进行复审”（R-DIS-004；动词是“复审”）、
+#   H105 检验期限写成“两个工作日”（R-INP-002；只认小时/立即/当日）。每处先在主集 50 份 +
+#   十批留出 112 份 + 2 份样例上跑探针（带 re.IGNORECASE），确认只命中目标合同才写入。
+#   基线（改规则之前，version 10）= P=1.00 / R=0.545 / F1=0.706；修后 holdout10 降级为回归集，
+#   再报新数字须先写 holdout11。
 
-version: 10
+version: 11
 
 rules:
   - rule_id: R-TRD-001
@@ -117,8 +127,14 @@ rules:
           # “确认收款后 + 发运”，所以要求同一句里既有“全部/全额价款”，又有“确认收款后发运”。
           # 只写“确认收款后发货”而没写“全部/全额”的不收（可能只是 30% 定金后的发货）。
           pattern: "(?:全部|全额)[^。]{0,30}?(?:价款|货款|款项)[^。]{0,60}?(?:确认|收到|收讫)[^。]{0,10}?收款[^。]{0,12}?(?:后|再)[^。]{0,20}?(?:发运|装运|发货|出运|交货)"
+        - type: regex_match
+          # “百分之百到账后才装运”（holdout10 H103）：“买方应于本合同生效后五个银行工作日内将合同价款的
+          # 百分之百汇入卖方指定账户；卖方在款项全额到账后方安排装运”。前一条要求“全部/全额 + 价款”，
+          # 这里比例写成“百分之百”、收款写成“到账”，故单列一条；仍要求同一句内“到账 + 后/再 + 装运”，
+          # 只写“百分之百付款”而没有“到账后才装运”的不收（可能只是全额电汇、见提单副本发货的正常安排）。
+          pattern: "(?:百分之百|百分百)[^。]{0,80}?(?:价款|货款|款项)[^。]{0,40}?到账[^。]{0,20}?(?:后|再)[^。]{0,24}?(?:装运|发货|发运|出运|交货)"
     source: 国际贸易付款风险控制惯例（业务规则）
-    version: "1.3"
+    version: "1.4"
 
   - rule_id: R-PAY-002
     title: 未约定付款方式或付款节点
@@ -246,8 +262,16 @@ rules:
           # 只认 “may/shall… instead/alternatively … elect/choose/opt/have … decided by … court”，
           # 不收 “instead of enforcing the award …”（对裁决的执行/救济，属正常条款）。
           pattern: "arbitrat[a-z]*[^.]{0,140}?\\.(?:(?!(?:第[一二三四五六七八九十百\\d]+条|Article\\s+\\d+|Clause\\s+\\d+))[\\s\\S]){0,220}?(?:either\\s+party|a\\s+party)[^.]{0,60}?\\b(?:may|shall|can|could)\\b[^.]{0,40}?(?:instead|alternatively)[^.]{0,50}?(?:elect|choose|opt|have)[^.]{0,80}?(?:decided\\s+by[^.]{0,20}?(?:court|tribunal)|court|litigat[a-z]*)"
+        - type: regex_match
+          # “替代仲裁”前置短语（holdout10 H102）：“In lieu of arbitration, the Buyer may at its sole
+          # discretion seek a ruling on the dispute from the High Court of Singapore.”
+          # 仲裁只出现在“In lieu of arbitration”这一前置短语里，后面既没有 another arbitration 句可跨，
+          # 动词也不是 commence / refer / elect，故补一条：同一句内“In lieu of arbitration + 情态动词 +
+          # seek/commence/bring/refer/... + 法院”。只读“向法院请求裁决/提起诉讼”这类实体争议路径，
+          # 不碰“为保全措施向法院申请协助”的临时救济写法（动词不在表内）。
+          pattern: "in\\s+lieu\\s+of\\s+(?:the\\s+)?arbitration[^.]{0,120}?\\b(?:may|shall|can|could)\\b[^.]{0,120}?(?:seek[a-z]*|commence|bring|file|refer[a-z]*|elect|choose|opt|litigat[a-z]*|sue)[^.]{0,140}?(?:court|litigat[a-z]*)"
     source: 国际货物销售合同常见争议点：“或裁或审”条款效力（业务规则）
-    version: "1.4"
+    version: "1.5"
 
   - rule_id: R-DIS-004
     title: 约定仲裁裁决后仍可向法院起诉（“先裁后审”）
@@ -285,8 +309,14 @@ rules:
           # “bring the matter/dispute/case before the court”也是同一语义的写法（holdout7 H69）；
           # 仍不收 “enforced in any court” 与 “set aside” 两类法定救济。
           pattern: "award[^.]{0,140}?\\s+(?:may|shall|can|could)\\s*[^.]{0,80}?(?:bring\\s+(?:an\\s+)?(?:action|suit|proceedings?)|bring\\s+(?:the\\s+)?(?:matter|dispute|case)\\s+(?:before|to)\\s+(?:the\\s+)?courts?|file\\s+(?:a\\s+)?(?:lawsuit|suit|claim)|commence\\s+(?:an\\s+)?(?:action|proceedings?|litigation)|appeal[a-z]*|sue\\b|litigat[a-z]*|submit[a-z]*[^.]{0,40}?\\s+to\\s+(?:the\\s+)?(?:competent\\s+)?court)"
+        - type: regex_match
+          # 中文“申请对裁决的实体问题进行复审”（holdout10 H104）：“任何一方可以在收到裁决书之日起
+          # 三十日内向仲裁地法院申请对裁决的实体问题进行复审”。动词是“复审”，前几条只认
+          # 上诉 / 起诉 / 重新审理 / 再审 / 重新仲裁，故补“复审 / 重新审查 / 实体审查”。
+          # 仍要求同一句内先出现“裁决 / 仲裁”、再出现“法院”，不收“向法院申请强制执行 / 撤销裁决”等法定救济。
+          pattern: "(?:裁决|仲裁)[^。]{0,60}?法院[^。]{0,40}?(?:复审|重新审查|实体审查)"
     source: 国际货物销售合同常见争议点：仲裁终局性与后续诉讼（业务规则）
-    version: "1.5"
+    version: "1.6"
 
   - rule_id: R-INS-001
     title: CIF/CIP 约定投保但未写明保险金额或比例
@@ -365,8 +395,15 @@ rules:
           # 只认 price/amount/quotation + inclusive of + freight/carriage，
           # 不收 “price inclusive of packing / taxes” 这类与主运费无关的费用。
           pattern: "(?<![A-Za-z])(?:FOB|EXW|FCA)(?![A-Za-z])[\\s\\S]{0,260}(?:price|amount|quotation)[^.]{0,40}?(?:is|are|shall\\s+be)?\\s*inclusive\\s+of[^.]{0,40}?(?:freight|carriage|transportation|shipping)"
+        - type: regex_match
+          # 动词在主语之前的被动语态（holdout10 H101）：“Notwithstanding the FOB term, all costs of
+          # carriage from Xiamen to Djibouti, including ocean freight, shall be defrayed by the Seller.”
+          # 主语是“全部运输费用”，动词 defray 在主语之后、卖方之前，前三条（卖方在前 / 记在卖方账上 /
+          # 价格已含）都吃不到，故补一条：同一句内“freight/carriage + shall be defrayed by the Seller”。
+          # 只认 defrayed（该写法在语料中仅 H101），不扩到 paid/borne，避免与“买方付运费但卖方代垫”混淆。
+          pattern: "(?<![A-Za-z])(?:FOB|EXW|FCA)(?![A-Za-z])[\\s\\S]{0,260}(?:freight|carriage)[^.]{0,60}?(?:shall\\s+be|is|are|will\\s+be|to\\s+be)\\s+defrayed\\s+by\\s+(?:the\\s+)?seller"
     source: Incoterms® 2020 术语与费用条款一致性（业务规则）
-    version: "1.5"
+    version: "1.6"
 
   - rule_id: R-INC-002
     title: FOB/EXW 用于整箱集装箱货物
@@ -421,5 +458,10 @@ rules:
           # 前两条只认阿拉伯数字或英文数词；这里补中文数词（十二 / 二十四 / 四十八 …）。
           # 只认“小时”+ 检验/通知/异议，不碰“二十四个月保质期”这类非检验期限。
           pattern: "[一二三四五六七八九十百]{1,4}\\s*个?\\s*小时[^。]{0,30}?(?:检验|通知|异议)|(?:检验|通知|异议)[^。]{0,30}?[一二三四五六七八九十百]{1,4}\\s*个?\\s*小时"
+        - type: regex_match
+          # 中文“工作日”期限（holdout10 H105）：“买方应在货物到达雅加达港后两个工作日内完成检验”。
+          # 上文只认“小时”，这里补中文数词 + 工作日；只收 1–5 个工作日（极短），
+          # “十个工作日/十五个工作日”这类正常检验窗口不收（与小时分支上界“99 小时”保持同一量级）。
+          pattern: "[一二两三四五]\\s*个?\\s*工作日[^。]{0,30}?(?:检验|通知|异议)|(?:检验|通知|异议)[^。]{0,30}?[一二两三四五]\\s*个?\\s*工作日"
     source: CISG 第 38/39 条检验与通知期限的可执行性（业务规则）
-    version: "1.4"
+    version: "1.5"

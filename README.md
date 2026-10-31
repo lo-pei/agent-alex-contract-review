@@ -4,7 +4,7 @@
 
 > **核心约束**：等级只来自 Python 规则；LLM 只做抽取与解释；红色风险必须人工确认；失败一律显式降级，不静默通过。
 
-`Python 3.12` · `LangGraph 1.2` · `FastAPI` · `零前端框架` · `406 个测试` · 规则 `version: 10`
+`Python 3.12` · `LangGraph 1.2` · `FastAPI` · `零前端框架` · `407 个测试` · 规则 `version: 11`
 
 ---
 
@@ -35,11 +35,11 @@ ingest → precheck（是不是合同？）─否→ not_contract 报告（不�
 
 | 项 | 值 |
 |---|---|
-| 阶段 | 第四阶段（测试与评测）第 10 轮 + 界面轮 16 |
-| 规则 | 13 条（11 文本 + 2 字段），`app/rules/definitions.yaml` `version: 10` |
+| 阶段 | 第四阶段（测试与评测）第 11 轮 + 界面轮 16 |
+| 规则 | 13 条（11 文本 + 2 字段），`app/rules/definitions.yaml` `version: 11` |
 | 图 | 14 节点 + 4 条条件边；专家分支与工具节点默认关闭（走直连 / 空节点，拓扑与结论不变） |
-| 测试 | **406 个**，`ruff check .` 通过，前端 `node --check` 通过 |
-| 对外指标 | **holdout10 盲测基线**：P=1.00 / R=0.545 / F1=0.706（12 份 / 11 现象，漏报 H101–H105 **尚未修**） |
+| 测试 | **407 个**，`ruff check .` 通过，前端 `node --check` 通过 |
+| 对外指标 | **holdout11 盲测基线**：P=1.00 / R=0.545 / F1=0.706（12 份 / 11 现象，漏报 H113–H117 **尚未修**） |
 | 检索评测 | 95 题可评测；ranking lenient R@3 **0.958** / strict R@3 **0.758** |
 | API | `1.1.0`（`GET /health` / `GET /openapi.json` 可查） |
 | 仓库 | <https://github.com/lo-pei/agent-alex-contract-review>（private，`master`） |
@@ -91,7 +91,7 @@ Copy-Item .env.example .env   # 需要真实模型时再填 LLM_API_KEY
 .\.venv\Scripts\python.exe -m streamlit run app/ui.py
 
 # 6) 测试与静态检查
-.\.venv\Scripts\python.exe -m pytest        # 406 passed
+.\.venv\Scripts\python.exe -m pytest        # 407 passed
 .\.venv\Scripts\python.exe -m ruff check .
 node --check app/web/app.js
 ```
@@ -172,7 +172,7 @@ OCR_ENABLED=true
 - 新流程固定为：**写新集 → 写 gold → 跑基线 → 才改规则**；`test_holdout*_hits_are_stable` 会先把漏报写成空集合，修完必然失败并点名，此时才翻表降级。
 - 对外报数必须同时给：样本 + 规则版本 + 命令 + 日期 + 结果文件；recall 分辨率是 1/11，**样本小，不能外推**。
 
-### 7.2 十批留出集的分工
+### 7.2 十一批留出集的分工
 
 | 批次 | 份数 / 现象 | 基线 P / R / F1 | 状态 |
 |---|---|---|---|
@@ -185,18 +185,19 @@ OCR_ENABLED=true
 | holdout7（H65–H76） | 12 / 11 | 1.00 / 0.636 / 0.778 | ❌ 已消耗（H65–H69 已修） |
 | holdout8（H77–H88） | 12 / 11 | 1.00 / 0.545 / 0.706 | ❌ 已消耗（五处已在 `version: 9` 修好） |
 | holdout9（H89–H100） | 12 / 11 | 1.00 / 0.545 / 0.706 | ❌ 已消耗（五处已在 `version: 10` 修好，修后 11/0/0） |
-| **holdout10（H101–H112）** | **12 / 11** | **1.00 / 0.545 / 0.706** | ✅ **当前唯一可对外报数**（五处未修） |
+| holdout10（H101–H112） | 12 / 11 | 1.00 / 0.545 / 0.706 | ❌ 已消耗（五处已在 `version: 11` 修好，修后 11/0/0） |
+| **holdout11（H113–H124）** | **12 / 11** | **1.00 / 0.545 / 0.706** | ✅ **当前唯一可对外报数**（五处未修） |
 
 ### 7.3 当前对外数字
 
 ```powershell
-.\.venv\Scripts\python.exe eval\run_eval.py --contracts data\contracts_holdout10 `
-  --gold data\eval\gold_holdout10.json --gold-rules data\eval\gold_holdout10.json --tag holdout10-baseline
+.\.venv\Scripts\python.exe eval\run_eval.py --contracts data\contracts_holdout11 `
+  --gold data\eval\gold_holdout11.json --gold-rules data\eval\gold_holdout11.json --tag holdout11-baseline
 ```
 
-`eval/results/rules-holdout10-baseline-20261030.json`（文件名日期是 UTC 2026-10-30，本地生成于 2026-10-31）：`TP=6 FP=0 FN=5 TN=121` → **P=1.00 / R=0.545 / F1=0.706**；合同级 `5/0/5`。
+`eval/results/rules-holdout11-baseline-20261031.json`：`TP=6 FP=0 FN=5 TN=121` → **P=1.00 / R=0.545 / F1=0.706**；合同级 `5/0/5`。
 
-漏报全部是刻意构造的 `version: 10` 未覆盖写法：H101（FOB 下 `all costs of carriage … shall be defrayed by the Seller`）、H102（`In lieu of arbitration … seek a ruling … from the High Court`）、H103（中文“款项全额到账后方安排装运”）、H104（“申请对裁决的实体问题进行复审”）、H105（中文数字“两个工作日”）。**下一轮按这五处修（`version: 10`→11），holdout10 随即降级；再报新数字必须先写 holdout11。**
+漏报全部是刻意构造的 `version: 11` 未覆盖写法：H113（FOB 下 `all ocean freight charges … shall be absorbed by the Seller`）、H114（`Notwithstanding the arbitration clause …, the Buyer may elect … heard by the courts`）、H115（中文“电汇全额货款 … 收到全款后安排装运”）、H116（“对裁决有异议 … 法院请求改判”）、H117（检验期限“三日内”）。**下一轮按这五处修（`version: 11`→12），holdout11 随即降级；再报新数字必须先写 holdout12。**
 
 主集与覆盖率：
 
@@ -239,16 +240,16 @@ app/
               · rules · research · hitl · explain · report
   services/   llm · accounts · secret_box · llm_providers · skill_catalog
               · evidence · document_type · checkpointer · rag · tools
-  rules/      definitions.yaml（13 条，version 10）· dsl.py · engine.py
+  rules/      definitions.yaml（13 条，version 11）· dsl.py · engine.py
   web/        index.html / styles.css / app.js / fonts/（无框架）
 eval/         prepare_contracts · metrics · run_eval · rag_gold · rag_eval · run_rag_eval · results/
-data/         samples/（2 份）· contracts/（50 份）· contracts_holdout{,2..10}/ · eval/（gold）· knowledge/（14 篇）
-tests/        406 个（规则 59 · API 17 · 前端 25 · 多智能体 12 · 工具/MCP 23 · 其余覆盖解析/HITL/账号等）
+data/         samples/（2 份）· contracts/（50 份）· contracts_holdout{,2..11}/ · eval/（gold）· knowledge/（14 篇）
+tests/        407 个（规则 60 · API 17 · 前端 25 · 多智能体 12 · 工具/MCP 23 · 其余覆盖解析/HITL/账号等）
 docs/devlog/  00_PROJECT_STATE · 01_RESEARCH_LOG · 02_ARCHITECTURE_DECISIONS · 03_DEV_LOGS
               04_HANDOVER · 05_OPEN_ISSUES · 06_RAG与多智能体资料清单
 ```
 
-说明：`data/contracts/`、`data/contracts_holdout*/` 均为可重建/自拟的模拟件；`holdout10` 是当前唯一未消耗批次（holdout1–9 均已消耗，只作回归）。
+说明：`data/contracts/`、`data/contracts_holdout*/` 均为可重建/自拟的模拟件；`holdout11` 是当前唯一未消耗批次（holdout1–10 均已消耗，只作回归）。
 
 ---
 
@@ -256,7 +257,7 @@ docs/devlog/  00_PROJECT_STATE · 01_RESEARCH_LOG · 02_ARCHITECTURE_DECISIONS �
 
 - **输入与切分**：加密 PDF 明确报错；扫描件 OCR 最多 20 页，可能吞空格或把中文长句/表格串行（只产文本、不参与判级）；PDF 表格/多栏可能乱序；DOCX 无真实页码（统一 `p1`）；切分是启发式的，无标题合同走段落 fallback。
 - **规则覆盖**：13 条规则只覆盖常见外贸条款；责任上限、质保期、所有权保留、合规等**无规则**（主集 21 个现象中 10 个无覆盖，覆盖率 52.4%）。同一风险的不同写法仍可能漏检：被动语态（`freight is to be paid by the Seller`）、更远的跨句、从句嵌套、中文数字期限等；`R-INC-001` 跨句窗口 260 字符、`R-DIS-003` 跨句窗口 200 字符、保额邻近 ±60/40 字符都是**启发式窗口**，长条款可能跨条匹配，需人工核对证据。
-- **泛化数字**：只有 holdout10 基线可对外（12 份 / 11 现象，R=0.545，漏报 H101–H105 未修）；recall 分辨率 1/11，样本小，不能外推；silver gold **待人工复核**。
+- **泛化数字**：只有 holdout11 基线可对外（12 份 / 11 现象，R=0.545，漏报 H113–H117 未修）；recall 分辨率 1/11，样本小，不能外推；silver gold **待人工复核**。
 - **检索**：BM25 词法检索，同义改写与跨语言提问召回有限；仍有个别不点条号的语义指代题未进 top-5；评测数字只对该题库成立。
 - **解释成本**：按风险条逐条调用（4 条风险 ≈ 4 次 LLM 调用，上限 20 条）；RAG / 专家 / 工具另有额外调用。
 - **部署形态**：单机单 worker；并发锁是进程内 `RLock`，多 worker 前需换文件锁/数据库锁；`LLMRuntime` 亦为进程内字典；上传与 pending 文件无保留期清理。

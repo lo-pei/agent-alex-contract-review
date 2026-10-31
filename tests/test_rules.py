@@ -1064,9 +1064,9 @@ HOLDOUT10_DIR = PROJECT_ROOT / "data" / "contracts_holdout10"
 #: 动词是 seek）、H103（中文“合同价款的百分之百 … 款项全额到账后方安排装运”，用“到账”
 #: 而非“收到/收讫 + 全部货款”）、H104（“向仲裁地法院申请对裁决的实体问题进行复审”，
 #: 动词是“复审”）、H105（检验期限写成“两个工作日”，规则只认小时/立即/当日）。
-#: 按 ADR-011 留出纪律，本批的五个漏报先写成空集合（当前跑通即基线快照）；下一步若按本基线
-#: 修规则，本测试必须失败并点名这五份合同，**此时才翻表降级**——本批自此只作回归守卫，
-#: 对外数字仍只引基线文件 `eval/results/rules-holdout10-baseline-20261030.json`。
+#: 按 ADR-011 留出纪律，本批的五个漏报先写成空集合（当时跑通即基线快照）；第 11 轮按基线
+#: 修规则时，本测试先失败并点名 H101–H105（已实测），随后翻表降级——本批自此只作回归守卫，
+#: 对外数字改引新写的 holdout11 基线。
 EXPECTED_HOLDOUT10_HITS: dict[str, set[str]] = {
     "R-TRD-001": {"H106"},
     "R-INC-002": {"H107"},
@@ -1074,12 +1074,12 @@ EXPECTED_HOLDOUT10_HITS: dict[str, set[str]] = {
     "R-PAY-002": {"H109"},
     "R-DIS-002": {"H109"},
     "R-DIS-001": {"H110"},
-    # 以下五条是 version 10 盲测基线的漏报，先写成空集合；本轮不据基线修规则
-    "R-INC-001": set(),
-    "R-DIS-003": set(),
-    "R-PAY-001": set(),
-    "R-DIS-004": set(),
-    "R-INP-002": set(),
+    # version 11 已按 holdout10 基线修好这五处（探针确认只新增目标合同命中）
+    "R-INC-001": {"H101"},
+    "R-DIS-003": {"H102"},
+    "R-PAY-001": {"H103"},
+    "R-DIS-004": {"H104"},
+    "R-INP-002": {"H105"},
 }
 
 
@@ -1102,6 +1102,61 @@ def test_holdout10_hits_are_stable() -> None:
     # 是全条款合规的干净对照：后续放宽写法时不得引入误报。
     for name in ("H111", "H112"):
         state = _load_state(HOLDOUT10_DIR / f"{name}.md")
+        evaluations = evaluate_rules(
+            load_rules(), state.clauses, state.raw_text, extraction_available=False
+        )
+        assert [e.rule_id for e in evaluations if e.risk_level != "pass"] == [], name
+
+
+HOLDOUT11_DIR = PROJECT_ROOT / "data" / "contracts_holdout11"
+
+#: holdout11（H113–H124，5 份英文 / 7 份中文）是阶段 4 第 11 轮修完 `version: 11` 之后**新写**
+#: 的盲测集（见 `data/eval/gold_holdout11.json` 的 `annotation_protocol`）。
+#: 盲测基线（规则 version 11，**改规则之前跑，只跑一次**）：`TP=6 FP=0 FN=5 TN=121`
+#: → P=1.00 / R=0.545 / F1=0.706，合同级 `TP=5 FP=0 FN=5`，漏报 H113（FOB 下
+#: “all ocean freight charges … shall be absorbed by the Seller”，动词是 absorb）、
+#: H114（“Notwithstanding the arbitration clause …, the Buyer may elect to have the dispute
+#: heard by the courts”，仲裁只出现在前置从句里）、H115（中文“电汇全额货款 … 卖方在收到全款后
+#: 安排装运”，用“全款”而非“全部/全额 + 货款”）、H116（“对裁决有异议 … 向 … 法院请求改判”，
+#: 动词是“改判”）、H117（检验期限写成“三日内”，规则只认小时与 1–5 个工作日）。
+#: 按 ADR-011 留出纪律，本批的五个漏报先写成空集合（当前跑通即基线快照）；若下一步按本基线
+#: 修规则，本测试必须失败并点名这五份合同，**此时才翻表降级**——本批自此只作回归守卫，
+#: 对外数字引基线文件 `eval/results/rules-holdout11-baseline-20261031.json`。
+EXPECTED_HOLDOUT11_HITS: dict[str, set[str]] = {
+    "R-TRD-001": {"H118"},
+    "R-INS-001": {"H119"},
+    "R-INC-002": {"H120"},
+    "R-PAY-002": {"H121"},
+    "R-DIS-001": {"H122"},
+    "R-DIS-002": {"H122"},
+    # 以下五条是 version 11 盲测基线的漏报，先写成空集合；本轮不据基线修规则
+    "R-INC-001": set(),
+    "R-DIS-003": set(),
+    "R-PAY-001": set(),
+    "R-DIS-004": set(),
+    "R-INP-002": set(),
+}
+
+
+def test_holdout11_hits_are_stable() -> None:
+    if not HOLDOUT11_DIR.is_dir():
+        pytest.skip("缺少 data/contracts_holdout11 目录")
+    rules = [rule for rule in load_rules() if rule.rule_id in EXPECTED_HOLDOUT11_HITS]
+    hits = {rule_id: set() for rule_id in EXPECTED_HOLDOUT11_HITS}
+    for path in sorted(HOLDOUT11_DIR.glob("H*.md")):
+        state = _load_state(path)
+        for evaluation in evaluate_rules(
+            rules, state.clauses, state.raw_text, extraction_available=False
+        ):
+            if evaluation.risk_level != "pass":
+                hits[evaluation.rule_id].add(path.stem)
+    assert hits == EXPECTED_HOLDOUT11_HITS
+
+    # H123（DDP 迪拜 + 30/70 付款 + 110% 一切险 + SGS + 中国法 + 上海仲裁）/
+    # H124（CIF + 110% ICC(A) + 即期信用证 + 新加坡法 + SIAC 单一仲裁路径）
+    # 是全条款合规的干净对照：后续放宽写法时不得引入误报。
+    for name in ("H123", "H124"):
+        state = _load_state(HOLDOUT11_DIR / f"{name}.md")
         evaluations = evaluate_rules(
             load_rules(), state.clauses, state.raw_text, extraction_available=False
         )
