@@ -364,12 +364,12 @@ def test_review_history_refreshes_right_after_review_and_decision() -> None:
 
 
 def test_clause_toc_uses_contract_numbering() -> None:
-    """左栏目录用合同自带编号（跳号也照抄），标题里重复的“5.”不再出现在名称列。"""
+    """左栏原文块用合同标题（去掉重复编号）；前言仍叫“前言”。"""
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
 
-    assert "function clauseNumber" in script
     assert "function clauseName" in script
-    assert "function clauseLabel" in script
+    assert "function clauseNumber" not in script
+    assert "function clauseLabel" not in script
     # 前言不叫“第 1 条”
     assert 'if (clause.is_preamble) return "前言";' in script
     # 名称列去掉与序号列重复的编号
@@ -561,23 +561,24 @@ def test_footer_disclaimer_and_legal_dialogs() -> None:
     assert ".legal-no" in styles
 
 
-def test_report_guide_dialog_explains_what_report_means() -> None:
-    """ISSUE-024：结果页要有“这份报告怎么读”，说明等级来源、专家不判级与覆盖边界。"""
+def test_report_guide_entry_is_removed_and_coverage_is_honest() -> None:
+    """界面轮 16：删掉“这份报告怎么读”入口，改为在结果页直接给出诚实提示。"""
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
-    # 入口：逐条审查的动作区与仅下载报告的分支都要有
-    assert script.count("data-guide") >= 2
-    assert "这份报告怎么读" in script
+    assert "这份报告怎么读" not in script
+    assert "data-guide" not in script
+    assert "function openGuide" not in script
 
-    # 内容必须讲清四件事，且不能把专家意见说成等级
-    assert "等级只有规则能给" in script
-    assert "“参考 · 专家”不是等级" in script
-    assert "这份报告不能说明什么" in script
-    assert "52.4%" in script
-    assert "openGuide()" in script
-    # 报告里的 limitations 由后端提供，不在前端写死
-    guide_body = script.split("function openGuide", 1)[1].split("function bindLegal", 1)[0]
-    assert "/report?format=json" in guide_body
+    # 抽取降级（没有模型时字段规则被跳过）直接写在结果页
+    assert "review.extraction_status" in script
+    assert "review-note" in script and ".review-note" in styles
+    assert "依赖字段的规则已跳过" in script
+
+    # 未命中规则时不承诺“没问题”，只说明规则没命中
+    assert "规则未命中" in script
+    assert "未命中不代表没有风险" in script
+    assert "这一条没有发现需要修改的地方" not in script
 
 
 def test_pending_review_shows_rule_findings_before_confirmation() -> None:
@@ -607,62 +608,59 @@ def test_runtime_internals_stay_out_of_the_ui() -> None:
     assert "接口文档" in page
 
 
-def test_review_shows_chips_then_split_into_clause_panes() -> None:
-    """界面轮 12：顶部只留标签行，直接左右分屏（左原文目录 / 右意见），不再有对话流。"""
+def test_review_is_left_contract_highlight_right_reasons() -> None:
+    """界面轮 16：结果页直接左原文（问题处红线/高亮）/ 右原因与修改意见。"""
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
 
-    # 对话式长叙述已删除：没有气泡、没有流式定时器
-    for gone in ("function streamText", "function chatNarrative", "function stopStream"):
-        assert gone not in script, f"app.js 仍保留对话叙事：{gone}"
-    assert 'id="ai-stream"' not in script
-    assert ".chat-thread" not in styles and ".msg-bubble" not in styles
-    assert "streamTimer" not in script
+    # 旧版多余信息全部删除
+    for gone in (
+        "review-chips",
+        "function reviewChip",
+        "function statusChip",
+        "function focusLine",
+        "逐条审查",
+        "data-apply-all",
+        "全部采用建议",
+        "这份报告怎么读",
+    ):
+        assert gone not in script, f"结果页仍保留多余信息：{gone}"
+    assert "导出修订稿" not in script
+    assert ".review-chips" not in styles
 
-    # 合同 / Skill / 审查重点压成标签行（长文本省略 + hover 全文），状态也放同一行
-    assert 'class="review-chips" id="review-chips"' in script
-    assert "function reviewChip" in script
-    assert 'class="chip-tag' in script and "chip-wide" in script
-    assert ".chip-tag" in styles and ".chip-tag.chip-wide" in styles
-    chips = script.split('id="review-chips"', 1)[1].split("</div>", 1)[0]
-    assert "statusChip(review)" in chips
-    assert ".review-chips .status-chip" in styles
+    # 顶栏：返回 + 文件名 + 低调导出按钮（不写“导出修订稿”）
+    assert '<div class="review-bar">' in script
+    assert 'class="review-file"' in script
+    assert 'data-export="docx"' in script and 'data-export="pdf"' in script
 
-    # 原文全文视图：左栏可切到完整合同文本（保留段落换行，不按条款机械切片）
-    assert 'data-pane="fulltext"' in script and 'data-pane="clauses"' in script
-    assert 'id="contract-fulltext"' in script
-    assert "function renderContractFulltext" in script
-    assert "contract_text" in script
-    assert ".contract-fulltext" in styles
-    pane_css = styles.split(".contract-fulltext {", 1)[1].split("}", 1)[0]
-    assert "overflow-y: auto" in pane_css and "overscroll-behavior: contain" in pane_css
+    # 左右两栏
+    assert 'id="doc-pane"' in script and 'id="clause-detail"' in script
+    assert "workbench-grid" in script
+
+    # 左栏：整篇原文按条款分块；命中引文高亮，问题条款左侧红线
+    assert "function buildDocBlocks" in script
+    assert "function locateClauses" in script
+    assert "function highlightedText" in script
+    assert '<mark class="hl' in script
+    assert ".doc-block.is-red" in styles
+    assert "border-left-color: var(--negative)" in styles
+    assert "mark.hl.is-red" in styles
+
+    # 点条款联动右栏（鼠标 + 键盘）
+    assert "function renderWorkbench" in script
+    assert 'data-clause="' in script
+    assert 'event.key !== "Enter"' in script and 'event.key !== " "' in script
+
+    # 两栏独立滚动
+    for selector in (".doc-pane {", ".clause-detail {"):
+        block = styles.split(selector, 1)[1].split("}", 1)[0]
+        assert "overflow-y: auto" in block, selector
+        assert "overscroll-behavior: contain" in block, selector
+    assert "grid-template-columns: minmax(0, 1fr)" in styles.split("@media (max-width: 900px)")[1]
 
     # 内容来自真实审查结果（条款聚合接口），不是前端编造
     assert "/clauses" in script
     assert "state.clauseView" in script
-
-    # 直接展示工作台（不再等“流式输出结束”）
-    assert '<div class="workbench" id="workbench">' in script
-    assert ".workbench[hidden]" not in styles
-
-    # 左栏：目录（自己滚）+ 选中条款原文（固定下方，单独滚）；右栏：审查意见
-    assert '<div class="clause-pane" id="clause-pane">' in script
-    assert 'id="clause-list"' in script and 'id="clause-detail"' in script
-    assert 'id="clause-origin"' in script and "原文" in script
-    assert "grid-template-columns: minmax(260px, 1fr) minmax(0, 1.25fr)" in styles
-    assert ".clause-pane" in styles and ".clause-detail" in styles
-
-    # 两栏独立滚动：目录、原文、右栏各自 overflow，滚到底不带动外层
-    pane = styles.split(".clause-pane {", 1)[1].split("}", 1)[0]
-    assert "display: flex" in pane and "overflow: hidden" in pane
-    for selector in (".clause-list {", ".clause-origin {", ".clause-detail {"):
-        block = styles.split(selector, 1)[1].split("}", 1)[0]
-        assert "overflow-y: auto" in block, selector
-        assert "overscroll-behavior: contain" in block, selector
-    assert "height: 100%" in styles.split(".clause-detail {", 1)[1].split("}", 1)[0]
-
-    # 窄屏退化成上下排列
-    assert "grid-template-columns: minmax(0, 1fr)" in styles.split("@media (max-width: 900px)")[1]
 
 
 def test_clause_detail_offers_keep_or_fix_and_friendly_pass_note() -> None:
@@ -672,25 +670,24 @@ def test_clause_detail_offers_keep_or_fix_and_friendly_pass_note() -> None:
 
     assert "function findingBlock" in script
     assert "finding-fix" in script
-    assert "修改后的条款（可编辑）" in script
+    assert "建议条款（可编辑）" in script
     assert 'class="revision-input"' in script
-    # 每条都能选“采用修改 / 保留原文”，已更正可撤销，也支持全部采用
+    # 每条都能选“采用修改 / 保留原文”，已更正可撤销
     assert 'data-apply="' in script and "采用修改" in script
     assert 'data-keep="' in script and "保留原文" in script
     assert 'data-revert="' in script and "撤销更正" in script
-    assert "data-apply-all" in script
     assert "function applyCorrection" in script
     assert "function keepClause" in script
     assert "function revertCorrection" in script
     assert "state.corrections" in script and "state.kept" in script
     assert ".detail-actions" in styles and ".clause-kept" in styles
 
-    # 没命中规则时给“这条没问题”的人话，而不是机械复述规则结果
+    # 没命中规则时说“规则未命中”，并说明未命中不等于没有风险
     assert "const PASS_NOTE" in script
-    assert "这一条没有发现需要修改的地方" in script
-    assert "这一条和当前规则库对照过" in script
+    assert "规则未命中" in script
+    assert "未命中不代表没有风险" in script
+    assert "这一条和当前规则库对照过" not in script
     assert ".pass-block" in styles and ".pass-text" in styles
-    assert "这条没有命中规则，可按原文保留" not in script
 
     # 导出修订稿：POST /export，二进制下载，文件名取 Content-Disposition
     assert "/export" in script
@@ -698,8 +695,7 @@ def test_clause_detail_offers_keep_or_fix_and_friendly_pass_note() -> None:
     assert "filenameFromDisposition" in script
     assert "URL.createObjectURL" in script and "URL.revokeObjectURL" in script
     assert 'data-export="docx"' in script and 'data-export="pdf"' in script
-    assert "导出修订稿" in script
-    assert ".export-label" in styles
+    assert "导出修订稿" not in script
 
 
 def test_logout_requires_second_confirmation_while_review_runs() -> None:

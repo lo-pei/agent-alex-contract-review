@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import mimetypes
+import re
 import shutil
 import uuid
 from contextlib import asynccontextmanager
@@ -59,6 +60,7 @@ from app.services.clause_review import build_clause_reviews
 from app.services.llm import LLMNotConfigured, LLMRuntime, probe_llm
 from app.services.llm_providers import provider_payload, resolve_provider
 from app.services.pending_store import FilePendingStore
+from app.services.progress import progress_store
 from app.services.skill_catalog import (
     MAX_SKILL_ASSET_CHARS,
     MAX_SKILL_ASSETS,
@@ -326,6 +328,26 @@ def _service_of(request: Request) -> ReviewService:
     return service
 
 
+def _client_review_id(request: Request, value: str) -> str:
+    """校验客户端预生成的 review_id：只允许 `[A-Za-z0-9_-]{1,64}`，且不能复用已存在的审查。
+
+    允许客户端指定 id 只是为了“上传期间就能轮询过程”；审查归属、幂等与超时语义不变。
+    """
+    candidate = (value or "").strip()
+    if not candidate:
+        return ""
+    if not re.fullmatch(REVIEW_ID_PATTERN, candidate):
+        raise HTTPException(
+            status_code=400,
+            detail="review_id 只能包含字母、数字、下划线和短横线，长度 1–64",
+        )
+    try:
+        _service_of(request).get(candidate)
+    except ReviewStateError:
+        return candidate
+    raise HTTPException(status_code=409, detail=f"审查已存在：{candidate}")
+
+
 def _set_session(response: Response, token: str, ttl_days: int) -> None:
     response.set_cookie(
         SESSION_COOKIE,
@@ -572,6 +594,7 @@ def create_app(
         service = _service_of(request)
         for review_id in review_ids:
             service.discard(review_id)
+            progress_store().clear(review_id)
             shutil.rmtree(upload_root / review_id, ignore_errors=True)
         return ReviewPurgeResult(deleted=len(review_ids))
 
@@ -584,6 +607,7 @@ def create_app(
         user = require_user(request)
         store_of(request).delete_review(user.id, review_id)
         _service_of(request).discard(review_id)
+        progress_store().clear(review_id)
         shutil.rmtree(upload_root / review_id, ignore_errors=True)
         return Response(status_code=204)
 
@@ -791,6 +815,15 @@ def create_app(
         file: Annotated[UploadFile, File(description="合同文件（txt/md/pdf/docx）")],
         focus: Annotated[str, Form(description="审查重点（用户指令）")] = "",
         skill_id: Annotated[str, Form(description="选用的 Skill id（可空）")] = "",
+        review_id: Annotated[
+            str,
+            Form(
+                description=(
+                    "客户端预生成的审查 id（可空）：前端靠它在上传期间轮询 "
+                    "`/api/reviews/{id}/progress` 展示处理过程"
+                )
+            ),
+        ] = "",
         reference: Annotated[
             UploadFile | None, File(description="参考材料（txt/md，可选）")
         ] = None,
@@ -833,7 +866,7 @@ def create_app(
                 )
             reference_text = raw_reference.decode("utf-8", errors="replace")
 
-        review_id = uuid.uuid4().hex
+        review_id = _client_review_id(request, review_id) or uuid.uuid4().hex
         target_dir = upload_root / review_id
         target = target_dir / filename
         total = 0
@@ -888,6 +921,26 @@ def create_app(
         run = _service_of(request).get(review_id)
         record(request, run, user)
         return _summary_of(run)
+
+    @app.get("/api/reviews/{review_id}/progress")
+    def get_progress(
+        request: Request,
+        review_id: str = ApiPath(pattern=REVIEW_ID_PATTERN),
+    ) -> JSONResponse:
+        """处理过程：节点级事件流（只描述“做了什么”，不含任何等级）。
+
+        上传还没返回时前端就靠这个轮询；进程重启后过程会丢（结论仍在 checkpoint 里）。
+        """
+        authorize(request, review_id)
+        store = progress_store()
+        events = store.events(review_id)
+        return JSONResponse(
+            content={
+                "review_id": review_id,
+                "running": any(event["status"] == "running" for event in events),
+                "events": events,
+            }
+        )
 
     @app.post("/api/reviews/{review_id}/decisions", response_model=ReviewSummary)
     def submit_decision(

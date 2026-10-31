@@ -261,3 +261,42 @@ def test_pdf_pages_are_mapped_to_clauses(tmp_path: Path) -> None:
     assert clauses[0].page == 1
     assert clauses[1].page == 2
     assert clauses[1].start >= ingested.pages[1].start_offset
+
+
+def test_evaluative_labels_are_not_clause_headings() -> None:
+    """界面轮 16：`价格条款不完整：……` 是审阅意见，不能当条款标题再判一次级。"""
+    assert not is_heading("价格条款不完整：合同未约定预付款比例。")
+    assert not is_heading("保险条款与 CIF 矛盾：应由卖方投保。")
+    assert not is_heading("仲裁地不明确：香港与上海同时列出。")
+    assert not is_heading("违约金过高：每日 1% 且没有上限。")
+    # 正常“主题词 + 冒号”标题不受影响
+    assert is_heading("价格条款：FOB Shanghai，单价每吨 500 美元。")
+
+
+def test_tail_problem_list_is_not_segmented() -> None:
+    """文末“故意植入的问题清单”是答案，不是合同条款：只切正文，原文仍完整保留。"""
+    body = "\n\n".join(
+        f"{index}. {title}\n{'Terms and conditions apply. ' * 4}"
+        for index, title in enumerate(
+            ["Goods", "Price", "Payment", "Delivery", "Inspection", "Insurance"],
+            start=1,
+        )
+    )
+    tail = (
+        "故意植入的问题清单：\n"
+        "1. 风险转移：货物到达目的地才转移，对买方不利。\n"
+        "2. 违约金过高：每日 1% 且没有上限。\n"
+        "3. 仲裁地不唯一：香港和上海同时列出。\n"
+    )
+    text = body + "\n\n" + tail
+    update = segment_clauses(_state(text))
+    clauses = update["clauses"]
+    tail_start = text.index("故意植入的问题清单")
+
+    assert len(clauses) == 6
+    assert all(clause.end <= tail_start for clause in clauses)
+    assert all("每日 1%" not in clause.text for clause in clauses)
+    assert all("故意植入" not in clause.text for clause in clauses)
+    assert any("尾注" in warning for warning in update["warnings"])
+    # 原文（raw_text）不受影响，导出与展示都能看到完整内容
+    assert text[clauses[-1].start : clauses[-1].end] == clauses[-1].text

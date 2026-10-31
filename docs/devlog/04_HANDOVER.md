@@ -706,6 +706,13 @@ Agent_Alex外贸合同智审助手/
      - 补规则缺口：不可抗力缺失、检验条款缺失、责任上限、质保期（ISSUE-009，主集覆盖率 52.4%）；
      - ~~RAG 检索评测：先做 `100问题.md` → manifest 映射（ISSUE-018），再调 `RAG_TOP_K`/`RAG_MIN_SCORE`~~ ✅ 界面轮 15 已按 ADR-016 完成（95 题可评测；ranking/production × lenient/strict；只改排序的条号/来源加权）；剩余 4 题语义指代与同义改写见 ISSUE-033——**下一步若要提升，先做查询改写，不要直接调权重**；
      - 语料授权与 `effective_date` 复核（ISSUE-015）；多智能体已在界面轮 14 按 ADR-015 落地（专家并行 + 只读工具层，默认关闭），真实外部 API（制裁名单 / 汇率 / HS 编码）仍待接（ISSUE-032）。
+   - **界面轮 17（已完成，2026-10-31，规则一条不动）**：按用户 6 条反馈做前端重构 + 实测修复。
+     - **处理过程**：新增 ADR-017——`app/services/progress.py`（进程内事件表，事件**不含 `risk_level`**）+ `app/graph.py` 用 `_tracked()` 包 14 个节点 + `GET /api/reviews/{id}/progress` + 客户端预生成 `review_id`（非法 400 / 重复 409 / 删除即清理）；前端 800ms 轮询，卡片头“处理中 · N 秒 / 收起过程”，逐行节点名 + 耗时 + 状态 + 摘要；`tests/test_progress.py` 6 条。
+     - **实测修缺陷**：用 `66666666666.txt`（16 条英文 + 文末 19 条答案）跑出 `ui-check-063513`：文末答案曾被切成 C017–C025 并重复判级 → `app/nodes/segment.py` 加评述词守卫 + 尾注识别，26 → **17 条**，`warnings` 明写“已跳过文末尾注”；`tests/test_segment.py` 新增 2 条。无 Key 时 `extraction_status=degraded`，结果页新增显式提示；PASS 文案改为“规则未命中 / 未命中不代表没有风险”。
+     - **上传页**：删 30 MB 格式提示（校验仍在 `accept()`）；placeholder 改“写下这次最想盯住的风险方向”；Skill 下拉只留 4 个高频（全量体检 / 付款与结算 / 交付与运输 / 争议解决）+ 仓库项。
+     - **结果页**：删除标签行 / 状态 chip / `workbench-bar`（逐条审查、共 N 条、报告怎么读、全部采用建议、导出修订稿）/ 左栏 tabs 与对应代码样式；改为左原文（条款块 + `mark.hl` 高亮 + 问题块左侧红线）／右解读（问题原因 / 修改意见 / 可编辑建议条款 / 采用·保留·撤销），两栏独立滚动；`DOCX`/`PDF` 降为文件名右侧文字按钮（`title="下载修订稿（…）"`）。
+     - 验证：`ruff check app tests` All checks passed；`pytest -q` **415 passed**（407 + 6 + 2）；`node --check app/web/app.js` OK；实测 201 / completed / 17 条 / 13 条过程事件。
+     - **后续**：测试合同暴露的 8 类植入风险 + `R-INS-001` 理由与事实不符 → 登记 **ISSUE-034**（P1）；按 ADR-011 先写 holdout12 跑基线再修，本轮不碰规则、对外数字仍只引 holdout11 基线。
 6. 每完成一个阶段：更新 `00_PROJECT_STATE.md`、写当日 `03_DEV_LOGS/YYYY-MM-DD.md`、更新本文件的“当前完成度/已知坑”、更新 `05_OPEN_ISSUES.md`。
 
 ---

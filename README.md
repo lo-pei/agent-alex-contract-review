@@ -4,7 +4,7 @@
 
 > **核心约束**：等级只来自 Python 规则；LLM 只做抽取与解释；红色风险必须人工确认；失败一律显式降级，不静默通过。
 
-`Python 3.12` · `LangGraph 1.2` · `FastAPI` · `零前端框架` · `407 个测试` · 规则 `version: 11`
+`Python 3.12` · `LangGraph 1.2` · `FastAPI` · `零前端框架` · `415 个测试` · 规则 `version: 11`
 
 ---
 
@@ -27,7 +27,7 @@ ingest → precheck（是不是合同？）─否→ not_contract 报告（不�
 | 风险判定 | 13 条规则（11 条文本 + 2 条字段），等级 `red / yellow / pass` 只由规则产生 |
 | 人工确认 | 红色风险在节点内 `interrupt()` 真暂停；超时只能落 `unreviewed_red_risk`，绝不自动通过 |
 | 输出 | 可追溯报告（证据定位到 `文件名:p页:start-end`）、逐条修改建议、DOCX / PDF 导出 |
-| 界面 | Web 工作台（无框架、无 CDN、无构建）+ CLI + API；Streamlit 备用 |
+| 界面 | Web 工作台（无框架、无 CDN、无构建；处理过程逐节点展示，结果页左原文高亮 / 右原因与修改意见）+ CLI + API；Streamlit 备用 |
 
 ---
 
@@ -35,10 +35,10 @@ ingest → precheck（是不是合同？）─否→ not_contract 报告（不�
 
 | 项 | 值 |
 |---|---|
-| 阶段 | 第四阶段（测试与评测）第 11 轮 + 界面轮 16 |
+| 阶段 | 第四阶段（测试与评测）第 11 轮 + 界面轮 17 |
 | 规则 | 13 条（11 文本 + 2 字段），`app/rules/definitions.yaml` `version: 11` |
 | 图 | 14 节点 + 4 条条件边；专家分支与工具节点默认关闭（走直连 / 空节点，拓扑与结论不变） |
-| 测试 | **407 个**，`ruff check .` 通过，前端 `node --check` 通过 |
+| 测试 | **415 个**，`ruff check .` 通过，前端 `node --check` 通过 |
 | 对外指标 | **holdout11 盲测基线**：P=1.00 / R=0.545 / F1=0.706（12 份 / 11 现象，漏报 H113–H117 **尚未修**） |
 | 检索评测 | 95 题可评测；ranking lenient R@3 **0.958** / strict R@3 **0.758** |
 | API | `1.1.0`（`GET /health` / `GET /openapi.json` 可查） |
@@ -100,7 +100,8 @@ node --check app/web/app.js
 
 | 方法 | 路径 | 用途 |
 |---|---|---|
-| POST | `/api/reviews` | 上传审查（`file` + `focus` + `skill_id` + 可选 `reference`） |
+| POST | `/api/reviews` | 上传审查（`file` + `focus` + `skill_id` + 可选 `reference` / `review_id`） |
+| GET | `/api/reviews/{id}/progress` | 处理过程（节点级事件；只描述过程，不含等级，ADR-017） |
 | POST | `/api/reviews/{id}/decisions` | 人工决定（`approve` / `reject` / `changes` / `timeout`） |
 | GET | `/api/reviews/{id}/report?format=json\|markdown` | 报告 |
 | GET | `/api/reviews/{id}/clauses` | 逐条审查意见（等级沿用规则结果） |

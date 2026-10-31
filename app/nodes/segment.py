@@ -158,6 +158,40 @@ def _topics_of_line(line: str) -> set[str]:
     }
 
 
+#: 评述性措辞：`价格条款不完整：……`、`保险条款与 CIF 矛盾：……` 是审阅意见/问题清单，
+#: 不是条款标题。命中这些词的前缀不认标题，避免把附录里的“问题清单”切成条款再判一次级。
+_EVALUATIVE_LABELS = (
+    "不完整",
+    "不明确",
+    "不清晰",
+    "不具体",
+    "模糊",
+    "过高",
+    "过低",
+    "过宽",
+    "过窄",
+    "错误",
+    "矛盾",
+    "不利",
+    "冲突",
+    "缺少",
+    "缺失",
+    "风险",
+    "建议",
+    "注意",
+    "问题",
+    "漏洞",
+    "缺陷",
+    "不当",
+    "不合理",
+    "单方",
+    "空白",
+    "未注明",
+    "未明确",
+    "未约定",
+)
+
+
 def _is_label_heading(stripped: str) -> bool:
     """`违约责任：……` / `Force Majeure: ……` 这类“主题词 + 冒号”的标题行。
 
@@ -170,6 +204,8 @@ def _is_label_heading(stripped: str) -> bool:
     if not label:
         return False
     if any(label.casefold().startswith(field) for field in _FIELD_LABELS):
+        return False
+    if any(word in label for word in _EVALUATIVE_LABELS):
         return False
     return bool(_topics_of_line(label))
 
@@ -256,6 +292,21 @@ def _notice_spans(text: str) -> list[tuple[int, int]]:
     if start is not None:
         spans.append((start, len(text)))
     return spans
+
+
+#: 非合同尾注：`问题清单：` / `审阅说明：` 之后是审阅意见或答案，不是合同条款正文。
+#: 只用于**停止条款切分**，原文仍完整保留在 `raw_text`（展示与导出都不丢内容）。
+_TAIL_START = re.compile(
+    r"^(?:故意植入的问题清单|问题清单|审查问题清单|审阅意见|审查说明|审阅说明|复核说明)\s*[:：]"
+)
+
+
+def _tail_offset(text: str) -> int | None:
+    """找到“非合同尾注”的起始偏移；没有则返回 None。"""
+    for line, start, _ in _line_offsets(text):
+        if _TAIL_START.match(line.strip()):
+            return start
+    return None
 
 
 def _line_offsets(text: str):
@@ -553,6 +604,23 @@ def segment_clauses(state: ContractReviewState) -> dict:
     if not drafts:
         drafts = [{"start": 0, "end": len(text), "title": "", "is_preamble": False}]
         warnings.append("未识别出任何段落，已将整篇合同作为一个条款处理。")
+
+    # 尾注（问题清单 / 审阅说明）不再当条款：截断到标记处，整段留在原文里
+    tail = _tail_offset(text)
+    if tail is not None:
+        trimmed: list[dict] = []
+        for draft in drafts:
+            if draft["end"] <= tail:
+                trimmed.append(draft)
+                continue
+            if draft["start"] < tail:
+                trimmed.append({**draft, "end": tail})
+                continue
+            # 完全落在尾注区间：不参与切分（也就不会被判级）
+        drafts = trimmed
+        if not drafts:
+            drafts = [{"start": 0, "end": tail, "title": "", "is_preamble": False}]
+        warnings.append("已跳过文末的“问题清单 / 审阅说明”尾注，只按合同正文判级。")
 
     try:
         clauses = _build_clauses(text, drafts, lambda offset: _page_of(state, offset))

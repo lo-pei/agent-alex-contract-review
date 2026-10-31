@@ -80,14 +80,30 @@
     taskActive: false,
     /** 最近一次审查的状态（awaiting_human / running 也算任务未结束） */
     reviewStatus: "",
-    /** 逐条审查视图：条款数据、当前选中、已采用建议的条款、已确认保留原文的条款 */
+    /** 条款视图：条款数据、当前选中、已采用建议的条款、已确认保留原文的条款 */
     clauseView: null,
     selectedClause: "",
     corrections: {},
     kept: {},
-    /** 左栏视图：clauses = 条款目录（默认）/ fulltext = 完整原文 */
-    paneMode: "clauses",
+    /** 处理过程（ADR-017）：节点事件流 + 轮询句柄；只描述过程，不含等级 */
+    processEvents: [],
+    processId: "",
+    processStartedAt: 0,
+    processRunning: false,
+    processSettled: false,
+    processCollapsed: false,
+    processTimer: null,
   };
+
+  /** 上传区只留使用频率最高的 4 个内置 Skill；其余在 Skill 仓库里选 */
+  const QUICK_SKILL_IDS = [
+    "builtin:full",
+    "builtin:payment",
+    "builtin:delivery",
+    "builtin:dispute",
+  ];
+  /** 处理过程轮询间隔；事件由节点在服务端写入，800ms 足够跟手 */
+  const PROCESS_POLL_MS = 800;
 
   /* ---------- 基础工具 ---------- */
 
@@ -1129,21 +1145,31 @@
     renderToolChips();
   }
 
-  /** 默认 Skill：内置「全量体检」，没有就取第一个可用的 */
+  /** 默认 Skill：内置「全量体检」，没有就取第一个高频内置，最后才退回任意一个 */
   function defaultSkillId() {
     const full = state.skills.find((skill) => skill.id === "builtin:full");
-    return full ? full.id : state.skills[0] ? state.skills[0].id : "";
+    if (full) return full.id;
+    const quick = state.skills.find((skill) => QUICK_SKILL_IDS.includes(skill.id));
+    return quick ? quick.id : state.skills[0] ? state.skills[0].id : "";
+  }
+
+  /** 上传区下拉只放 4 个高频内置；当前选中的其他 Skill（从仓库选用）仍然保留 */
+  function quickSkills() {
+    const list = QUICK_SKILL_IDS.map((id) => skillById(id)).filter(Boolean);
+    const current = state.skillId ? skillById(state.skillId) : null;
+    if (current && !list.some((skill) => skill.id === current.id)) list.push(current);
+    return list;
   }
 
   function renderSkillSelect() {
     // 下拉只在聊天输入区里存在；结果页/仓库页不需要
     if (state.skillId && !skillById(state.skillId)) state.skillId = "";
-    // 默认就有几个内置 Skill 可选；最后一项固定为“Skill 仓库”（选中即打开仓库页）
+    // 默认就是「全量体检」；最后一项固定为“Skill 仓库”（选中即打开仓库页）
     if (!state.skillId) state.skillId = defaultSkillId();
     const menu = document.getElementById("skill-menu");
     if (menu) {
       menu.innerHTML =
-        state.skills
+        quickSkills()
           .map(
             (skill) =>
               '<li role="none"><button class="skill-option" type="button" role="option" ' +
@@ -2592,40 +2618,6 @@
         ],
       ],
     },
-    guide: {
-      title: "这份报告怎么读",
-      updated: "2026-10-28",
-      sections: [
-        [
-          "等级只有规则能给",
-          "红 / 黄 / 未见问题三档来自 Python 规则（app/rules/definitions.yaml，当前 13 条规则），模型只负责把理由讲清楚，专家意见只作参考。任何模型输出都不能改动等级。",
-        ],
-        [
-          "三档等级的含义",
-          "红色：可能造成重大损失或权利落空（例如仲裁与诉讼并存、装运前全额预付）；黄色：条款缺失或口径矛盾，需要补写或确认；未见问题：这条规则没有发现需要修改的地方，不等于没有风险。",
-        ],
-        [
-          "证据怎么读",
-          "每条风险都带条款编号与原文片段（引用必须能在原文精确找到，找不到就不展示）；知识引用写成 source_id#section，只列“真正检索到”的片段，且不参与判级。",
-        ],
-        [
-          "“参考 · 专家”不是等级",
-          "付款 / 交付 / 争议三个专家给出的是阅读提示，用中性色标出；它们既不给风险等级，也不会改变结论。若写着“参考意见 0 条”，说明本轮专家都降级了，旁边会写明原因（未配置模型 / 执行失败 / 引文未能在原文定位）。",
-        ],
-        [
-          "Agent 轨迹与工具调用",
-          "轨迹里是工具调用的次数、耗时与失败原因；工具只读（查条款目录、知识检索等），不写文件、不改结论。失败不会影响报告，只会被记录。",
-        ],
-        [
-          "这份报告不能说明什么",
-          "只覆盖 13 条规则（评测主集覆盖率 52.4%，仍有 10 类风险没有规则）；未命中不代表合规；图片 PDF 的 OCR 文本只用于定位条款，需人工核对；检索指标只对评测题库成立，不能当成“线上召回率”。",
-        ],
-        [
-          "建议的使用顺序",
-          "先看红色再看黄色；逐条采用修改后导出 DOCX / PDF 修订稿；发现红色时系统会暂停等待人工确认，确认只表示“已经看过”，不会降低等级；未确认的报告不能当作通过结论。",
-        ],
-      ],
-    },
   };
 
   function openLegal(kind) {
@@ -2656,33 +2648,188 @@
     openDialog("legal-dialog");
   }
 
-  function openGuide() {
-    openLegal("guide");
-    // 后半段不写死：把本次报告真实的 limitations 追加进来（未生成报告时忽略）
-    if (!state.reviewId) return;
-    api("/api/reviews/" + encodeURIComponent(state.reviewId) + "/report?format=json")
-      .then((report) => {
-        const items = (report && report.limitations) || [];
-        const body = document.getElementById("legal-body");
-        if (!items.length || !body) return;
-        const index = body.querySelectorAll(".legal-section").length + 1;
-        const section = document.createElement("section");
-        section.className = "legal-section";
-        section.innerHTML =
-          "<h3><span class=\"legal-no\">" +
-          String(index).padStart(2, "0") +
-          "</span>本次报告的限定说明（来自后端报告）</h3>" +
-          items.map((item) => "<p>" + esc(item) + "</p>").join("");
-        body.appendChild(section);
-      })
-      .catch(() => {
-        /* 报告还没生成（待确认）时没有 limitations，保持静态说明即可 */
-      });
-  }
-
   function bindLegal() {
     on("open-privacy", "click", () => openLegal("privacy"));
     on("open-terms", "click", () => openLegal("terms"));
+  }
+
+  /* ---------- 处理过程（ADR-017） ---------- */
+
+  /** 客户端预生成 review_id：上传还没返回时就能轮询过程事件 */
+  function newReviewId() {
+    if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+      const bytes = window.crypto.getRandomValues(new Uint8Array(16));
+      return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    }
+    return "r" + Math.random().toString(16).slice(2) + Date.now().toString(16);
+  }
+
+  function stopProcessPolling() {
+    if (state.processTimer) {
+      clearInterval(state.processTimer);
+      state.processTimer = null;
+    }
+  }
+
+  function resetProcess() {
+    stopProcessPolling();
+    state.processEvents = [];
+    state.processId = "";
+    state.processStartedAt = 0;
+    state.processRunning = false;
+    state.processSettled = false;
+    state.processCollapsed = false;
+  }
+
+  function processElapsedMs() {
+    const now = Date.now();
+    let total = 0;
+    state.processEvents.forEach((event) => {
+      if (event.status === "running") {
+        const started = new Date(event.started_at).getTime();
+        total += Number.isNaN(started) ? 0 : Math.max(0, now - started);
+      } else {
+        total += Number(event.duration_ms) || 0;
+      }
+    });
+    if (total) return total;
+    return state.processStartedAt ? Math.max(0, now - state.processStartedAt) : 0;
+  }
+
+  function secondsText(ms) {
+    if (!ms || ms < 200) return "";
+    const sec = ms / 1000;
+    return (sec >= 10 ? Math.round(sec) : sec.toFixed(1)) + " 秒";
+  }
+
+  const PROCESS_STATE_LABEL = {
+    running: "运行中",
+    done: "完成",
+    waiting: "待确认",
+    failed: "失败",
+  };
+
+  function processStepMarkup(event) {
+    const status = PROCESS_STATE_LABEL[event.status] ? event.status : "done";
+    const label = event.label || event.node || "";
+    const detail =
+      status === "waiting"
+        ? event.detail || "等待人工确认后继续"
+        : event.detail || (status === "running" ? event.hint || "" : "");
+    const time =
+      status === "running"
+        ? secondsText(
+            Date.now() - new Date(event.started_at).getTime() || 0,
+          )
+        : secondsText(Number(event.duration_ms) || 0);
+    return (
+      '<li class="process-step is-' +
+      esc(status) +
+      '">' +
+      '<span class="process-mark" aria-hidden="true">' +
+      (status === "running"
+        ? '<span class="process-pulse"></span>'
+        : status === "done"
+          ? "✓"
+          : status === "failed"
+            ? "!"
+            : "…") +
+      "</span>" +
+      '<span class="process-name">' +
+      esc(label) +
+      "</span>" +
+      '<span class="process-time">' +
+      esc(time) +
+      "</span>" +
+      '<span class="process-state">' +
+      esc(PROCESS_STATE_LABEL[status] || status) +
+      "</span>" +
+      (detail ? '<span class="process-detail">' + esc(detail) + "</span>" : "") +
+      "</li>"
+    );
+  }
+
+  /** 把事件流画成“处理中 · N 秒 / 收起过程 + 逐步进度”；只画在 #process-slot。 */
+  function renderProcessSlot() {
+    const slot = document.getElementById("process-slot");
+    if (!slot) return;
+    if (!state.processId || (!state.processEvents.length && state.processSettled)) {
+      slot.innerHTML = "";
+      return;
+    }
+    const running = state.processRunning || !state.processSettled;
+    const seconds = Math.max(1, Math.round(processElapsedMs() / 1000));
+    const collapsed = state.processCollapsed;
+    const title = running ? "处理中 · " + seconds + " 秒" : "处理完成 · 用时 " + seconds + " 秒";
+    const steps = state.processEvents.length
+      ? state.processEvents.map(processStepMarkup).join("")
+      : '<li class="process-step is-running">' +
+        '<span class="process-mark" aria-hidden="true"><span class="process-pulse"></span></span>' +
+        '<span class="process-name">正在启动</span>' +
+        '<span class="process-detail">上传文件，准备开始审查。</span></li>';
+    slot.innerHTML =
+      '<section class="process' +
+      (collapsed ? " is-collapsed" : "") +
+      '">' +
+      '<button class="process-head" type="button" data-process-toggle aria-expanded="' +
+      (collapsed ? "false" : "true") +
+      '">' +
+      '<span class="process-title">' +
+      (running ? '<span class="process-live" aria-hidden="true"></span>' : "") +
+      esc(title) +
+      "</span>" +
+      '<span class="process-toggle">' +
+      (collapsed ? "展开过程" : "收起过程") +
+      "</span>" +
+      "</button>" +
+      '<ol class="process-list">' +
+      steps +
+      "</ol>" +
+      "</section>";
+  }
+
+  function pollProcess() {
+    const reviewId = state.processId;
+    if (!reviewId) return;
+    api("/api/reviews/" + encodeURIComponent(reviewId) + "/progress")
+      .then((data) => {
+        if (state.processId !== reviewId) return;
+        const events = (data && data.events) || [];
+        state.processEvents = events;
+        state.processRunning = !!(data && data.running);
+        if (!state.processRunning && events.length) state.processSettled = true;
+        renderProcessSlot();
+        if (state.processSettled) stopProcessPolling();
+      })
+      .catch((error) => {
+        // 只有“确实查不到这次审查”才收手；网络抖动时下次轮询再试
+        if (error && error.status === 404) {
+          stopProcessPolling();
+          state.processId = "";
+          renderProcessSlot();
+        }
+      });
+  }
+
+  function beginProcess(reviewId, collapsed) {
+    stopProcessPolling();
+    state.processId = reviewId;
+    state.processEvents = [];
+    state.processRunning = false;
+    state.processSettled = false;
+    state.processCollapsed = !!collapsed;
+    state.processStartedAt = Date.now();
+    renderProcessSlot();
+    pollProcess();
+    state.processTimer = setInterval(pollProcess, PROCESS_POLL_MS);
+  }
+
+  /** 已有同一次审查的过程时继续轮询（上传返回 / 人工确认后恢复） */
+  function resumeProcessPolling() {
+    if (!state.processId) return;
+    state.processSettled = false;
+    if (!state.processTimer) state.processTimer = setInterval(pollProcess, PROCESS_POLL_MS);
+    pollProcess();
   }
 
   /* ---------- 上传页 ---------- */
@@ -2703,6 +2850,7 @@
   function renderUpload() {
     state.file = null;
     state.busy = false;
+    resetProcess();
     dom.view.innerHTML =
       '<section class="chat">' +
       '<div class="chat-hero">' +
@@ -2719,7 +2867,7 @@
       '<input id="file-input" type="file" accept=".pdf,.docx,.txt,.md" hidden />' +
       '<label class="sr-only" for="focus-input">审查重点</label>' +
       '<textarea class="composer-text" id="focus-input" rows="2" maxlength="800" ' +
-      'placeholder="说明这次最想盯住什么，例如：重点看预付款比例与交付期限"></textarea>' +
+      'placeholder="写下这次最想盯住的风险方向"></textarea>' +
       '<div class="composer-tools">' +
       '<button class="tool" type="button" id="attach-button" aria-label="添加合同文件">' +
       '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">' +
@@ -2744,7 +2892,7 @@
       'stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
       "</div>" +
       "</div>" +
-      '<p class="composer-hint">PDF（文本型或扫描件）/ Word / TXT / Markdown · 单个文件 ≤ 30 MB</p>' +
+      '<div id="process-slot"></div>' +
       '<p class="alert chat-error" id="form-error" role="alert" hidden></p>' +
       "</section>";
 
@@ -2899,6 +3047,10 @@
     form.append("file", state.file, state.file.name);
     form.append("focus", state.focus.trim());
     form.append("skill_id", state.skillId || "");
+    // 客户端先生成 id：上传还没返回时就能按它轮询处理过程
+    const reviewId = newReviewId();
+    form.append("review_id", reviewId);
+    beginProcess(reviewId);
 
     try {
       const summary = await api("/api/reviews", { method: "POST", body: form });
@@ -2910,6 +3062,7 @@
       renderResult(summary);
     } catch (error) {
       state.busy = false;
+      resetProcess();
       if (start) {
         start.disabled = false;
         start.classList.remove("is-busy");
@@ -2969,6 +3122,7 @@
 
     if (review.status === "failed") {
       state.taskActive = false;
+      resetProcess();
       setBadge(0);
       failMessage(
         (review.errors && review.errors.join("；")) ||
@@ -2978,9 +3132,18 @@
     }
     if (review.status === "not_contract") {
       state.taskActive = false;
+      resetProcess();
       setBadge(0);
       renderNotContract(review);
       return;
+    }
+
+    // 上传流程里已有同一份合同的过程事件：继续轮询，保持展开；
+    // 从历史进入/刷新页面：重新拉一次，默认收起，避免盖住审查内容。
+    if (state.processId === review.review_id) {
+      resumeProcessPolling();
+    } else {
+      beginProcess(review.review_id, true);
     }
 
     const report = review.report;
@@ -3000,37 +3163,162 @@
     await renderReviewWorkspace(review);
   }
 
-  /* ---------- 审查结果：左原文目录 / 右审查意见，双栏独立滚动 ---------- */
+  /* ---------- 审查结果：左原文（问题处划红线） / 右原因与修改意见 ---------- */
 
-  /** 合同 / Skill / 审查重点压成一行标签：长文本省略 + hover 看全文，不占版面。 */
-  function reviewChip(key, value, wide) {
-    if (!value) return "";
+  /** 在整篇原文里定位每条条款：先严格 indexOf，找不到再用开头 40 字退化匹配。 */
+  function locateClauses(text, clauses) {
+    const spans = [];
+    const missing = [];
+    let cursor = 0;
+    clauses.forEach((clause) => {
+      const needle = clause.text || "";
+      if (!needle.trim()) {
+        missing.push(clause);
+        return;
+      }
+      let start = text.indexOf(needle, cursor);
+      if (start < 0) start = text.indexOf(needle);
+      if (start < 0) {
+        const head = needle.slice(0, 40).trim();
+        if (head) {
+          start = text.indexOf(head, cursor);
+          if (start < 0) start = text.indexOf(head);
+        }
+      }
+      if (start < 0) {
+        missing.push(clause);
+        return;
+      }
+      const end = Math.min(text.length, start + needle.length);
+      spans.push({ clause, start, end });
+      if (end > cursor) cursor = end;
+    });
+    return { spans, missing };
+  }
+
+  /** 整篇原文 → 连续块：条款块（可点选）+ 条款外文字（合同标题、签署页等）。 */
+  function buildDocBlocks(view) {
+    const text = view.contract_text || "";
+    const { spans, missing } = locateClauses(text, view.clauses || []);
+    const blocks = [];
+    let cursor = 0;
+    spans.forEach((span) => {
+      if (span.start > cursor) {
+        blocks.push({ kind: "gap", text: text.slice(cursor, span.start) });
+      }
+      blocks.push({ kind: "clause", clause: span.clause, text: text.slice(span.start, span.end) });
+      cursor = Math.max(cursor, span.end);
+    });
+    if (cursor < text.length) blocks.push({ kind: "gap", text: text.slice(cursor) });
+    // 定位不到的条款也要能点：单独成块，放在原文末尾
+    missing.forEach((clause) =>
+      blocks.push({ kind: "clause", clause, text: clause.text || "", missing: true }),
+    );
+    if (!blocks.length) blocks.push({ kind: "gap", text });
+    return blocks;
+  }
+
+  /** 条款原文 + 命中引文高亮；引文定位不到就只画条款级红线，不猜位置。 */
+  function highlightedText(raw, quotes, level) {
+    const spans = [];
+    (quotes || []).forEach((quote) => {
+      const needle = String(quote || "").trim();
+      if (!needle) return;
+      let from = 0;
+      while (spans.length < 30) {
+        const index = raw.indexOf(needle, from);
+        if (index < 0) break;
+        spans.push([index, index + needle.length]);
+        from = index + needle.length;
+      }
+    });
+    // 合并重叠区间，避免 mark 互相嵌套
+    spans.sort((left, right) => left[0] - right[0]);
+    const merged = [];
+    spans.forEach(([start, end]) => {
+      const last = merged[merged.length - 1];
+      if (last && start < last[1]) last[1] = Math.max(last[1], end);
+      else merged.push([start, end]);
+    });
+    const body = (part) => esc(part).replace(/\n/g, "<br>");
+    if (!merged.length) return body(raw);
+    let at = 0;
+    let html = "";
+    merged.forEach(([start, end]) => {
+      html += body(raw.slice(at, start));
+      html +=
+        '<mark class="hl is-' + esc(level) + '">' + body(raw.slice(start, end)) + "</mark>";
+      at = end;
+    });
+    return html + body(raw.slice(at));
+  }
+
+  function docBlockMarkup(block) {
+    if (block.kind === "gap") {
+      if (!block.text.trim()) return "";
+      return '<p class="doc-gap">' + esc(block.text).replace(/\n/g, "<br>") + "</p>";
+    }
+    const clause = block.clause;
+    const level = clause.risk_level === "pass" ? "pass" : clause.risk_level;
+    const quotes = (clause.findings || []).flatMap((finding) => finding.quotes || []);
+    const corrected = state.corrections[clause.clause_id];
+    const kept = state.kept[clause.clause_id];
+    const active = state.selectedClause === clause.clause_id;
+    const flags =
+      (corrected ? '<span class="doc-flag is-corrected">已改</span>' : "") +
+      (kept ? '<span class="doc-flag is-kept">保留</span>' : "") +
+      (level !== "pass"
+        ? '<span class="doc-flag is-' +
+          esc(level) +
+          '">' +
+          esc(clauseLevelLabel(clause.risk_level)) +
+          "</span>"
+        : "");
     return (
-      '<span class="chip-tag' +
-      (wide ? " chip-wide" : "") +
-      '" title="' +
-      esc(key + "：" + value) +
-      '"><span class="chip-key">' +
-      esc(key) +
+      '<div class="doc-block is-' +
+      esc(level) +
+      (active ? " is-active" : "") +
+      '" data-clause="' +
+      esc(clause.clause_id) +
+      '" role="button" tabindex="0" aria-current="' +
+      (active ? "true" : "false") +
+      '" aria-label="' +
+      esc(clauseName(clause)) +
+      '">' +
+      '<div class="doc-block-head"><span class="doc-block-name">' +
+      esc(clauseName(clause)) +
       "</span>" +
-      '<span class="chip-value">' +
-      esc(value) +
-      "</span></span>"
+      flags +
+      "</div>" +
+      '<p class="doc-block-text">' +
+      highlightedText(block.text, quotes, level) +
+      "</p>" +
+      "</div>"
     );
   }
 
-  function statusChip(review) {
-    const label = STATUS_LABEL[review.status] || review.status || "";
-    return label ? '<span class="status-chip">' + esc(label) + "</span>" : "";
-  }
-
-  /** 只取用户自己写的那句审查重点：接口返回的是拼好的 focus（含 Skill 与工具说明）。 */
-  function focusLine(text) {
-    const first = String(text || "")
-      .split("\n")[0]
-      .trim();
-    if (!first || first.startsWith("Skill（")) return "";
-    return first.replace(/^用户指令[:：]\s*/, "").trim();
+  function contractBlockMarkup(view) {
+    const findings = view.contract_findings || [];
+    if (!findings.length) return "";
+    const level = findings.some((item) => item.risk_level === "red") ? "red" : "yellow";
+    const active = state.selectedClause === "__contract__";
+    return (
+      '<div class="doc-block is-' +
+      level +
+      ' is-contract' +
+      (active ? " is-active" : "") +
+      '" data-clause="__contract__" role="button" tabindex="0" aria-current="' +
+      (active ? "true" : "false") +
+      '">' +
+      '<div class="doc-block-head"><span class="doc-block-name">全合同</span>' +
+      '<span class="doc-flag is-' +
+      level +
+      '">' +
+      findings.length +
+      " 处</span></div>" +
+      '<p class="doc-block-text is-muted">这些规则不指向具体条款（例如缺失的适用法律），请查看右侧的补充建议。</p>' +
+      "</div>"
+    );
   }
 
   async function renderReviewWorkspace(review) {
@@ -3038,7 +3326,6 @@
     state.corrections = {};
     state.kept = {};
     state.selectedClause = "";
-    state.paneMode = "clauses";
 
     let view = null;
     try {
@@ -3056,61 +3343,46 @@
       state.selectedClause = "__contract__";
     }
 
+    // 抽取降级要写在结果页上：没有模型时依赖字段的规则会被跳过，别让“已完成”被误读成全查过
+    const degraded = !!review.extraction_status && review.extraction_status !== "ok";
     const parts = [
       '<section class="review-shell">',
-      '<div class="review-head">',
+      '<div class="review-bar">',
       backLink(),
+      '<span class="review-file" title="' +
+        esc(review.source_filename) +
+        '">' +
+        esc(review.source_filename) +
+        "</span>",
+      view
+        ? '<div class="review-bar-actions">' +
+          '<button class="link" type="button" data-export="docx" title="下载修订稿（DOCX）">DOCX</button>' +
+          '<button class="link" type="button" data-export="pdf" title="下载修订稿（PDF）">PDF</button>' +
+          "</div>"
+        : "",
       "</div>",
-      '<div class="review-chips" id="review-chips">',
-      reviewChip("合同", review.source_filename),
-      review.skill_name ? reviewChip("Skill", review.skill_name) : "",
-      focusLine(review.focus) ? reviewChip("审查重点", focusLine(review.focus), true) : "",
-      statusChip(review),
-      "</div>",
+      '<div id="process-slot"></div>',
+      degraded
+        ? '<p class="review-note">本次未能完整抽取关键要素，依赖字段的规则已跳过；下面的结论只覆盖规则命中的条款。</p>'
+        : "",
       '<div id="approval-slot"></div>',
     ];
 
     if (view) {
-      const revised = view.revised_count || 0;
       parts.push(
-        '<div class="workbench" id="workbench">',
-        '<div class="workbench-bar">',
-        '<div class="workbench-title">逐条审查',
-        '<span class="workbench-meta" id="clause-meta"></span>',
-        "</div>",
-        '<div class="workbench-actions">',
-        '<button class="link" type="button" data-guide>这份报告怎么读</button>',
-        revised
-          ? '<button class="btn btn-compact" type="button" data-apply-all>全部采用建议</button>'
-          : "",
-        '<span class="export-label">导出修订稿</span>',
-        '<button class="btn btn-compact" type="button" data-export="docx">DOCX</button>',
-        '<button class="btn btn-compact" type="button" data-export="pdf">PDF</button>',
-        "</div>",
-        "</div>",
         '<div class="workbench-grid">',
-        '<div class="clause-pane" id="clause-pane">',
-        '<div class="pane-tabs" role="tablist" aria-label="左栏视图">',
-        '<button class="pane-tab is-active" type="button" role="tab" data-pane="clauses" aria-selected="true">条款目录</button>',
-        '<button class="pane-tab" type="button" role="tab" data-pane="fulltext" aria-selected="false">原文全文</button>',
-        "</div>",
-        '<ol class="clause-list" id="clause-list" aria-label="合同条款目录"></ol>',
-        '<div class="clause-origin" id="clause-origin"></div>',
-        '<div class="contract-fulltext" id="contract-fulltext" role="tabpanel" hidden></div>',
-        "</div>",
-        '<div class="clause-detail" id="clause-detail" tabindex="0"></div>',
+        '<div class="doc-pane" id="doc-pane" aria-label="合同原文（问题条款已标出）"></div>',
+        '<div class="clause-detail" id="clause-detail" tabindex="0" aria-label="问题原因与修改意见"></div>',
         "</div>",
         '<p class="alert" id="export-error" role="alert" hidden></p>',
-        "</div>",
       );
     } else {
       parts.push(
         '<div class="down">' +
-          '<span>下载报告</span>' +
+          "<span>下载报告</span>" +
           '<a href="/api/reviews/' +
           encodeURIComponent(review.review_id) +
           '/report?format=markdown">Markdown</a>' +
-          '<button class="link" type="button" data-guide>这份报告怎么读</button>' +
           "</div>",
       );
     }
@@ -3124,6 +3396,7 @@
         bindConfirm();
       }
     }
+    renderProcessSlot();
     if (view) renderWorkbench();
   }
 
@@ -3133,185 +3406,61 @@
     return "未见问题";
   }
 
-  /** 前言单独叫“前言”，其余用合同里的标题（没有标题才退回“第 X 条”）。 */
-  function clauseLabel(clause) {
-    if (!clause) return "";
-    if (clause.is_preamble) return "前言";
-    return clause.title || "第 " + clause.index + " 条";
-  }
-
-  /** 目录序号：优先用合同自己的编号（有的范本会跳号），没有编号就给个占位。 */
-  function clauseNumber(clause) {
-    if (clause.is_preamble) return "00";
-    const match = /^\s*(\d{1,3})\s*[.、]/.exec(clause.title || "");
-    return match ? match[1].padStart(2, "0") : "—";
-  }
-
-  /** 目录名称：去掉标题里与序号列重复的“5.”，无标题才退回“第 X 条”。 */
+  /** 条款名称：去掉标题里重复的“5.”，无标题才退回“第 X 条”。 */
   function clauseName(clause) {
+    if (!clause) return "";
     if (clause.is_preamble) return "前言";
     const title = clause.title || "第 " + clause.index + " 条";
     const stripped = title.replace(/^\s*\d{1,3}\s*[.、]\s*/, "").trim();
     return stripped || title;
   }
 
-  /** 左栏一条：目录行（序号 / 名称 / 等级 / 状态）；原文固定显示在目录下方。 */
-  function clauseListItem(clause) {
-    const active = state.selectedClause === clause.clause_id;
-    const corrected = state.corrections[clause.clause_id];
-    const kept = state.kept[clause.clause_id];
-    const flag =
-      clause.risk_level === "pass"
-        ? '<span class="clause-dot is-pass" aria-label="未见问题"></span>'
-        : '<span class="clause-flag is-' +
-          clause.risk_level +
-          '">' +
-          clauseLevelLabel(clause.risk_level) +
-          "</span>";
-    return (
-      '<li class="clause-item' +
-      (active ? " is-active" : "") +
-      '">' +
-      '<button class="clause-jump" type="button" data-clause="' +
-      esc(clause.clause_id) +
-      '" aria-current="' +
-      (active ? "true" : "false") +
-      '">' +
-      '<span class="clause-index">' +
-      clauseNumber(clause) +
-      "</span>" +
-      '<span class="clause-name">' +
-      esc(clauseName(clause)) +
-      "</span>" +
-      (corrected ? '<span class="clause-applied" aria-label="已更正">✓</span>' : "") +
-      (kept ? '<span class="clause-kept">保留</span>' : "") +
-      flag +
-      "</button></li>"
-    );
-  }
-
-  /** 选中条款的原文：固定在左栏底部，可单独滚动，不挤占目录。 */
-  function renderClauseOrigin() {
-    const box = document.getElementById("clause-origin");
-    const view = state.clauseView;
-    if (!box || !view) return;
-    const clause =
-      state.selectedClause === "__contract__"
-        ? null
-        : view.clauses.find((item) => item.clause_id === state.selectedClause);
-    box.innerHTML =
-      '<span class="clause-origin-label">' +
-      esc(clause ? clauseLabel(clause) + " · 原文" : "原文") +
-      "</span>" +
-      (clause
-        ? '<p class="clause-origin-text">' + esc(clause.text) + "</p>"
-        : '<p class="clause-origin-text is-empty">从左栏选择一条条款，这里显示合同原文。</p>');
-    box.scrollTop = 0;
-  }
-
-  /** “原文全文”视图：按段落还原解析后的合同文本（保留换行，不做条款切割）。 */
-  function renderContractFulltext() {
-    const box = document.getElementById("contract-fulltext");
-    const view = state.clauseView;
-    if (!box || !view) return;
-    const text = view.contract_text || "";
-    if (!text.trim()) {
-      box.innerHTML =
-        '<p class="detail-empty">这份合同没有可展示的文本（可能解析失败或不是合同）。</p>';
-      return;
-    }
-    box.innerHTML = text
-      .split(/\n{2,}/)
-      .filter((block) => block.trim())
-      .map((block) => "<p>" + esc(block).replace(/\n/g, "<br>") + "</p>")
-      .join("");
-    box.scrollTop = 0;
-  }
-
-  /** 左栏两个视图互斥：目录+单条原文 / 完整原文，右侧意见不受影响。 */
-  function applyPaneMode() {
-    const full = state.paneMode === "fulltext";
-    const list = document.getElementById("clause-list");
-    const origin = document.getElementById("clause-origin");
-    const box = document.getElementById("contract-fulltext");
-    if (list) list.hidden = full;
-    if (origin) origin.hidden = full;
-    if (box) box.hidden = !full;
-    document.querySelectorAll("[data-pane]").forEach((tab) => {
-      const active = tab.dataset.pane === state.paneMode;
-      tab.classList.toggle("is-active", active);
-      tab.setAttribute("aria-selected", active ? "true" : "false");
-    });
-    if (full) renderContractFulltext();
-  }
-
+  /** 左栏重建整篇原文（问题条款左侧红线 + 命中引文高亮），保留原滚动位置。 */
   function renderWorkbench() {
     const view = state.clauseView;
     if (!view) return;
-    const applied = Object.keys(state.corrections).length;
-    const meta = document.getElementById("clause-meta");
-    if (meta) {
-      meta.textContent =
-        "共 " + view.clauses.length + " 条 · 已更正 " + applied + " 条";
-    }
-    const list = document.getElementById("clause-list");
-    if (list) {
-      const items = [];
-      if (view.contract_findings.length) {
-        // “全合同”分组的颜色取组内最严重的等级（规则判定，不在这里重判）
-        const contractLevel = view.contract_findings.some(
-          (item) => item.risk_level === "red",
-        )
-          ? "red"
-          : "yellow";
-        items.push(
-          '<li class="clause-item clause-global' +
-            (state.selectedClause === "__contract__" ? " is-active" : "") +
-            '"><button class="clause-jump" type="button" data-clause="__contract__" ' +
-            'aria-expanded="' +
-            (state.selectedClause === "__contract__" ? "true" : "false") +
-            '">' +
-            '<span class="clause-index">※</span>' +
-            '<span class="clause-name">全合同</span>' +
-            '<span class="clause-flag is-' +
-            contractLevel +
-            '">' +
-            view.contract_findings.length +
-            " 处</span>" +
-            "</button></li>",
-        );
+    const pane = document.getElementById("doc-pane");
+    const scrollTop = pane ? pane.scrollTop : 0;
+    if (pane) {
+      pane.innerHTML =
+        contractBlockMarkup(view) +
+        buildDocBlocks(view)
+          .map(docBlockMarkup)
+          .join("");
+      if (!pane.innerHTML.trim()) {
+        pane.innerHTML =
+          '<p class="doc-gap">这份合同没有可展示的文本（可能解析失败或不是合同）。</p>';
       }
-      view.clauses.forEach((clause) => items.push(clauseListItem(clause)));
-      list.innerHTML = items.join("");
-      // 只滚动目录自身（不要用 scrollIntoView，否则整页会跟着跳）
-      const active = list.querySelector(".clause-item.is-active");
+      pane.scrollTop = scrollTop;
+    }
+    renderClauseDetail();
+    if (pane) {
+      // 只滚动左栏自身，避免整页跟着跳
+      const active = pane.querySelector(".doc-block.is-active");
       if (active) {
-        const paneBox = list.getBoundingClientRect();
-        const itemBox = active.getBoundingClientRect();
-        if (itemBox.top < paneBox.top || itemBox.bottom > paneBox.bottom - 8) {
-          list.scrollTop += itemBox.top - paneBox.top - 8;
+        const box = pane.getBoundingClientRect();
+        const item = active.getBoundingClientRect();
+        if (item.top < box.top + 8 || item.bottom > box.bottom - 8) {
+          pane.scrollTop += item.top - box.top - 12;
         }
       }
     }
-    renderClauseOrigin();
-    renderClauseDetail();
-    applyPaneMode();
   }
 
   function findingBlock(finding) {
     const quotes = finding.quotes || [];
     return [
       '<article class="finding is-' + esc(finding.risk_level) + '">',
-      '<div class="finding-head">',
-      '<span class="tag">' + esc(clauseLevelLabel(finding.risk_level)) + "</span>",
       '<h4 class="finding-title">' + esc(finding.title || finding.reason) + "</h4>",
-      "</div>",
+      '<h5 class="finding-sub">问题原因</h5>',
       '<p class="finding-reason">' + esc(finding.reason) + "</p>",
       finding.explanation_summary && finding.explanation_summary !== finding.reason
         ? '<p class="finding-note">' + esc(finding.explanation_summary) + "</p>"
         : "",
       finding.suggestion
-        ? '<p class="finding-fix"><span>建议</span>' + esc(finding.suggestion) + "</p>"
+        ? '<h5 class="finding-sub">修改意见</h5><p class="finding-fix">' +
+          esc(finding.suggestion) +
+          "</p>"
         : "",
       '<details class="why"><summary>原文依据与规则</summary>',
       quotes.map((quote) => "<blockquote>" + esc(quote) + "</blockquote>").join(""),
@@ -3329,11 +3478,10 @@
     ].join("");
   }
 
-  /** 未命中规则的友好说法：先给结论，再讲清“规则只覆盖常见条款”，不制造虚假安心。 */
+  /** 未命中规则的诚实说法：只说明“规则没命中”，不承诺安全。 */
   const PASS_NOTE =
-    "这一条和当前规则库对照过，没有需要改的地方，按原文保留就可以。" +
-    "规则只覆盖常见的外贸条款情形，规则之外的商务安排（数量、账期、验收细节等）" +
-    "仍建议按这次实际交易再看一眼。";
+    "这一条没有命中当前规则库中的风险规则。规则只覆盖常见的外贸条款情形，" +
+    "未命中不代表没有风险；数量、账期、验收细节等商务安排，仍建议按这次实际交易再看一眼。";
 
   /**
    * 专家意见：只作“参考”，没有等级。等级仍由左栏的规则标记决定，
@@ -3467,8 +3615,10 @@
     if (state.selectedClause === "__contract__") {
       box.innerHTML = [
         '<div class="detail-head">',
+        "<div>",
         '<h3 class="detail-title">全合同问题</h3>',
         '<p class="detail-meta">这些规则不指向具体条款（例如缺失的适用法律），需要新增一段。</p>',
+        "</div>",
         "</div>",
         view.contract_findings.map(findingBlock).join(""),
         view.contract_revised_text
@@ -3487,7 +3637,7 @@
 
     const clause = view.clauses.find((item) => item.clause_id === state.selectedClause);
     if (!clause) {
-      box.innerHTML = '<p class="detail-empty">从左栏选择一条条款查看审查意见。</p>';
+      box.innerHTML = '<p class="detail-empty">点击左侧条款，这里会给出具体原因与修改意见。</p>';
       return;
     }
     const corrected = state.corrections[clause.clause_id];
@@ -3496,7 +3646,7 @@
     const parts = [
       '<div class="detail-head">',
       "<div>",
-      '<h3 class="detail-title">' + esc(clauseLabel(clause)) + "</h3>",
+      '<h3 class="detail-title">' + esc(clauseName(clause)) + "</h3>",
       '<p class="detail-meta">第 ' +
         clause.page +
         " 页 · " +
@@ -3508,12 +3658,11 @@
     ];
 
     if (clause.findings.length) {
-      parts.push('<h4 class="detail-sub">审查意见</h4>');
       clause.findings.forEach((finding) => parts.push(findingBlock(finding)));
     } else {
       parts.push(
         '<section class="pass-block">',
-        '<p class="pass-title">这一条没有发现需要修改的地方</p>',
+        '<p class="pass-title">规则未命中</p>',
         '<p class="pass-text">' + esc(PASS_NOTE) + "</p>",
         "</section>",
       );
@@ -3522,7 +3671,7 @@
     if (clause.revised_text) {
       parts.push(
         '<div class="revision">',
-        '<div class="revision-head"><span>修改后的条款（可编辑）</span>',
+        '<div class="revision-head"><span>建议条款（可编辑）</span>',
         '<span class="revision-note">' + esc(clause.revision_note || "") + "</span></div>",
         '<textarea class="revision-input" id="revised-input" data-clause-input="' +
           esc(clause.clause_id) +
@@ -3603,19 +3752,6 @@
     renderWorkbench();
   }
 
-  function applyAllCorrections() {
-    const view = state.clauseView;
-    if (!view) return;
-    view.clauses.forEach((clause) => {
-      if (clause.revised_text) {
-        state.corrections[clause.clause_id] = clause.revised_text;
-        delete state.kept[clause.clause_id];
-      }
-    });
-    showExportError("");
-    renderWorkbench();
-  }
-
   function filenameFromDisposition(header, fallback) {
     if (!header) return fallback;
     const star = /filename\*=UTF-8''([^;]+)/i.exec(header);
@@ -3675,24 +3811,21 @@
     }
   }
 
-  /** 逐条审查的交互只绑一次：切条款 / 一键更正 / 撤销 / 全部更正 / 导出。 */
+  /** 结果页的交互只绑一次：切换条款 / 收起过程 / 采用 / 保留 / 撤销 / 导出。 */
   function bindWorkbenchEvents() {
+    const selectClause = (clauseId) => {
+      state.selectedClause = clauseId;
+      renderWorkbench();
+    };
     dom.view.addEventListener("click", (event) => {
-      const guide = event.target.closest("[data-guide]");
-      if (guide) {
-        openGuide();
-        return;
-      }
-      const pane = event.target.closest("[data-pane]");
-      if (pane) {
-        state.paneMode = pane.dataset.pane === "fulltext" ? "fulltext" : "clauses";
-        applyPaneMode();
+      if (event.target.closest("[data-process-toggle]")) {
+        state.processCollapsed = !state.processCollapsed;
+        renderProcessSlot();
         return;
       }
       const jump = event.target.closest("[data-clause]");
       if (jump) {
-        state.selectedClause = jump.dataset.clause;
-        renderWorkbench();
+        selectClause(jump.dataset.clause);
         return;
       }
       const apply = event.target.closest("[data-apply]");
@@ -3710,12 +3843,18 @@
         keepClause(keep.dataset.keep);
         return;
       }
-      if (event.target.closest("[data-apply-all]")) {
-        applyAllCorrections();
-        return;
-      }
       const exportButton = event.target.closest("[data-export]");
       if (exportButton) exportRevised(exportButton.dataset.export);
+    });
+    // 原文块是 role=button 的 div：键盘同样能切换
+    dom.view.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const jump = event.target.closest("[data-clause]");
+      if (!jump || event.target !== jump) return;
+      event.preventDefault();
+      selectClause(jump.dataset.clause);
+      const active = dom.view.querySelector(".doc-block.is-active");
+      if (active) active.focus({ preventScroll: true });
     });
   }
 

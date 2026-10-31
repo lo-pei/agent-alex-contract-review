@@ -2692,13 +2692,7 @@ svg {
   vertical-align: middle;
 }
 
-/* 合同 / Skill / 审查重点：一行标签，长文本省略，鼠标悬停看全文 */
-.review-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  width: 100%;
-}
+/* 结果页顶栏只留文件名，不再放合同 / Skill / 审查重点标签行 */
 
 .chip-tag {
   display: inline-flex;
@@ -2876,10 +2870,6 @@ svg {
 .clause-origin[hidden],
 .contract-fulltext[hidden] {
   display: none;
-}
-
-.review-chips .status-chip {
-  margin-left: 0;
 }
 
 .clause-list {
@@ -3356,18 +3346,368 @@ svg {
   margin-top: 2px;
 }
 
+/* ------------------------------------------- 处理过程（ADR-017） */
+
+.process {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--raised);
+  overflow: hidden;
+}
+
+.process-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
+  text-align: left;
+  cursor: pointer;
+}
+.process-head:hover {
+  color: var(--text);
+}
+.process-head:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.process-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.process-live {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: process-pulse 1.4s ease-in-out infinite;
+}
+.process-toggle {
+  flex: none;
+  color: var(--faint);
+}
+
+.process-list {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 12px 10px;
+}
+.process.is-collapsed .process-list {
+  display: none;
+}
+
+.process-step {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 3px 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-text-scale, 1));
+}
+.process-step:first-child {
+  border-top: 0;
+}
+.process-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--positive);
+  font-size: calc(11px * var(--ui-text-scale, 1));
+}
+.process-step.is-failed .process-mark {
+  color: var(--negative);
+}
+.process-step.is-waiting .process-mark {
+  color: var(--warning);
+}
+.process-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: process-pulse 1.2s ease-in-out infinite;
+}
+.process-name {
+  min-width: 0;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.process-step.is-running .process-name {
+  font-weight: 600;
+}
+.process-time {
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: calc(10.5px * var(--ui-text-scale, 1));
+  white-space: nowrap;
+}
+.process-state {
+  color: var(--faint);
+  font-size: calc(10.5px * var(--ui-text-scale, 1));
+  white-space: nowrap;
+}
+.process-step.is-running .process-state {
+  color: var(--accent);
+}
+.process-step.is-waiting .process-state {
+  color: var(--warning);
+}
+.process-step.is-failed .process-state {
+  color: var(--negative);
+}
+.process-detail {
+  grid-column: 2 / -1;
+  color: var(--faint);
+  font-size: calc(11px * var(--ui-text-scale, 1));
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+@keyframes process-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* ------------------------------------------- 审查结果：左原文 / 右解读 */
+
+.review-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule);
+}
+.review-bar .back {
+  flex: none;
+  margin-bottom: 0;
+}
+.review-file {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: calc(12px * var(--ui-text-scale, 1));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.review-bar-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+}
+.review-bar-actions .link {
+  font-family: var(--font-mono);
+  font-size: calc(11px * var(--ui-text-scale, 1));
+  letter-spacing: 0.02em;
+}
+
+/* 上传页的过程卡片与输入框同宽 */
+.chat #process-slot {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.review-note {
+  padding: 7px 10px;
+  border: 1px solid var(--amber-line);
+  border-radius: var(--radius-control);
+  background: var(--amber-bg);
+  color: var(--amber-ink);
+  font-size: calc(11.5px * var(--ui-text-scale, 1));
+  line-height: 1.6;
+}
+
+/* 两栏等高 + 各自滚动：左=整篇原文（问题处红线/高亮），右=原因与修改意见 */
+.workbench-grid {
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr);
+  height: min(72vh, 780px);
+  margin-top: 4px;
+}
+
+.doc-pane {
+  min-width: 0;
+  height: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--raised);
+  color: var(--text);
+  font-size: calc(12.5px * var(--ui-text-scale, 1));
+  line-height: 1.78;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.doc-gap {
+  margin: 0 0 8px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.doc-gap:last-child {
+  margin-bottom: 0;
+}
+
+.doc-block {
+  position: relative;
+  margin: 0 0 10px;
+  padding: 8px 10px 9px 12px;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  cursor: pointer;
+}
+.doc-block:last-child {
+  margin-bottom: 0;
+}
+.doc-block:hover {
+  border-color: var(--border);
+}
+.doc-block:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.doc-block.is-red {
+  border-left-color: var(--negative);
+}
+.doc-block.is-yellow {
+  border-left-color: var(--warning);
+}
+.doc-block.is-pass {
+  background: transparent;
+}
+.doc-block.is-contract {
+  background: var(--sunken);
+}
+.doc-block.is-active {
+  border-color: var(--border);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.doc-block-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.doc-block-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--faint);
+  font-family: var(--font-mono);
+  font-size: calc(10.5px * var(--ui-text-scale, 1));
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.doc-flag {
+  flex: none;
+  padding: 0 5px;
+  border: 1px solid var(--neutral-line);
+  border-radius: var(--radius-chip);
+  background: var(--neutral-bg);
+  color: var(--neutral-ink);
+  font-size: calc(10px * var(--ui-text-scale, 1));
+  line-height: 16px;
+  white-space: nowrap;
+}
+.doc-flag.is-red {
+  border-color: var(--red-line);
+  background: var(--red-bg);
+  color: var(--red-ink);
+}
+.doc-flag.is-yellow {
+  border-color: var(--amber-line);
+  background: var(--amber-bg);
+  color: var(--amber-ink);
+}
+.doc-flag.is-corrected,
+.doc-flag.is-kept {
+  border-color: var(--green-line);
+  background: var(--green-bg);
+  color: var(--green-ink);
+}
+
+.doc-block-text {
+  margin-top: 5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.doc-block-text.is-muted {
+  color: var(--faint);
+  font-size: calc(12px * var(--ui-text-scale, 1));
+}
+
+mark.hl {
+  padding: 0 1px;
+  border-radius: 2px;
+  color: inherit;
+}
+mark.hl.is-red {
+  background: rgba(191, 32, 37, 0.12);
+  box-shadow: inset 0 -1px 0 var(--negative);
+}
+mark.hl.is-yellow {
+  background: rgba(138, 74, 15, 0.13);
+  box-shadow: inset 0 -1px 0 var(--warning);
+}
+mark.hl.is-pass {
+  background: var(--sunken);
+}
+
+.finding-sub {
+  margin: 9px 0 2px;
+  color: var(--faint);
+  font-size: calc(10.5px * var(--ui-text-scale, 1));
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* 规则未命中：中性色，不承诺“安全” */
+.pass-block {
+  border-color: var(--border);
+  background: var(--raised);
+}
+.pass-title {
+  color: var(--muted);
+}
+.pass-text {
+  color: var(--muted);
+}
+
 @media (max-width: 900px) {
   /* 窄屏：逐条审查改为上下排列，各自限高，仍然互不影响滚动 */
   .workbench-grid {
     grid-template-columns: minmax(0, 1fr);
     height: auto;
   }
-  .clause-pane {
-    height: 360px;
+  .doc-pane {
+    height: 380px;
   }
   .clause-detail {
     height: auto;
-    max-height: 360px;
+    max-height: 420px;
   }
 }
 
