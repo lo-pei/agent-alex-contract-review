@@ -1004,6 +1004,8 @@
   4. 修完 holdout12 即降级为回归集，对外数字改引新写 holdout13 的基线。
 - **证据**：`app/rules/definitions.yaml`（`version: 11`，13 条）、`eval/results/rules-holdout11-baseline-20261031.json`、
   `docs/devlog/03_DEV_LOGS/2026-10-31.md` §34.2（含 17 条 `risk_level` 明细与复现命令）。
+- **界面轮 18 补注**：只加了“无抬头兜底”（编号段落 ≥ 6 + 交易要素 ≥ 4 时按合同继续审查）+ 非合同页正文预览，
+  避免真实合同被闸门误杀；**上面 8 类规则缺口与 `R-INS-001` 文案一条未修**，状态仍 OPEN，修复顺序不变。
 
 ---
 

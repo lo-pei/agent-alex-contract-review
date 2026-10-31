@@ -4,7 +4,7 @@
 
 > **核心约束**：等级只来自 Python 规则；LLM 只做抽取与解释；红色风险必须人工确认；失败一律显式降级，不静默通过。
 
-`Python 3.12` · `LangGraph 1.2` · `FastAPI` · `零前端框架` · `415 个测试` · 规则 `version: 11`
+`Python 3.12` · `LangGraph 1.2` · `FastAPI` · `零前端框架` · `417 个测试` · 规则 `version: 11`
 
 ---
 
@@ -35,10 +35,10 @@ ingest → precheck（是不是合同？）─否→ not_contract 报告（不�
 
 | 项 | 值 |
 |---|---|
-| 阶段 | 第四阶段（测试与评测）第 11 轮 + 界面轮 17 |
+| 阶段 | 第四阶段（测试与评测）第 11 轮 + 界面轮 18 |
 | 规则 | 13 条（11 文本 + 2 字段），`app/rules/definitions.yaml` `version: 11` |
 | 图 | 14 节点 + 4 条条件边；专家分支与工具节点默认关闭（走直连 / 空节点，拓扑与结论不变） |
-| 测试 | **415 个**，`ruff check .` 通过，前端 `node --check` 通过 |
+| 测试 | **417 个**，`ruff check .` 通过，前端 `node --check` 通过 |
 | 对外指标 | **holdout11 盲测基线**：P=1.00 / R=0.545 / F1=0.706（12 份 / 11 现象，漏报 H113–H117 **尚未修**） |
 | 检索评测 | 95 题可评测；ranking lenient R@3 **0.958** / strict R@3 **0.758** |
 | API | `1.1.0`（`GET /health` / `GET /openapi.json` 可查） |
@@ -91,7 +91,7 @@ Copy-Item .env.example .env   # 需要真实模型时再填 LLM_API_KEY
 .\.venv\Scripts\python.exe -m streamlit run app/ui.py
 
 # 6) 测试与静态检查
-.\.venv\Scripts\python.exe -m pytest        # 407 passed
+.\.venv\Scripts\python.exe -m pytest        # 417 passed
 .\.venv\Scripts\python.exe -m ruff check .
 node --check app/web/app.js
 ```

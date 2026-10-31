@@ -108,6 +108,38 @@ def test_samples_pass_gate() -> None:
         assert check.is_contract is True, (name, check.reasons)
 
 
+def test_titleless_contract_is_rescued() -> None:
+    """抬头/编号/双方被排版吃掉时，靠编号条款 + 交易要素兜底放行（不误杀真实合同）。"""
+    # 刻意不写标题、合同编号、卖方/买方（避免被“双方”信号直接判成合同）
+    text = "\n\n".join(
+        [
+            "1. Commodity\n5,000 pieces of electronic products shall be supplied.",
+            "2. Price\nCIF Los Angeles, USD 12 per piece.",
+            "3. Payment\n30% T/T deposit before shipment, balance against copy of B/L.",
+            "4. Shipment\nShipment within 30 days after receipt of deposit.",
+            "5. Packing\nStandard export packing.",
+            "6. Insurance\nInsurance to be covered by the importer.",
+            "7. Arbitration\nDisputes shall be settled by arbitration.",
+        ]
+    )
+    check = classify_document(text)
+    assert check.is_contract is True, check.reasons
+    assert any("宁可放过" in reason for reason in check.reasons)
+
+
+def test_answer_list_is_still_rejected() -> None:
+    """问答/审阅意见没有合同正文结构：即使扩展名是 .txt 也不能放行。"""
+    text = (
+        "故意植入的问题清单：\n"
+        "1. 风险转移时点不合理，货物到达目的港才转移。\n"
+        "2. 迟延违约金每日 1% 且没有上限。\n"
+        "3. 买方可以随时无责解约。\n"
+        "4. 仲裁地写成香港和上海。\n"
+    )
+    check = classify_document(text)
+    assert check.is_contract is False
+
+
 def test_graph_stops_on_paper(tmp_path: Path) -> None:
     """论文上传后：不切条款、不抽取、不判级、不产出风险结论。"""
     path = tmp_path / "paper.md"

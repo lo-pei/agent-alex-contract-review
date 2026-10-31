@@ -713,6 +713,12 @@ Agent_Alex外贸合同智审助手/
      - **结果页**：删除标签行 / 状态 chip / `workbench-bar`（逐条审查、共 N 条、报告怎么读、全部采用建议、导出修订稿）/ 左栏 tabs 与对应代码样式；改为左原文（条款块 + `mark.hl` 高亮 + 问题块左侧红线）／右解读（问题原因 / 修改意见 / 可编辑建议条款 / 采用·保留·撤销），两栏独立滚动；`DOCX`/`PDF` 降为文件名右侧文字按钮（`title="下载修订稿（…）"`）。
      - 验证：`ruff check app tests` All checks passed；`pytest -q` **415 passed**（407 + 6 + 2）；`node --check app/web/app.js` OK；实测 201 / completed / 17 条 / 13 条过程事件。
      - **后续**：测试合同暴露的 8 类植入风险 + `R-INS-001` 理由与事实不符 → 登记 **ISSUE-034**（P1）；按 ADR-011 先写 holdout12 跑基线再修，本轮不碰规则、对外数字仍只引 holdout11 基线。
+   - **界面轮 18（已完成，2026-10-31，规则一条不动）**：按用户 3 条反馈继续收口。
+     - **结果页只留左右两栏**：`renderReviewWorkspace()` 删除 `review-bar`（返回 / 文件名 / DOCX / PDF）、`#process-slot`、抽取降级 `.review-note`；结果页不再启动过程轮询（`renderResult()` 改 `resetProcess()`，删除唯一调用点 `resumeProcessPolling()`），旧实例日志里结果页每 800ms 一次 `/progress` 的空转消失；样式同步删 `.review-bar` / `.review-file` / `.review-note`，`.workbench-grid` 高度 `min(82vh, 900px)`；`index.html` 资源版本 `?v=17`→`?v=18`。
+     - **侧栏删除免确认**：`bindHistory()` 去掉 `window.confirm`，点 `×` 直接删除并刷新历史（按钮先置灰防重复）。
+     - **“txt 显示不是合同”定位**：附件 txt 实测 `is_contract=True`、上传后 `status=completed` / 17 条；`.data/checkpoints.sqlite` 全量扫描无该用户/该 txt 的拒绝记录，判定为旧实例/旧缓存或另一份只含答案的文本。**误杀兜底**：`document_type.py` 在无身份信号但“编号段落 ≥ 6 + 交易要素 ≥ 4 + 非学术/非法条”时按合同继续审查（理由写“宁可放过，避免误杀”）；非合同页新增正文开头预览 + “扩展名不参与判断”，hints 同步说明；`tests/test_document_type.py` 新增放行/仍拒绝 2 条。
+     - 验证：`node --check` OK；`ruff check app tests` All checks passed；`pytest -q` **417 passed**（415 + 2）；新实例实测 17 条 / `not_contract` 预览 78 字 / `?v=18` + `no-cache` / 删除 204。
+     - **后续不变**：8 类规则缺口 + `R-INS-001` 文案仍按 ISSUE-034 顺序（先 holdout12 基线再修）。
 6. 每完成一个阶段：更新 `00_PROJECT_STATE.md`、写当日 `03_DEV_LOGS/YYYY-MM-DD.md`、更新本文件的“当前完成度/已知坑”、更新 `05_OPEN_ISSUES.md`。
 
 ---

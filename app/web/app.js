@@ -2502,9 +2502,7 @@
 
     const remove = event.target.closest("[data-delete]");
     if (remove) {
-      const item = recordOf(reviewId);
-      const label = item ? recordTitle(item) : reviewId;
-      if (!window.confirm("删除审查记录“" + label + "”？删除后无法恢复。")) return;
+      // 侧栏删除不再二次确认（用户口径）：点 × 直接删，删除后历史列表立即刷新
       remove.disabled = true;
       try {
         await api("/api/reviews/" + encodeURIComponent(reviewId), { method: "DELETE" });
@@ -2824,14 +2822,6 @@
     state.processTimer = setInterval(pollProcess, PROCESS_POLL_MS);
   }
 
-  /** 已有同一次审查的过程时继续轮询（上传返回 / 人工确认后恢复） */
-  function resumeProcessPolling() {
-    if (!state.processId) return;
-    state.processSettled = false;
-    if (!state.processTimer) state.processTimer = setInterval(pollProcess, PROCESS_POLL_MS);
-    pollProcess();
-  }
-
   /* ---------- 上传页 ---------- */
 
   /** 登录态变化后刷新首屏；已经选了文件/正在上传时不动，避免打断操作 */
@@ -3138,13 +3128,9 @@
       return;
     }
 
-    // 上传流程里已有同一份合同的过程事件：继续轮询，保持展开；
-    // 从历史进入/刷新页面：重新拉一次，默认收起，避免盖住审查内容。
-    if (state.processId === review.review_id) {
-      resumeProcessPolling();
-    } else {
-      beginProcess(review.review_id, true);
-    }
+    // 结果页只呈现审查内容，不再摆过程卡片（用户口径：处理中/用时/展开过程都删掉）；
+    // 所以这里主动停掉轮询，避免为界面不存在的卡片持续请求进度接口。
+    resetProcess();
 
     const report = review.report;
     const findings = (report && report.findings) || [];
@@ -3343,28 +3329,10 @@
       state.selectedClause = "__contract__";
     }
 
-    // 抽取降级要写在结果页上：没有模型时依赖字段的规则会被跳过，别让“已完成”被误读成全查过
-    const degraded = !!review.extraction_status && review.extraction_status !== "ok";
+    // 结果页只留审查内容：不摆返回条、文件名、导出按钮、过程卡片与抽取提示（用户口径：
+    // 这些都属于多余信息）。抽取降级仍写进报告 limitations，后端不丢。
     const parts = [
       '<section class="review-shell">',
-      '<div class="review-bar">',
-      backLink(),
-      '<span class="review-file" title="' +
-        esc(review.source_filename) +
-        '">' +
-        esc(review.source_filename) +
-        "</span>",
-      view
-        ? '<div class="review-bar-actions">' +
-          '<button class="link" type="button" data-export="docx" title="下载修订稿（DOCX）">DOCX</button>' +
-          '<button class="link" type="button" data-export="pdf" title="下载修订稿（PDF）">PDF</button>' +
-          "</div>"
-        : "",
-      "</div>",
-      '<div id="process-slot"></div>',
-      degraded
-        ? '<p class="review-note">本次未能完整抽取关键要素，依赖字段的规则已跳过；下面的结论只覆盖规则命中的条款。</p>'
-        : "",
       '<div id="approval-slot"></div>',
     ];
 
@@ -3396,7 +3364,6 @@
         bindConfirm();
       }
     }
-    renderProcessSlot();
     if (view) renderWorkbench();
   }
 
@@ -4056,9 +4023,21 @@
           reasons.map((item) => "<li>" + esc(item) + "</li>").join("") +
           "</ul>"
         : "") +
+      '<p class="fine" id="parsed-preview" hidden></p>' +
       (hints.length ? '<p class="fine">' + hints.map(esc).join(" ") + "</p>" : "") +
       '<a class="btn btn-primary" href="#/">换一份合同</a>' +
       "</section>";
+    // 把“系统实际读到的正文开头”摆出来：扩展名是 .txt 不代表内容就是合同
+    api("/api/reviews/" + encodeURIComponent(review.review_id) + "/clauses")
+      .then((view) => {
+        const slot = document.getElementById("parsed-preview");
+        const text = (view && view.contract_text) || "";
+        const snippet = text.replace(/\s+/g, " ").trim().slice(0, 120);
+        if (!slot || !snippet) return;
+        slot.textContent = "系统读到的正文开头是：“" + snippet + "…”——文件扩展名不参与判断。";
+        slot.hidden = false;
+      })
+      .catch(() => {});
   }
 
   /* ---------- 启动 ---------- */

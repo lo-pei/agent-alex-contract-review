@@ -3488,38 +3488,7 @@ svg {
 
 /* ------------------------------------------- 审查结果：左原文 / 右解读 */
 
-.review-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--rule);
-}
-.review-bar .back {
-  flex: none;
-  margin-bottom: 0;
-}
-.review-file {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: calc(12px * var(--ui-text-scale, 1));
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.review-bar-actions {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 10px;
-}
-.review-bar-actions .link {
-  font-family: var(--font-mono);
-  font-size: calc(11px * var(--ui-text-scale, 1));
-  letter-spacing: 0.02em;
-}
+/* 结果页顶栏（返回 / 文件名 / DOCX / PDF）已删除：只留左右两栏审查内容 */
 
 /* 上传页的过程卡片与输入框同宽 */
 .chat #process-slot {
@@ -3528,21 +3497,11 @@ svg {
   margin: 0 auto;
 }
 
-.review-note {
-  padding: 7px 10px;
-  border: 1px solid var(--amber-line);
-  border-radius: var(--radius-control);
-  background: var(--amber-bg);
-  color: var(--amber-ink);
-  font-size: calc(11.5px * var(--ui-text-scale, 1));
-  line-height: 1.6;
-}
-
 /* 两栏等高 + 各自滚动：左=整篇原文（问题处红线/高亮），右=原因与修改意见 */
 .workbench-grid {
   grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr);
-  height: min(72vh, 780px);
-  margin-top: 4px;
+  height: min(82vh, 900px);
+  margin-top: 0;
 }
 
 .doc-pane {

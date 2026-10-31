@@ -330,15 +330,31 @@ def classify_document(text: str) -> DocumentCheck:
     academic_block = signals.academic >= 4 and not (signals.contract_no or signals.signature)
     law_block = signals.law >= 4 and not (signals.contract_no or signals.signature)
 
-    is_contract = (
-        identity
+    # 兜底：合同抬头/编号/双方常被排版吃掉（截掉第一页、纯条款片段、表格转文本）。
+    # 只要正文有足够多的编号条款与交易要素，且没有论文/法规特征，就按合同放行——
+    # 与文件头注释一致：宁可放过，也不要误杀真实合同。
+    rescued = (
+        not identity
+        and signals.numbered_count >= 6
+        and signals.deal_terms >= 4
         and not academic_block
         and not law_block
-        and signals.contract_score >= 4
+    )
+
+    is_contract = (
+        (identity or rescued)
+        and not academic_block
+        and not law_block
+        and (signals.contract_score >= 4 or rescued)
     )
 
     if is_contract:
         reasons = [f"识别为合同文件（契约度评分 {signals.contract_score}/11）。"]
+        if rescued:
+            reasons.append(
+                f"未找到合同标题 / 编号 / 买卖双方，但正文有 {signals.numbered_count} 个编号段落、"
+                f"命中 {signals.deal_terms} 项交易要素，按合同继续审查（宁可放过，避免误杀）。"
+            )
         if signals.title:
             reasons.append(f"合同标题：{signals.title}。")
         if signals.contract_no:
@@ -361,7 +377,8 @@ def classify_document(text: str) -> DocumentCheck:
         reasons=_reject_reasons(signals) or ["合同要素不足，未通过文档类型校验。"],
         hints=[
             "这里只审查国际货物销售合同（采购/销售/供货合同、订单或确认书）。",
-            "论文、法律法规、说明书、报价单等材料请走其他流程，不要用本工具做合规审查。",
+            "文件扩展名（.txt / .docx / .pdf）不代表内容是合同；系统只看解析后的正文。",
+            "论文、法律法规、说明书、报价单、问答或审阅意见等材料请走其他流程。",
             "如果确认是合同，请上传包含正文条款的完整版本（文本型 PDF / DOCX / TXT）。",
         ],
     )

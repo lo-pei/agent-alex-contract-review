@@ -562,18 +562,20 @@ def test_footer_disclaimer_and_legal_dialogs() -> None:
 
 
 def test_report_guide_entry_is_removed_and_coverage_is_honest() -> None:
-    """界面轮 16：删掉“这份报告怎么读”入口，改为在结果页直接给出诚实提示。"""
+    """界面轮 17：删掉“这份报告怎么读”与结果页抽取提示；诚实说明留在后端报告里。"""
     script = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+    report = (WEB_DIR.parents[1] / "app" / "nodes" / "report.py").read_text(encoding="utf-8")
 
     assert "这份报告怎么读" not in script
     assert "data-guide" not in script
     assert "function openGuide" not in script
 
-    # 抽取降级（没有模型时字段规则被跳过）直接写在结果页
-    assert "review.extraction_status" in script
-    assert "review-note" in script and ".review-note" in styles
-    assert "依赖字段的规则已跳过" in script
+    # 用户口径：结果页不再放抽取降级提示（这些信息都能删）；但报告 limitation 必须保留
+    assert "review.extraction_status" not in script
+    assert "review-note" not in script and ".review-note" not in styles
+    assert "依赖字段的规则已跳过" not in script
+    assert "未执行要素抽取" in report
 
     # 未命中规则时不承诺“没问题”，只说明规则没命中
     assert "规则未命中" in script
@@ -628,10 +630,27 @@ def test_review_is_left_contract_highlight_right_reasons() -> None:
     assert "导出修订稿" not in script
     assert ".review-chips" not in styles
 
-    # 顶栏：返回 + 文件名 + 低调导出按钮（不写“导出修订稿”）
-    assert '<div class="review-bar">' in script
-    assert 'class="review-file"' in script
-    assert 'data-export="docx"' in script and 'data-export="pdf"' in script
+    # 结果页顶栏（返回 / 文件名 / DOCX / PDF）与过程卡片、抽取提示都已删除：
+    # 只留审批区 + 左右两栏审查内容
+    workspace = script.split("function renderReviewWorkspace", 1)[1].split(
+        "function clauseLevelLabel", 1
+    )[0]
+    for gone in ("review-bar", "review-file", "data-export", "process-slot", "review-note"):
+        assert gone not in workspace, f"结果页仍保留多余信息：{gone}"
+    for gone in ("review-bar", "review-file", "review-note"):
+        assert gone not in styles, f"样式里仍有已删除的 {gone}"
+    assert "process-slot" in script, "上传页仍需过程卡片"
+
+    # 结果页没有过程卡片，也就不再为它轮询进度接口；轮询只在上传页生效
+    result = script.split("async function renderResult", 1)[1].split(
+        "function locateClauses", 1
+    )[0]
+    assert "beginProcess(" not in result
+    assert "resumeProcessPolling" not in script
+    assert "resetProcess();" in result
+
+    # 侧栏删除历史不再二次确认
+    assert "window.confirm" not in script
 
     # 左右两栏
     assert 'id="doc-pane"' in script and 'id="clause-detail"' in script
@@ -689,12 +708,10 @@ def test_clause_detail_offers_keep_or_fix_and_friendly_pass_note() -> None:
     assert "这一条和当前规则库对照过" not in script
     assert ".pass-block" in styles and ".pass-text" in styles
 
-    # 导出修订稿：POST /export，二进制下载，文件名取 Content-Disposition
-    assert "/export" in script
+    # 导出修订稿：结果页不再放 DOCX / PDF 按钮，但下载能力仍保留（POST /export）
     assert "function exportRevised" in script
     assert "filenameFromDisposition" in script
     assert "URL.createObjectURL" in script and "URL.revokeObjectURL" in script
-    assert 'data-export="docx"' in script and 'data-export="pdf"' in script
     assert "导出修订稿" not in script
 
 
