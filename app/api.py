@@ -408,6 +408,19 @@ def create_app(
     # 前端：原生 HTML/CSS/JS（无框架、无 CDN、无构建步骤），由 FastAPI 直接托管
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 
+    @app.middleware("http")
+    async def _static_cache_control(request: Request, call_next):
+        """静态资源每次回源校验。
+
+        `StaticFiles` 只给 ETag / Last-Modified，不给 `Cache-Control`；浏览器会按
+        “上次修改时间的 10%”做启发式缓存，改完脚本后刷新可能仍拿旧文件（用户实际遇到）。
+        这里显式要求回源，文件没变时仍是 304，不浪费带宽。
+        """
+        response = await call_next(request)
+        if request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return response
+
     @app.get("/", include_in_schema=False)
     def index() -> FileResponse:
         """浏览器入口：单页应用（上传 → 审查 → 人工确认 → 报告）。"""
